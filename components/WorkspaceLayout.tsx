@@ -1,0 +1,326 @@
+'use client';
+
+import { useEffect, useState, useCallback } from 'react';
+import { Loader2, AlertTriangle } from 'lucide-react';
+import { useWebContainer } from '@/hooks/useWebContainer';
+import { useStore } from '@/lib/store';
+import { loadProject, saveProject, getAllProjects, getActiveProjectId, setActiveProjectId, createNewProject } from '@/lib/db';
+import { writeFileToSandbox } from '@/lib/fileSystem';
+import { cn } from '@/lib/utils';
+import { Header } from './Header';
+import { ChatPanel } from './ChatPanel';
+import { WorkspacePanel } from './WorkspacePanel';
+import { WelcomeScreen } from './WelcomeScreen';
+import { ProjectSidebar } from './ProjectSidebar';
+
+export function WorkspaceLayout() {
+  const {
+    sandboxStatus,
+    files,
+    setFile,
+    hasProject,
+    setHasProject,
+    messages,
+    setMessages,
+    currentProjectId,
+    setCurrentProjectId,
+    clearFiles,
+    clearMessages,
+    clearTerminal,
+    setPreviewUrl,
+    setSandboxStatus
+  } = useStore();
+
+  const [isMobile, setIsMobile] = useState(false);
+  const [isOnline, setIsOnline] = useState(true);
+  const [leftWidth, setLeftWidth] = useState(340);
+  const [isDragging, setIsDragging] = useState(false);
+  const [browserWarning, setBrowserWarning] = useState(false);
+  const [isProjectsOpen, setIsProjectsOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Mobile & Online check
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 1024);
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    handleResize();
+    setIsOnline(navigator.onLine);
+
+    window.addEventListener('resize', handleResize);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  // Boot WebContainer
+  useWebContainer();
+
+  // Check browser compatibility
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const isChromium = navigator.userAgent.includes('Chrome') || navigator.userAgent.includes('Edg');
+      if (!isChromium) {
+        setBrowserWarning(true);
+      }
+    }
+  }, []);
+
+  // Track whether user has a project (files or messages)
+  useEffect(() => {
+    if (Object.keys(files).length > 0 || messages.length > 0) {
+      setHasProject(true);
+    }
+  }, [files, messages, setHasProject]);
+
+  // Auto-save project (files + messages)
+  useEffect(() => {
+    if (!currentProjectId) return;
+
+    const timer = setTimeout(() => {
+      saveProject(currentProjectId, files, messages).catch(console.error);
+    }, 2000);
+
+    return () => clearTimeout(timer);
+  }, [files, messages, currentProjectId]);
+
+  // Restore project on mount
+  useEffect(() => {
+    const init = async () => {
+      try {
+        let activeId = await getActiveProjectId();
+
+        // If no active project, try to find the most recent one
+        if (!activeId) {
+          const projects = await getAllProjects();
+          if (projects.length > 0) {
+            activeId = projects[0].id;
+            await setActiveProjectId(activeId);
+          }
+        }
+
+        if (activeId) {
+          const project = await loadProject(activeId);
+          if (project) {
+            setCurrentProjectId(activeId);
+            setMessages(project.messages || []);
+
+            // Restore files
+            if (project.files) {
+              const promises = Object.entries(project.files).map(([path, entry]) => {
+                setFile(path, entry);
+                return writeFileToSandbox(path, entry.content);
+              });
+              await Promise.all(promises);
+
+              // Install dependencies if package.json exists
+              if (project.files['package.json']) {
+                const { installDependencies } = await import('@/lib/fileSystem');
+                installDependencies().catch(console.error);
+              }
+            }
+            setHasProject(true);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load project:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    init();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleSelectProject = async (id: string) => {
+    if (id === currentProjectId) return;
+
+    setIsLoading(true);
+    try {
+      // Clear current state
+      clearFiles();
+      clearMessages();
+      clearTerminal();
+      setPreviewUrl(null);
+      setSandboxStatus('idle');
+
+      // Load new project
+      const project = await loadProject(id);
+      if (project) {
+        setCurrentProjectId(id);
+        await setActiveProjectId(id);
+        setMessages(project.messages || []);
+
+        // Restore files
+        if (project.files) {
+          Object.entries(project.files).forEach(([path, entry]) => {
+            setFile(path, entry);
+            writeFileToSandbox(path, entry.content).catch(console.error);
+          });
+        }
+        setHasProject(true);
+      }
+    } catch (error) {
+      console.error('Failed to switch project:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleNewProject = async () => {
+    clearFiles();
+    clearMessages();
+    clearTerminal();
+    setPreviewUrl(null);
+    setSandboxStatus('idle');
+    setHasProject(false);
+    setCurrentProjectId(null);
+  };
+
+  // Handle resize dragging
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (!isDragging) return;
+    const newWidth = Math.max(280, Math.min(e.clientX, 600));
+    setLeftWidth(newWidth);
+  }, [isDragging]);
+
+  const handleMouseUp = useCallback(() => {
+    setIsDragging(false);
+  }, []);
+
+  useEffect(() => {
+    if (isDragging) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+    }
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+  }, [isDragging, handleMouseMove, handleMouseUp]);
+
+  // Show loading overlay when booting or loading project
+  if (sandboxStatus === 'booting' || isLoading) {
+    return (
+      <div className="h-screen w-screen bg-[#09090b] flex items-center justify-center relative overflow-hidden">
+        <div className="gradient-mesh" />
+        <div className="relative z-10 text-center animate-fade-up">
+          <div className="relative mb-6">
+            <Loader2 className="w-8 h-8 text-violet-400 animate-spin mx-auto" />
+            <div className="absolute inset-0 w-8 h-8 mx-auto rounded-full bg-violet-500/20 blur-xl" />
+          </div>
+          <p className="text-zinc-300 text-sm font-medium">
+            {isLoading ? 'Loading project...' : 'Initializing environment'}
+          </p>
+          <p className="text-zinc-600 text-xs mt-1.5">This may take a few seconds</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show welcome screen when no project exists
+  if (!hasProject) {
+    return (
+      <>
+        <ProjectSidebar
+          isOpen={isProjectsOpen}
+          onClose={() => setIsProjectsOpen(false)}
+          onSelectProject={handleSelectProject}
+          onNewProject={handleNewProject}
+        />
+        <WelcomeScreen />
+        <div className="fixed top-4 left-4 z-50">
+          <button
+            onClick={() => setIsProjectsOpen(true)}
+            className="p-2 bg-black/40 hover:bg-black/60 backdrop-blur-md rounded-lg text-zinc-400 hover:text-zinc-100 transition-all border border-white/[0.06]"
+            title="Projects"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 2H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z" />
+            </svg>
+          </button>
+        </div>
+      </>
+    );
+  }
+
+  return (
+    <div className="h-full w-full flex flex-col bg-[#09090b] overflow-hidden">
+      {/* Offline Warning */}
+      {!isOnline && (
+        <div className="px-4 py-1.5 bg-red-500/10 border-b border-red-500/20 text-red-300 text-xs font-medium flex items-center justify-center gap-2">
+          <AlertTriangle className="w-3.5 h-3.5" />
+          <span>You are offline. Some features may be unavailable.</span>
+        </div>
+      )}
+
+      {/* Browser warning */}
+      {browserWarning && (
+        <div className="px-4 py-2 glass border-b border-white/[0.06] text-zinc-400 text-xs flex items-center gap-2">
+          <AlertTriangle className="w-3.5 h-3.5 text-amber-400/70" />
+          <span>Best experienced in Chrome or Edge — WebContainer requires a Chromium browser.</span>
+        </div>
+      )}
+
+      {/* Header */}
+      <Header onOpenProjects={() => setIsProjectsOpen(true)} />
+
+      {/* Project Sidebar */}
+      <ProjectSidebar
+        isOpen={isProjectsOpen}
+        onClose={() => setIsProjectsOpen(false)}
+        onSelectProject={handleSelectProject}
+        onNewProject={handleNewProject}
+      />
+
+      {/* Main content — Responsive Layout */}
+      <div className={cn(
+        "flex-1 min-h-0 flex",
+        isMobile ? "flex-col" : "flex-row"
+      )}>
+        {/* Chat panel */}
+        <div
+          className={cn(
+            "shrink-0 border-white/[0.06]",
+            isMobile ? "w-full h-[45%] border-b" : "h-full border-r"
+          )}
+          style={isMobile ? {} : { width: leftWidth }}
+        >
+          <ChatPanel />
+        </div>
+
+        {/* Resize handle (Desktop only) */}
+        {!isMobile && (
+          <div
+            className="w-1 resize-handle cursor-col-resize hover:bg-violet-500/30 transition-colors"
+            onMouseDown={() => setIsDragging(true)}
+          />
+        )}
+
+        {/* Workspace panel (Code / Preview / Terminal tabs) */}
+        <div className="flex-1 min-w-0 min-h-0">
+          <WorkspacePanel />
+        </div>
+      </div>
+    </div>
+  );
+}
