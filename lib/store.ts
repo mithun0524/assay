@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { ActionHistory } from './actionHistory';
 
 export type FileEntry = {
   content: string;
@@ -81,7 +82,15 @@ type AppStore = {
 
   currentProjectId: string | null;
   setCurrentProjectId: (id: string | null) => void;
+
+  canUndo: boolean;
+  canRedo: boolean;
+  takeSnapshot: () => void;
+  undo: () => void;
+  redo: () => void;
 };
+
+const actionHistory = new ActionHistory();
 
 export const useStore = create<AppStore>((set) => ({
   messages: [],
@@ -202,4 +211,42 @@ export const useStore = create<AppStore>((set) => ({
 
   currentProjectId: null,
   setCurrentProjectId: (id) => set({ currentProjectId: id }),
+
+  canUndo: false,
+  canRedo: false,
+  takeSnapshot: () => {
+    const files = useStore.getState().files;
+    actionHistory.take(files);
+    set({ canUndo: actionHistory.canUndo, canRedo: actionHistory.canRedo });
+  },
+  undo: () => {
+    const snapshot = actionHistory.undo();
+    if (!snapshot) return;
+    set({
+      files: snapshot.files,
+      canUndo: actionHistory.canUndo,
+      canRedo: actionHistory.canRedo,
+    });
+    // Sync files back to WebContainer
+    import('./fileSystem').then(({ writeFileToSandbox }) => {
+      Object.entries(snapshot.files).forEach(([path, entry]) => {
+        writeFileToSandbox(path, entry.content).catch(console.error);
+      });
+    });
+  },
+  redo: () => {
+    const snapshot = actionHistory.redo();
+    if (!snapshot) return;
+    set({
+      files: snapshot.files,
+      canUndo: actionHistory.canUndo,
+      canRedo: actionHistory.canRedo,
+    });
+    // Sync files back to WebContainer
+    import('./fileSystem').then(({ writeFileToSandbox }) => {
+      Object.entries(snapshot.files).forEach(([path, entry]) => {
+        writeFileToSandbox(path, entry.content).catch(console.error);
+      });
+    });
+  },
 }));

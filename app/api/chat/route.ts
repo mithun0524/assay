@@ -7,7 +7,7 @@ import { OPENROUTER_BASE_URL } from '@/lib/openrouter';
 export const runtime = 'edge';
 
 export async function POST(req: NextRequest) {
-  const { messages, model, apiKey: clientKey } = await req.json();
+  const { messages, model, apiKey: clientKey, fileContext } = await req.json();
 
   const resolvedKey = process.env.OPENROUTER_API_KEY || clientKey;
 
@@ -17,6 +17,9 @@ export async function POST(req: NextRequest) {
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     );
   }
+
+  // Append file context to system prompt so AI knows about existing project files
+  const systemPrompt = fileContext ? SYSTEM_PROMPT + fileContext : SYSTEM_PROMPT;
 
   const openrouter = createOpenAI({
     baseURL: OPENROUTER_BASE_URL,
@@ -50,7 +53,7 @@ export async function POST(req: NextRequest) {
       // CRITICAL: Use .chat() to force the Chat Completions API (/v1/chat/completions).
       // The default openrouter() uses the Responses API (/v1/responses) which OpenRouter doesn't support.
       model: openrouter.chat(model ?? 'stepfun/step-3.5-flash:free'),
-      system: SYSTEM_PROMPT,
+      system: systemPrompt,
       messages: sanitizedMessages,
       temperature: 0.2,
     });

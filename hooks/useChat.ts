@@ -6,6 +6,7 @@ import { createStreamParser, stripActions } from '@/lib/streamParser';
 import { writeFileToSandbox, runShellInSandbox, startDevServerInSandbox } from '@/lib/fileSystem';
 import type { Message } from '@/lib/store';
 import { SYSTEM_PROMPT } from '@/lib/systemPrompt';
+import { buildFileContext } from '@/lib/contextBuilder';
 
 function estimateTokens(text: string) {
   return Math.ceil(text.length / 4);
@@ -52,6 +53,8 @@ function extractTerminalErrors(output: string): string | null {
 export function useChat() {
   const store = useStore();
   const abortRef = useRef<AbortController | null>(null);
+  const retryCountRef = useRef(0);
+  const MAX_AUTO_RETRIES = 2;
 
   const submit = useCallback(async (userText: string, images: string[] = []) => {
     if ((!userText.trim() && images.length === 0) || store.isStreaming) return;
@@ -77,6 +80,14 @@ export function useChat() {
     store.setIsStreaming(true);
     store.setGenerationPhase('writing');
     abortRef.current = new AbortController();
+
+    // Reset retry counter on real user messages (not auto-retries)
+    if (!userText.startsWith('The dev server encountered errors') && !userText.startsWith("I'm getting the following error")) {
+      retryCountRef.current = 0;
+    }
+
+    // Snapshot current files before AI writes — enables undo
+    store.takeSnapshot();
 
     let fullContent = '';
     const pendingShells: string[] = [];
@@ -119,8 +130,11 @@ export function useChat() {
           return { role: m.role, content: m.content };
         });
 
-      // Estimate base tokens (System + History)
-      const systemTokens = estimateTokens(SYSTEM_PROMPT);
+      // Build file context for AI awareness of existing project files
+      const fileContext = buildFileContext(store.files);
+
+      // Estimate base tokens (System + Context + History)
+      const systemTokens = estimateTokens(SYSTEM_PROMPT) + estimateTokens(fileContext);
       const historyTokens = history.reduce((acc, m) => {
         let contentTokens = 0;
         if (Array.isArray(m.content)) {
@@ -140,7 +154,7 @@ export function useChat() {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: history, model: store.selectedModel, apiKey: store.apiKey }),
+        body: JSON.stringify({ messages: history, model: store.selectedModel, apiKey: store.apiKey, fileContext }),
         signal: abortRef.current.signal,
       });
 
@@ -216,23 +230,34 @@ export function useChat() {
         await saveProject(projectId, useStore.getState().files, useStore.getState().messages).catch(console.error);
       }
 
-      // Phase 3: Auto-forward terminal errors to chat
-      // Wait a moment for terminal output to settle, then check for errors
+      // Auto-forward errors to AI (terminal + preview) with retry limit
+      // Wait for terminal output to settle, then check for errors
       setTimeout(() => {
-        const terminalOutput = useStore.getState().terminalOutput;
-        const sandboxStatus = useStore.getState().sandboxStatus;
+        const currentState = useStore.getState();
+        const { terminalOutput, sandboxStatus, previewErrors, isStreaming: stillStreaming } = currentState;
+        if (stillStreaming) return;
+        if (retryCountRef.current >= MAX_AUTO_RETRIES) return;
+
+        // Check terminal errors
         if (sandboxStatus === 'error' && terminalOutput) {
           const errors = extractTerminalErrors(terminalOutput);
           if (errors) {
-            // Auto-submit errors as a follow-up
-            const errorMsg = `The dev server encountered errors. Please fix them:\n\n\`\`\`\n${errors}\n\`\`\``;
-            // Only auto-forward if not already streaming
-            if (!useStore.getState().isStreaming) {
-              submit(errorMsg);
-            }
+            retryCountRef.current++;
+            const errorMsg = `The dev server encountered errors (auto-retry ${retryCountRef.current}/${MAX_AUTO_RETRIES}). Please fix them:\n\n\`\`\`\n${errors}\n\`\`\``;
+            submit(errorMsg);
+            return;
           }
         }
-      }, 2000);
+
+        // Check preview iframe errors
+        if (previewErrors.length > 0) {
+          retryCountRef.current++;
+          const errorText = previewErrors.join('\n');
+          useStore.getState().clearPreviewErrors();
+          const errorMsg = `I'm getting the following error(s) in my app preview (auto-retry ${retryCountRef.current}/${MAX_AUTO_RETRIES}). Please fix them:\n\n\`\`\`\n${errorText}\n\`\`\``;
+          submit(errorMsg);
+        }
+      }, 3000);
 
     } catch (err: unknown) {
       if ((err as Error).name !== 'AbortError') {

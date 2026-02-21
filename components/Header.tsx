@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { Github, Loader2, Sparkles, Settings, Download, Folder } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Github, Loader2, Sparkles, Settings, Download, Folder, Undo2, Redo2 } from 'lucide-react';
 import { useStore } from '@/lib/store';
 import { cn } from '@/lib/utils';
 import { downloadProject } from '@/lib/downloadProject';
@@ -12,9 +12,25 @@ interface HeaderProps {
 }
 
 export function Header({ onOpenProjects }: HeaderProps) {
-  const { sandboxStatus, files } = useStore();
+  const { sandboxStatus, files, canUndo, canRedo, undo, redo } = useStore();
   const [showSettings, setShowSettings] = useState(false);
   const hasFiles = Object.keys(files).length > 0;
+
+  // Keyboard shortcuts: Ctrl+Z → undo, Ctrl+Shift+Z → redo
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+        e.preventDefault();
+        if (e.shiftKey) {
+          redo();
+        } else {
+          undo();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [undo, redo]);
 
   const statusConfig = {
     idle: { label: 'Ready', color: 'text-zinc-500', dot: 'bg-zinc-500', spinner: false },
@@ -63,6 +79,27 @@ export function Header({ onOpenProjects }: HeaderProps) {
         </div>
 
         <div className="flex items-center gap-1.5">
+          {hasFiles && (
+            <>
+              <button
+                onClick={undo}
+                disabled={!canUndo}
+                className="p-1.5 hover:bg-white/[0.06] rounded-lg transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                title="Undo (Ctrl+Z)"
+              >
+                <Undo2 className="w-4 h-4 text-zinc-500 hover:text-zinc-300 transition-colors" />
+              </button>
+              <button
+                onClick={redo}
+                disabled={!canRedo}
+                className="p-1.5 hover:bg-white/[0.06] rounded-lg transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                title="Redo (Ctrl+Shift+Z)"
+              >
+                <Redo2 className="w-4 h-4 text-zinc-500 hover:text-zinc-300 transition-colors" />
+              </button>
+              <div className="w-px h-4 bg-white/[0.06]" />
+            </>
+          )}
           <button
             onClick={() => setShowSettings(true)}
             className="p-1.5 hover:bg-white/[0.06] rounded-lg transition-all"
