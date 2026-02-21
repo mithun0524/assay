@@ -182,8 +182,17 @@ export function useChat() {
         }
       }
 
-      // Start dev server last
+      // Start dev server last — always install dependencies first
       if (pendingStart !== null) {
+        // Check if npm install was already run as a shell command
+        const alreadyInstalled = pendingShells.some(
+          (cmd) => /npm\s+install|npm\s+i\b|yarn\s+install|pnpm\s+install/.test(cmd)
+        );
+        if (!alreadyInstalled && firstFileWritten) {
+          store.setGenerationPhase('installing');
+          const { installDependencies } = await import('@/lib/fileSystem');
+          await installDependencies();
+        }
         store.setGenerationPhase('starting');
         await startDevServerInSandbox();
       }

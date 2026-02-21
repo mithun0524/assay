@@ -131,12 +131,29 @@ export const useStore = create<AppStore>((set) => ({
   terminalOutput: '',
   terminalInstance: null,
   setTerminalInstance: (instance) => set({ terminalInstance: instance }),
-  appendTerminal: (text) => {
-    // Read instance BEFORE set() to avoid side effects inside the state updater
-    const instance = useStore.getState().terminalInstance;
-    set((s) => ({ terminalOutput: s.terminalOutput + text }));
-    instance?.write(text);
-  },
+  appendTerminal: (() => {
+    // Buffer terminal output and flush on next animation frame to prevent
+    // "Maximum update depth exceeded" from rapid synchronous set() calls.
+    let buffer = '';
+    let rafId: ReturnType<typeof requestAnimationFrame> | null = null;
+
+    return (text: string) => {
+      // Write to xterm immediately for smooth visual output
+      const instance = useStore.getState().terminalInstance;
+      instance?.write(text);
+
+      // Buffer state updates and flush on next frame
+      buffer += text;
+      if (rafId === null) {
+        rafId = requestAnimationFrame(() => {
+          const pending = buffer;
+          buffer = '';
+          rafId = null;
+          set((s) => ({ terminalOutput: s.terminalOutput + pending }));
+        });
+      }
+    };
+  })(),
   clearTerminal: () => {
     const instance = useStore.getState().terminalInstance;
     set({ terminalOutput: '' });
