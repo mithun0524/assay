@@ -66,7 +66,7 @@ export function ProjectSidebar({ isOpen, onClose, onSelectProject, onNewProject 
             {/* Backdrop */}
             <div
                 className={cn(
-                    "fixed inset-0 bg-black/50 backdrop-blur-sm z-40 transition-opacity duration-300",
+                    "fixed inset-0 bg-black/60 backdrop-blur-sm z-40 transition-opacity duration-300",
                     isOpen ? "opacity-100" : "opacity-0 pointer-events-none"
                 )}
                 onClick={onClose}
@@ -142,8 +142,12 @@ export function ProjectSidebar({ isOpen, onClose, onSelectProject, onNewProject 
                     ))}
 
                     {projects.length === 0 && (
-                        <div className="text-center py-10 text-zinc-500 text-sm">
-                            <p>No projects yet</p>
+                        <div className="flex flex-col items-center justify-center py-10 text-center animate-fade-in">
+                            <div className="w-10 h-10 rounded-xl bg-white/[0.04] flex items-center justify-center mb-3">
+                                <RiFolderLine className="w-5 h-5 text-zinc-600" />
+                            </div>
+                            <p className="text-sm font-medium text-zinc-500 mb-1">No projects yet</p>
+                            <p className="text-xs text-zinc-600">Create a new project to get started</p>
                         </div>
                     )}
                 </div>

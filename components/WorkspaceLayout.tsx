@@ -2,6 +2,8 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { RiLoader4Line, RiErrorWarningLine } from '@remixicon/react';
+import { MessageSquare } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useWebContainer } from '@/hooks/useWebContainer';
 import { useStore } from '@/lib/store';
 import { loadProject, saveProject, getAllProjects, getActiveProjectId, setActiveProjectId, createNewProject } from '@/lib/db';
@@ -13,6 +15,10 @@ import { WorkspacePanel } from './WorkspacePanel';
 import { WelcomeScreen } from './WelcomeScreen';
 import { ProjectSidebar } from './ProjectSidebar';
 import { DiffViewer } from './DiffViewer';
+import { QuickFilePicker } from './QuickFilePicker';
+import { FindInFiles } from './FindInFiles';
+import { KeyboardShortcutsModal } from './KeyboardShortcutsModal';
+import { Tooltip } from './Tooltip';
 
 export function WorkspaceLayout() {
   const {
@@ -40,6 +46,10 @@ export function WorkspaceLayout() {
   const [browserWarning, setBrowserWarning] = useState(false);
   const [isProjectsOpen, setIsProjectsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isFilePickerOpen, setIsFilePickerOpen] = useState(false);
+  const [isFindInFilesOpen, setIsFindInFilesOpen] = useState(false);
+  const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
+  const [isChatCollapsed, setIsChatCollapsed] = useState(false);
 
   // Mobile & Online check
   useEffect(() => {
@@ -59,6 +69,37 @@ export function WorkspaceLayout() {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
+  }, []);
+
+  // Global keyboard shortcuts
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const mod = e.metaKey || e.ctrlKey;
+      // Cmd+P / Ctrl+P -> Quick File Picker
+      if (mod && e.key === 'p' && !e.shiftKey) {
+        e.preventDefault();
+        setIsFilePickerOpen((v) => !v);
+        setIsFindInFilesOpen(false);
+      }
+      // Cmd+Shift+F / Ctrl+Shift+F -> Find in Files
+      if (mod && e.shiftKey && (e.key === 'f' || e.key === 'F')) {
+        e.preventDefault();
+        setIsFindInFilesOpen((v) => !v);
+        setIsFilePickerOpen(false);
+      }
+      // Cmd+/ / Ctrl+/ -> Keyboard Shortcuts
+      if (mod && e.key === '/') {
+        e.preventDefault();
+        setIsShortcutsOpen((v) => !v);
+      }
+      // Cmd+B / Ctrl+B -> Toggle Chat Panel
+      if (mod && e.key === 'b') {
+        e.preventDefault();
+        setIsChatCollapsed((v) => !v);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
   }, []);
 
   // Boot WebContainer
@@ -113,21 +154,33 @@ export function WorkspaceLayout() {
             setCurrentProjectId(activeId);
             setMessages(project.messages || []);
 
-            // Restore files
+            // Restore files into store immediately (doesn't need WebContainer)
             if (project.files) {
-              const promises = Object.entries(project.files).map(([path, entry]) => {
+              Object.entries(project.files).forEach(([path, entry]) => {
                 setFile(path, entry);
-                return writeFileToSandbox(path, entry.content);
               });
-              await Promise.all(promises);
-
-              // Install dependencies if package.json exists
-              if (project.files['package.json']) {
-                const { installDependencies } = await import('@/lib/fileSystem');
-                installDependencies().catch(console.error);
-              }
             }
             setHasProject(true);
+
+            // Write files to WebContainer in the background (don't block loading)
+            if (project.files) {
+              (async () => {
+                try {
+                  const entries = Object.entries(project.files!);
+                  await Promise.all(
+                    entries.map(([path, entry]) =>
+                      writeFileToSandbox(path, entry.content).catch(console.error)
+                    )
+                  );
+                  if (project.files!['package.json']) {
+                    const { installDependencies } = await import('@/lib/fileSystem');
+                    await installDependencies();
+                  }
+                } catch (err) {
+                  console.error('Background sandbox restore failed:', err);
+                }
+              })();
+            }
           }
         }
       } catch (error) {
@@ -187,7 +240,7 @@ export function WorkspaceLayout() {
   // Handle resize dragging
   const handleMouseMove = useCallback((e: MouseEvent) => {
     if (!isDragging) return;
-    const newWidth = Math.max(280, Math.min(e.clientX, 600));
+    const newWidth = Math.max(300, Math.min(e.clientX, 600));
     setLeftWidth(newWidth);
   }, [isDragging]);
 
@@ -284,7 +337,7 @@ export function WorkspaceLayout() {
       )}
 
       {/* Header */}
-      <Header onOpenProjects={() => setIsProjectsOpen(true)} />
+      <Header onOpenProjects={() => setIsProjectsOpen(true)} onOpenShortcuts={() => setIsShortcutsOpen(true)} />
 
       {/* Project Sidebar */}
       <ProjectSidebar
@@ -300,22 +353,70 @@ export function WorkspaceLayout() {
         isMobile ? "flex-col" : "flex-row"
       )}>
         {/* Chat panel */}
-        <div
-          className={cn(
-            "shrink-0 border-white/[0.06]",
-            isMobile ? "w-full h-[45%] border-b" : "h-full border-r"
-          )}
-          style={isMobile ? {} : { width: leftWidth }}
-        >
-          <ChatPanel />
-        </div>
+        {isMobile ? (
+          <div className="w-full h-[45%] shrink-0 border-b border-white/[0.06]">
+            <ChatPanel />
+          </div>
+        ) : (
+          <>
+            <motion.div
+              className="shrink-0 border-r border-white/[0.06] bg-[#09090b] h-full overflow-hidden"
+              animate={{ width: isChatCollapsed ? 48 : leftWidth }}
+              transition={{ width: { duration: isDragging ? 0 : 0.25, ease: [0.25, 0.1, 0.25, 1] } }}
+            >
+              <AnimatePresence mode="wait" initial={false}>
+                {isChatCollapsed ? (
+                  <motion.div
+                    key="collapsed"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.15 }}
+                    className="flex flex-col items-center py-3 gap-2 h-full"
+                  >
+                    <Tooltip content="Open Chat" shortcut="⌘B" side="right">
+                      <button
+                        onClick={() => setIsChatCollapsed(false)}
+                        className="relative p-2 rounded-lg text-zinc-500 hover:text-zinc-200 hover:bg-white/[0.06] transition-all"
+                      >
+                        <MessageSquare className="w-5 h-5" />
+                        {messages.length > 0 && (
+                          <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 flex items-center justify-center rounded-full bg-violet-500 text-[10px] font-medium text-white">
+                            {messages.length > 99 ? '99+' : messages.length}
+                          </span>
+                        )}
+                      </button>
+                    </Tooltip>
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key="expanded"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.15 }}
+                    className="h-full"
+                  >
+                    <ChatPanel onCollapse={() => setIsChatCollapsed(true)} />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
 
-        {/* Resize handle (Desktop only) */}
-        {!isMobile && (
-          <div
-            className="w-1 resize-handle cursor-col-resize hover:bg-violet-500/30 transition-colors"
-            onMouseDown={() => setIsDragging(true)}
-          />
+            {/* Resize handle */}
+            <AnimatePresence>
+              {!isChatCollapsed && (
+                <motion.div
+                  initial={{ opacity: 0, width: 0 }}
+                  animate={{ opacity: 1, width: 4 }}
+                  exit={{ opacity: 0, width: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="resize-handle cursor-col-resize hover:bg-violet-500/30 transition-colors"
+                  onMouseDown={() => setIsDragging(true)}
+                />
+              )}
+            </AnimatePresence>
+          </>
         )}
 
         {/* Workspace panel (Code / Preview / Terminal tabs) */}
@@ -326,6 +427,11 @@ export function WorkspaceLayout() {
 
       {/* Diff Viewer Modal */}
       {pendingChanges.length > 0 && <DiffViewer />}
+
+      {/* Search modals */}
+      <QuickFilePicker isOpen={isFilePickerOpen} onClose={() => setIsFilePickerOpen(false)} />
+      <FindInFiles isOpen={isFindInFilesOpen} onClose={() => setIsFindInFilesOpen(false)} />
+      <KeyboardShortcutsModal isOpen={isShortcutsOpen} onClose={() => setIsShortcutsOpen(false)} />
     </div>
   );
 }

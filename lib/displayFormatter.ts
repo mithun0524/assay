@@ -25,6 +25,7 @@ export function formatForDisplay(rawContent: string): string {
   // Parse all actions and create summaries
   const fileActions: string[] = [];
   const shellActions: string[] = [];
+  const searchActions: string[] = [];
   let startAction: string | null = null;
 
   // Match all boltAction tags
@@ -46,6 +47,11 @@ export function formatForDisplay(rawContent: string): string {
       const commandMatch = match[0].match(/>([^<]+)</);
       if (commandMatch) {
         startAction = commandMatch[1].trim();
+      }
+    } else if (type === 'search') {
+      const queryMatch = match[0].match(/>([^<]+)</);
+      if (queryMatch) {
+        searchActions.push(queryMatch[1].trim());
       }
     }
   }
@@ -69,6 +75,14 @@ export function formatForDisplay(rawContent: string): string {
     lines.push('');
   }
 
+  if (searchActions.length > 0) {
+    lines.push('**Web Searches:**');
+    searchActions.forEach(query => {
+      lines.push(`   • ${query}`);
+    });
+    lines.push('');
+  }
+
   if (startAction) {
     lines.push('**Dev Server:**');
     lines.push(`   • \`${startAction}\``);
@@ -86,7 +100,7 @@ export function formatForDisplay(rawContent: string): string {
   }
 
   // If no actions were found, return the stripped content
-  if (fileActions.length === 0 && shellActions.length === 0 && !startAction) {
+  if (fileActions.length === 0 && shellActions.length === 0 && searchActions.length === 0 && !startAction) {
     // Just remove the boltAction tags but keep explanatory text
     return rawContent
       .replace(/<boltAction[\s\S]*?<\/boltAction>/g, '')

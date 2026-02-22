@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { ActionHistory } from './actionHistory';
+import { detectTerminalErrors } from './terminalErrorDetector';
 
 export type FileEntry = {
   content: string;
@@ -48,6 +49,12 @@ type AppStore = {
   openTabs: string[];
   openTab: (path: string) => void;
   closeTab: (path: string) => void;
+  closeOtherTabs: (keepPath: string) => void;
+  closeAllTabs: () => void;
+
+  dirtyFiles: Set<string>;
+  markDirty: (path: string) => void;
+  markClean: (path: string) => void;
 
   sandboxStatus: SandboxStatus;
   setSandboxStatus: (s: SandboxStatus) => void;
@@ -72,12 +79,23 @@ type AppStore = {
   activelyWritingFile: string | null;
   setActivelyWritingFile: (path: string | null) => void;
 
-  generationPhase: 'idle' | 'writing' | 'installing' | 'starting' | 'done';
-  setGenerationPhase: (phase: 'idle' | 'writing' | 'installing' | 'starting' | 'done') => void;
+  generationPhase: 'idle' | 'writing' | 'installing' | 'starting' | 'searching' | 'done';
+  setGenerationPhase: (phase: 'idle' | 'writing' | 'installing' | 'starting' | 'searching' | 'done') => void;
+
+  webSearchEnabled: boolean;
+  setWebSearchEnabled: (v: boolean) => void;
+  isSearching: boolean;
+  setIsSearching: (v: boolean) => void;
+  lastSearchResults: string | null;
+  setLastSearchResults: (r: string | null) => void;
 
   previewErrors: string[];
   addPreviewError: (err: string) => void;
   clearPreviewErrors: () => void;
+
+  terminalErrors: string[];
+  addTerminalError: (err: string) => void;
+  clearTerminalErrors: () => void;
 
   apiKey: string | null;
   setApiKey: (key: string | null) => void;
@@ -181,6 +199,28 @@ export const useStore = create<AppStore>((set) => ({
         activeFile: s.activeFile === path ? (tabs[tabs.length - 1] ?? null) : s.activeFile,
       };
     }),
+  closeOtherTabs: (keepPath) =>
+    set((s) => ({
+      openTabs: s.openTabs.includes(keepPath) ? [keepPath] : [],
+      activeFile: s.openTabs.includes(keepPath) ? keepPath : null,
+    })),
+  closeAllTabs: () => set({ openTabs: [], activeFile: null }),
+
+  dirtyFiles: new Set<string>(),
+  markDirty: (path) =>
+    set((s) => {
+      if (s.dirtyFiles.has(path)) return s;
+      const next = new Set(s.dirtyFiles);
+      next.add(path);
+      return { dirtyFiles: next };
+    }),
+  markClean: (path) =>
+    set((s) => {
+      if (!s.dirtyFiles.has(path)) return s;
+      const next = new Set(s.dirtyFiles);
+      next.delete(path);
+      return { dirtyFiles: next };
+    }),
 
   sandboxStatus: 'idle',
   setSandboxStatus: (s) => set({ sandboxStatus: s }),
@@ -195,6 +235,9 @@ export const useStore = create<AppStore>((set) => ({
     // "Maximum update depth exceeded" from rapid synchronous set() calls.
     let buffer = '';
     let rafId: ReturnType<typeof requestAnimationFrame> | null = null;
+    // Accumulate recent chunks for error scanning
+    let errorScanBuffer = '';
+    let errorScanTimer: ReturnType<typeof setTimeout> | null = null;
 
     // Error patterns from Vite / TypeScript / runtime
     const ERROR_PATTERNS = [
@@ -229,26 +272,27 @@ export const useStore = create<AppStore>((set) => ({
         });
       }
 
-      // Detect errors in terminal output (debounced)
-      if (errorDebounce) clearTimeout(errorDebounce);
-      errorDebounce = setTimeout(() => {
-        // Strip ANSI escape codes for pattern matching
-        const clean = text.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '');
-        for (const pattern of ERROR_PATTERNS) {
-          const match = clean.match(pattern);
-          if (match) {
-            const errorMsg = match[0].trim();
-            useStore.getState().addPreviewError(errorMsg);
-            break;
+      // Debounced error scanning — only when not streaming AI output
+      errorScanBuffer += text;
+      if (errorScanTimer) clearTimeout(errorScanTimer);
+      errorScanTimer = setTimeout(() => {
+        const { isStreaming } = useStore.getState();
+        if (!isStreaming) {
+          const errors = detectTerminalErrors(errorScanBuffer);
+          if (errors) {
+            for (const err of errors) {
+              useStore.getState().addTerminalError(err);
+            }
           }
         }
-        errorDebounce = null;
-      }, 300);
+        errorScanBuffer = '';
+        errorScanTimer = null;
+      }, 500);
     };
   })(),
   clearTerminal: () => {
     const instance = useStore.getState().terminalInstance;
-    set({ terminalOutput: '' });
+    set({ terminalOutput: '', terminalErrors: [] });
     instance?.clear();
   },
 
@@ -267,6 +311,13 @@ export const useStore = create<AppStore>((set) => ({
   generationPhase: 'idle',
   setGenerationPhase: (phase) => set({ generationPhase: phase }),
 
+  webSearchEnabled: false,
+  setWebSearchEnabled: (v) => set({ webSearchEnabled: v }),
+  isSearching: false,
+  setIsSearching: (v) => set({ isSearching: v }),
+  lastSearchResults: null,
+  setLastSearchResults: (r) => set({ lastSearchResults: r }),
+
   previewErrors: [],
   addPreviewError: (err) =>
     set((s) => ({
@@ -275,6 +326,15 @@ export const useStore = create<AppStore>((set) => ({
         : [...s.previewErrors, err].slice(-10),
     })),
   clearPreviewErrors: () => set({ previewErrors: [] }),
+
+  terminalErrors: [],
+  addTerminalError: (err) =>
+    set((s) => ({
+      terminalErrors: s.terminalErrors.includes(err)
+        ? s.terminalErrors
+        : [...s.terminalErrors, err].slice(-10),
+    })),
+  clearTerminalErrors: () => set({ terminalErrors: [] }),
 
   apiKey: typeof window !== 'undefined' ? localStorage.getItem('openrouter-api-key') : null,
   setApiKey: (key) => {

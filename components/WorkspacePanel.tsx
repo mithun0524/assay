@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { RiCodeLine, RiComputerLine, RiTerminalLine, RiRefreshLine, RiDeleteBinLine, RiLoader4Line, RiErrorWarningLine, RiSparklingLine, RiCloseLine, RiShutDownLine, RiPlayLine } from '@remixicon/react';
+import { Smartphone, Tablet, Monitor, ExternalLink, Minus, Plus, AlertTriangle, Sparkles, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { useStore } from '@/lib/store';
 import { useChat } from '@/hooks/useChat';
@@ -11,14 +12,23 @@ import { Terminal as TerminalComponent } from './Terminal';
 import { restartDevServer } from '@/lib/fileSystem';
 
 type WorkspaceTab = 'code' | 'preview' | 'terminal';
+type DevicePreset = 'mobile' | 'tablet' | 'desktop';
+
+const DEVICE_WIDTHS: Record<DevicePreset, number | null> = {
+    mobile: 375,
+    tablet: 768,
+    desktop: null, // 100%
+};
 
 export function WorkspacePanel() {
-    const { previewUrl, sandboxStatus, terminalOutput, clearTerminal, previewErrors, addPreviewError, clearPreviewErrors, generationPhase, activelyWritingFile, isStreaming } = useStore();
+    const { previewUrl, sandboxStatus, terminalOutput, clearTerminal, previewErrors, addPreviewError, clearPreviewErrors, terminalErrors, clearTerminalErrors, generationPhase, activelyWritingFile, isStreaming } = useStore();
     const { submit } = useChat();
     const [activeTab, setActiveTab] = useState<WorkspaceTab>('code');
     const [iframeKey, setIframeKey] = useState(0);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [isRestarting, setIsRestarting] = useState(false);
+    const [devicePreset, setDevicePreset] = useState<DevicePreset>('desktop');
+    const [zoomLevel, setZoomLevel] = useState(100);
 
     // Auto-switch to code when file writing starts
     useEffect(() => {
@@ -87,8 +97,53 @@ export function WorkspacePanel() {
         submit(`I'm getting the following error(s) in my app preview. Please fix them:\n\n\`\`\`\n${errorText}\n\`\`\``);
     }, [previewErrors, clearPreviewErrors, submit]);
 
+    const handleFixTerminalErrors = useCallback(() => {
+        const errorText = terminalErrors.join('\n');
+        clearTerminalErrors();
+        submit(`I'm getting the following terminal error(s). Please fix them:\n\n\`\`\`\n${errorText}\n\`\`\``);
+    }, [terminalErrors, clearTerminalErrors, submit]);
+
+    // Auto-switch to terminal when errors are detected
+    useEffect(() => {
+        if (terminalErrors.length > 0 && activeTab !== 'terminal') {
+            setActiveTab('terminal');
+        }
+    }, [terminalErrors.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    const handleOpenInNewWindow = () => {
+        if (previewUrl) {
+            window.open(previewUrl, '_blank');
+        }
+    };
+
+    const handleZoomIn = () => setZoomLevel(z => Math.min(z + 25, 150));
+    const handleZoomOut = () => setZoomLevel(z => Math.max(z - 25, 50));
+
+    const getPhaseLabel = (phase: string, writingFile: string | null) => {
+        switch (phase) {
+            case 'writing':
+                return writingFile
+                    ? `Writing ${writingFile.split('/').pop()}...`
+                    : 'Analyzing your request...';
+            case 'installing':
+                return 'Installing packages...';
+            case 'starting':
+                return 'Starting your app...';
+            default:
+                return '';
+        }
+    };
+
     const renderPreviewContent = () => {
         if (sandboxStatus === 'error') {
+            const hasErrors = previewErrors.length > 0 || terminalErrors.length > 0;
+            const handleFixErrors = () => {
+                const errors = previewErrors.length > 0 ? previewErrors : terminalErrors;
+                const errorText = errors.join('\n');
+                clearPreviewErrors();
+                clearTerminalErrors();
+                submit(`I'm getting the following error(s) in my app. Please fix them:\n\n\`\`\`\n${errorText}\n\`\`\``);
+            };
             return (
                 <div className="h-full flex items-center justify-center bg-[#09090b]">
                     <div className="text-center animate-fade-in">
@@ -97,12 +152,23 @@ export function WorkspacePanel() {
                         </div>
                         <p className="text-zinc-300 text-sm font-medium">Preview error</p>
                         <p className="text-zinc-600 text-xs mt-1">Check the terminal for details</p>
-                        <button
-                            onClick={handleRefresh}
-                            className="mt-4 px-4 py-2 bg-white/[0.06] hover:bg-white/[0.1] text-zinc-300 rounded-lg text-xs transition-all hover:scale-[1.02]"
-                        >
-                            Retry
-                        </button>
+                        <div className="mt-4 flex items-center justify-center gap-2">
+                            {hasErrors && (
+                                <button
+                                    onClick={handleFixErrors}
+                                    className="flex items-center gap-1.5 px-4 py-2 bg-violet-600/90 hover:bg-violet-500 text-white rounded-lg text-xs font-medium transition-all active:scale-[0.97] btn-shimmer"
+                                >
+                                    <RiSparklingLine className="w-3.5 h-3.5" />
+                                    Fix with AI
+                                </button>
+                            )}
+                            <button
+                                onClick={handleRefresh}
+                                className="px-4 py-2 bg-white/[0.06] hover:bg-white/[0.1] text-zinc-300 rounded-lg text-xs transition-all hover:scale-[1.02]"
+                            >
+                                Retry
+                            </button>
+                        </div>
                     </div>
                 </div>
             );
@@ -110,7 +176,7 @@ export function WorkspacePanel() {
 
         if (sandboxStatus === 'installing' || sandboxStatus === 'starting') {
             return (
-                <div className="h-full flex items-center justify-center bg-[#09090b]">
+                <div className="h-full flex items-center justify-center bg-[#09090b] gradient-placeholder">
                     <div className="text-center animate-fade-up">
                         <div className="relative mb-4">
                             <RiLoader4Line className="w-6 h-6 mx-auto text-violet-400 animate-spin" />
@@ -119,10 +185,10 @@ export function WorkspacePanel() {
                         <p className="text-zinc-300 text-sm font-medium">
                             {sandboxStatus === 'installing' ? 'Installing dependencies' : 'Starting dev server'}
                         </p>
-                        <div className="mt-2 flex items-center justify-center gap-1">
-                            <span className="w-1 h-1 rounded-full bg-violet-400/60 animate-pulse" style={{ animationDelay: '0ms' }} />
-                            <span className="w-1 h-1 rounded-full bg-violet-400/60 animate-pulse" style={{ animationDelay: '200ms' }} />
-                            <span className="w-1 h-1 rounded-full bg-violet-400/60 animate-pulse" style={{ animationDelay: '400ms' }} />
+                        <div className="mt-2 flex items-center justify-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-violet-400/60 dot-bounce" style={{ animationDelay: '0ms' }} />
+                            <span className="w-1.5 h-1.5 rounded-full bg-violet-400/60 dot-bounce" style={{ animationDelay: '200ms' }} />
+                            <span className="w-1.5 h-1.5 rounded-full bg-violet-400/60 dot-bounce" style={{ animationDelay: '400ms' }} />
                         </div>
                     </div>
                 </div>
@@ -150,6 +216,9 @@ export function WorkspacePanel() {
                 </div>
             );
         }
+
+        const deviceWidth = DEVICE_WIDTHS[devicePreset];
+        const isResponsive = devicePreset !== 'desktop';
 
         return (
             <div className="h-full flex flex-col">
@@ -187,6 +256,79 @@ export function WorkspacePanel() {
                     </button>
                 </div>
 
+                {/* Device toolbar */}
+                <div className="flex items-center gap-1 px-3 py-1.5 border-b border-white/[0.06] bg-[#09090b]">
+                    <div className="flex items-center gap-0.5">
+                        <button
+                            onClick={() => setDevicePreset('mobile')}
+                            className={cn(
+                                'p-1.5 rounded-lg transition-all text-xs',
+                                devicePreset === 'mobile'
+                                    ? 'bg-violet-500/15 text-violet-300'
+                                    : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.06]'
+                            )}
+                            title="Mobile (375px)"
+                        >
+                            <Smartphone className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                            onClick={() => setDevicePreset('tablet')}
+                            className={cn(
+                                'p-1.5 rounded-lg transition-all text-xs',
+                                devicePreset === 'tablet'
+                                    ? 'bg-violet-500/15 text-violet-300'
+                                    : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.06]'
+                            )}
+                            title="Tablet (768px)"
+                        >
+                            <Tablet className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                            onClick={() => setDevicePreset('desktop')}
+                            className={cn(
+                                'p-1.5 rounded-lg transition-all text-xs',
+                                devicePreset === 'desktop'
+                                    ? 'bg-violet-500/15 text-violet-300'
+                                    : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.06]'
+                            )}
+                            title="Desktop (100%)"
+                        >
+                            <Monitor className="w-3.5 h-3.5" />
+                        </button>
+                    </div>
+
+                    <div className="w-px h-4 bg-white/[0.06] mx-1" />
+
+                    {/* Zoom controls */}
+                    <div className="flex items-center gap-0.5">
+                        <button
+                            onClick={handleZoomOut}
+                            disabled={zoomLevel <= 50}
+                            className="p-1 rounded text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.06] transition-all disabled:opacity-30"
+                        >
+                            <Minus className="w-3 h-3" />
+                        </button>
+                        <span className="text-[10px] text-zinc-500 w-8 text-center font-mono">{zoomLevel}%</span>
+                        <button
+                            onClick={handleZoomIn}
+                            disabled={zoomLevel >= 150}
+                            className="p-1 rounded text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.06] transition-all disabled:opacity-30"
+                        >
+                            <Plus className="w-3 h-3" />
+                        </button>
+                    </div>
+
+                    <div className="ml-auto">
+                        <button
+                            onClick={handleOpenInNewWindow}
+                            className="p-1.5 rounded-lg text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.06] transition-all"
+                            title="Open in new window"
+                        >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                        </button>
+                    </div>
+                </div>
+
                 {/* Error banner */}
                 {previewErrors.length > 0 && (
                     <div className="px-3 py-2 bg-red-500/10 border-b border-red-500/20 flex items-center gap-2">
@@ -196,7 +338,7 @@ export function WorkspacePanel() {
                         </span>
                         <button
                             onClick={handleFixWithAI}
-                            className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-lg bg-violet-600/90 text-white hover:bg-violet-500 transition-all"
+                            className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-lg bg-violet-600/90 text-white hover:bg-violet-500 transition-all active:scale-[0.97] btn-shimmer"
                         >
                             <RiSparklingLine className="w-3 h-3" />
                             Fix with AI
@@ -210,15 +352,37 @@ export function WorkspacePanel() {
                     </div>
                 )}
 
-                {/* Iframe */}
-                <div className="flex-1 bg-white">
-                    <iframe
-                        key={iframeKey}
-                        src={previewUrl}
-                        allow="cross-origin-isolated"
-                        sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
-                        className="w-full h-full border-0"
-                    />
+                {/* Iframe container */}
+                <div className={cn(
+                    'flex-1 overflow-auto',
+                    isResponsive ? 'bg-zinc-950 flex justify-center' : 'bg-white'
+                )}>
+                    <div
+                        className={cn(
+                            'relative',
+                            isResponsive && 'border border-white/[0.1] shadow-2xl rounded-lg overflow-hidden my-4 bg-white shrink-0'
+                        )}
+                        style={{
+                            width: isResponsive && deviceWidth ? deviceWidth : '100%',
+                            height: isResponsive ? 'calc(100% - 2rem)' : '100%',
+                            transform: zoomLevel !== 100 ? `scale(${zoomLevel / 100})` : undefined,
+                            transformOrigin: 'top center',
+                        }}
+                    >
+                        {/* Mobile notch indicator */}
+                        {devicePreset === 'mobile' && (
+                            <div className="absolute top-0 left-1/2 -translate-x-1/2 z-10 w-28 h-5 bg-black rounded-b-xl flex items-end justify-center pb-1">
+                                <div className="w-12 h-1 bg-zinc-700 rounded-full" />
+                            </div>
+                        )}
+                        <iframe
+                            key={iframeKey}
+                            src={previewUrl}
+                            allow="cross-origin-isolated"
+                            sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+                            className="w-full h-full border-0"
+                        />
+                    </div>
                 </div>
             </div>
         );
@@ -263,21 +427,20 @@ export function WorkspacePanel() {
                 >
                     <RiTerminalLine className="w-3.5 h-3.5" />
                     Terminal
+                    {terminalErrors.length > 0 && (
+                        <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                    )}
                 </button>
 
                 {/* Right side actions */}
                 <div className="ml-auto flex items-center gap-1.5 pr-1">
                     {/* Generation phase indicator */}
-                    {generationPhase !== 'idle' && generationPhase !== 'done' && (
+                    {isStreaming && generationPhase !== 'idle' && generationPhase !== 'done' && (
                         <div className="flex items-center gap-1.5 px-2 py-0.5 text-[10px] text-violet-300/80 bg-violet-500/10 rounded-md border border-violet-500/20">
                             <span className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-pulse" />
-                            {generationPhase === 'writing' && (
-                                <span className="truncate max-w-[120px]">
-                                    Writing {activelyWritingFile ? activelyWritingFile.split('/').pop() : 'files'}...
-                                </span>
-                            )}
-                            {generationPhase === 'installing' && 'Installing deps...'}
-                            {generationPhase === 'starting' && 'Starting server...'}
+                            <span className="truncate max-w-[150px]">
+                                {getPhaseLabel(generationPhase, activelyWritingFile)}
+                            </span>
                         </div>
                     )}
                     {generationPhase === 'done' && (
@@ -314,18 +477,41 @@ export function WorkspacePanel() {
             {/* Content */}
             <div className="flex-1 min-h-0 overflow-hidden">
                 {/* Code tab */}
-                <div className={cn('h-full', activeTab !== 'code' && 'hidden')}>
+                <div className={cn('h-full', activeTab === 'code' ? 'animate-fade-in' : 'hidden')} style={activeTab === 'code' ? { animationDuration: '0.15s' } : undefined}>
                     <EditorPanel />
                 </div>
 
                 {/* Preview tab */}
-                <div className={cn('h-full', activeTab !== 'preview' && 'hidden')}>
+                <div className={cn('h-full', activeTab === 'preview' ? 'animate-fade-in' : 'hidden')} style={activeTab === 'preview' ? { animationDuration: '0.15s' } : undefined}>
                     {renderPreviewContent()}
                 </div>
 
                 {/* Terminal tab */}
-                <div className={cn('h-full', activeTab !== 'terminal' && 'hidden')}>
-                    <TerminalComponent />
+                <div className={cn('h-full flex flex-col', activeTab === 'terminal' ? 'animate-fade-in' : 'hidden')} style={activeTab === 'terminal' ? { animationDuration: '0.15s' } : undefined}>
+                    {terminalErrors.length > 0 && (
+                        <div className="px-3 py-2 bg-red-500/10 border-b border-red-500/20 flex items-center gap-2 shrink-0">
+                            <AlertTriangle className="w-3.5 h-3.5 text-red-400 shrink-0" />
+                            <span className="text-xs text-red-300 flex-1 truncate">
+                                {terminalErrors.length} terminal error{terminalErrors.length > 1 ? 's' : ''} detected
+                            </span>
+                            <button
+                                onClick={handleFixTerminalErrors}
+                                className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-lg bg-violet-600/90 text-white hover:bg-violet-500 transition-all active:scale-[0.97] btn-shimmer"
+                            >
+                                <Sparkles className="w-3 h-3" />
+                                Fix with AI
+                            </button>
+                            <button
+                                onClick={clearTerminalErrors}
+                                className="p-1 hover:bg-white/[0.06] rounded transition-all"
+                            >
+                                <X className="w-3 h-3 text-zinc-500" />
+                            </button>
+                        </div>
+                    )}
+                    <div className="flex-1 min-h-0">
+                        <TerminalComponent />
+                    </div>
                 </div>
             </div>
         </div>

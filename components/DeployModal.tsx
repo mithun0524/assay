@@ -95,7 +95,7 @@ export function DeployModal({ isOpen, onClose }: DeployModalProps) {
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
 
       <div
-        className="relative w-full max-w-2xl rounded-2xl glass-strong border border-white/[0.08] shadow-2xl"
+        className="relative w-full max-w-2xl rounded-2xl glass-strong border border-white/[0.06] shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -164,7 +164,7 @@ export function DeployModal({ isOpen, onClose }: DeployModalProps) {
                 disabled={deploying || !hasFiles}
                 className={cn(
                   'group relative p-4 rounded-xl text-left transition-all',
-                  'border border-white/[0.08] hover:border-white/[0.15]',
+                  'border border-white/[0.06] hover:border-white/[0.15]',
                   'bg-gradient-to-br',
                   provider.color,
                   'hover:scale-[1.02] active:scale-[0.98]',

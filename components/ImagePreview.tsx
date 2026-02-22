@@ -17,7 +17,7 @@ export function ImagePreview({ images, onRemove, className }: ImagePreviewProps)
       {images.map((dataUrl, index) => (
         <div
           key={index}
-          className="relative group rounded-lg overflow-hidden border border-white/[0.08]"
+          className="relative group rounded-lg overflow-hidden border border-white/[0.06]"
         >
           <img
             src={dataUrl}

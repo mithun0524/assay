@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { RiCloseLine, RiDropLine, RiFontSizeLine, RiBoxingLine, RiPaletteLine } from '@remixicon/react';
+import { RiCloseLine, RiDropLine, RiFontSize, RiBoxingLine, RiPaletteLine } from '@remixicon/react';
 import { HexColorPicker } from 'react-colorful';
 import { cn } from '@/lib/utils';
 import { useChat } from '@/hooks/useChat';
@@ -57,7 +57,7 @@ Please update the relevant CSS or Tailwind classes in the appropriate file to ma
 
   return (
     <div className="fixed right-4 top-20 bottom-4 w-80 z-40">
-      <div className="h-full flex flex-col rounded-xl glass-strong border border-white/[0.08] shadow-2xl">
+      <div className="h-full flex flex-col rounded-xl glass-strong border border-white/[0.06] shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06]">
           <div className="flex items-center gap-2">
@@ -105,7 +105,7 @@ Please update the relevant CSS or Tailwind classes in the appropriate file to ma
             </label>
             <button
               onClick={() => setShowBgPicker(!showBgPicker)}
-              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-zinc-800 border border-white/[0.08] hover:border-white/[0.15] transition-colors"
+              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-zinc-800 border border-white/[0.06] hover:border-white/[0.15] transition-colors"
             >
               <div
                 className="w-6 h-6 rounded border border-white/[0.15]"
@@ -128,12 +128,12 @@ Please update the relevant CSS or Tailwind classes in the appropriate file to ma
           {/* Text Color */}
           <div>
             <label className="flex items-center gap-2 text-xs font-medium text-zinc-400 mb-2">
-              <RiFontSizeLine size={14} />
+              <RiFontSize size={14} />
               Text Color
             </label>
             <button
               onClick={() => setShowTextPicker(!showTextPicker)}
-              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-zinc-800 border border-white/[0.08] hover:border-white/[0.15] transition-colors"
+              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-zinc-800 border border-white/[0.06] hover:border-white/[0.15] transition-colors"
             >
               <div
                 className="w-6 h-6 rounded border border-white/[0.15]"
@@ -157,7 +157,7 @@ Please update the relevant CSS or Tailwind classes in the appropriate file to ma
           {element.styles.fontSize && (
             <div>
               <label className="flex items-center gap-2 text-xs font-medium text-zinc-400 mb-2">
-                <RiFontSizeLine size={14} />
+                <RiFontSize size={14} />
                 Font Size
               </label>
               <input

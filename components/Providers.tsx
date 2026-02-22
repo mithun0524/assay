@@ -1,10 +1,11 @@
 'use client';
 
 import { Toaster } from 'sonner';
+import { TooltipProvider } from './Tooltip';
 
 export function Providers({ children }: { children: React.ReactNode }) {
     return (
-        <>
+        <TooltipProvider delayDuration={400}>
             {children}
             <Toaster
                 theme="dark"
@@ -13,6 +14,6 @@ export function Providers({ children }: { children: React.ReactNode }) {
                 richColors
                 closeButton
             />
-        </>
+        </TooltipProvider>
     );
 }

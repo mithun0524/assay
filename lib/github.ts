@@ -47,7 +47,7 @@ export async function listRepositories(options?: {
     description: string | null;
     html_url: string;
     private: boolean;
-    updated_at: string;
+    updated_at: string | null;
   }>
 > {
   const octokit = getOctokit();

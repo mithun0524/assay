@@ -8,7 +8,9 @@ import { writeFileToSandbox, runShellInSandbox, startDevServerInSandbox } from '
 import type { Message } from '@/lib/store';
 import { SYSTEM_PROMPT } from '@/lib/systemPrompt';
 import { buildFileContext } from '@/lib/contextBuilder';
-import { routeToAgent, getAgent, getAgentReasoning, AgentContext } from '@/lib/agents';
+import { routeToAgent, getAgent, getAgentReasoning, AgentContext, classifyWithLLM } from '@/lib/agents';
+import type { AgentRole } from '@/lib/agents';
+import { stripAnsi, detectTerminalErrors } from '@/lib/terminalErrorDetector';
 
 function estimateTokens(text: string) {
   return Math.ceil(text.length / 4);
@@ -30,49 +32,19 @@ function getLanguageFromPath(path: string): string {
   return langMap[ext || ''] || 'plaintext';
 }
 
-// Common terminal error patterns
-const ERROR_PATTERNS = [
-  /error\s*TS\d+:/i,
-  /SyntaxError:/,
-  /Cannot find module/,
-  /Module not found/,
-  /TypeError:/,
-  /ReferenceError:/,
-  /ENOENT/,
-  /Failed to resolve/,
-  /ERROR\s+in\s+/,
-  /✘\s+\[ERROR\]/,
-];
 
 function extractTerminalErrors(output: string): string | null {
-  const lines = output.split('\n');
-  const errorLines: string[] = [];
-  let capturing = false;
-
-  for (const line of lines) {
-    const isError = ERROR_PATTERNS.some(p => p.test(line));
-    if (isError) {
-      capturing = true;
-      errorLines.push(line.trim());
-    } else if (capturing) {
-      // Capture a few context lines after an error
-      if (line.trim() && errorLines.length < 20) {
-        errorLines.push(line.trim());
-      } else {
-        capturing = false;
-      }
-    }
-  }
-
-  if (errorLines.length === 0) return null;
-  return errorLines.join('\n');
+  const errors = detectTerminalErrors(stripAnsi(output));
+  return errors ? errors.join('\n') : null;
 }
 
 export function useChat() {
   const store = useStore();
   const abortRef = useRef<AbortController | null>(null);
   const retryCountRef = useRef(0);
+  const searchRetryRef = useRef(0);
   const MAX_AUTO_RETRIES = 2;
+  const MAX_SEARCH_RETRIES = 2;
 
   const submit = useCallback(async (userText: string, images: string[] = []) => {
     if ((!userText.trim() && images.length === 0) || store.isStreaming) return;
@@ -86,6 +58,7 @@ export function useChat() {
       timestamp: Date.now(),
     };
     store.addMessage(userMsg);
+    store.clearTerminalErrors();
 
     const assistantMsg: Message = {
       id: crypto.randomUUID(),
@@ -101,8 +74,13 @@ export function useChat() {
     abortRef.current = new AbortController();
 
     // Reset retry counter on real user messages (not auto-retries)
-    if (!userText.startsWith('The dev server encountered errors') && !userText.startsWith("I'm getting the following error")) {
+    if (
+      !userText.startsWith('The dev server encountered errors') &&
+      !userText.startsWith("I'm getting the following error") &&
+      !userText.startsWith('Here are the web search results you requested')
+    ) {
       retryCountRef.current = 0;
+      searchRetryRef.current = 0;
     }
 
     // Snapshot current files before AI writes — enables undo
@@ -110,6 +88,7 @@ export function useChat() {
 
     let fullContent = '';
     const pendingShells: string[] = [];
+    const pendingSearches: string[] = [];
     let pendingStart: string | null = null;
     let firstFileWritten = false;
     const collectedFileActions: Array<{ filePath: string; content: string }> = [];
@@ -137,24 +116,48 @@ export function useChat() {
         pendingShells.push(action.command);
       } else if (action.type === 'start') {
         pendingStart = action.command;
+      } else if (action.type === 'search') {
+        pendingSearches.push(action.query);
       }
     });
 
     try {
+      // User-triggered web search: prepend results to the user message
+      let searchPrefix = '';
+      if (store.webSearchEnabled && userText.trim() && !userText.startsWith('Here are the web search results you requested')) {
+        try {
+          store.setIsSearching(true);
+          store.setGenerationPhase('searching');
+          const { executeSearch, formatSearchResults } = await import('@/lib/searchClient');
+          const searchData = await executeSearch(userText);
+          searchPrefix = formatSearchResults(searchData) + '\n\n';
+          store.setLastSearchResults(searchPrefix);
+        } catch (e) {
+          console.warn('User-triggered search failed, continuing without results:', e);
+        } finally {
+          store.setIsSearching(false);
+          store.setGenerationPhase('writing');
+        }
+      }
+
       // Build conversation history (omit empty assistant placeholders)
       const history = [...store.messages, userMsg]
         .filter((m) => m.content.trim() !== '' || (m.images && m.images.length > 0))
         .map((m) => {
+          // Prepend search results to the last user message
+          const isLastUser = m.id === userMsg.id;
+          const content = isLastUser && searchPrefix ? searchPrefix + m.content : m.content;
+
           if (m.images && m.images.length > 0) {
             return {
               role: m.role,
               content: [
-                { type: 'text', text: m.content },
+                { type: 'text', text: content },
                 ...m.images.map((img) => ({ type: 'image_url', image_url: { url: img } })),
               ],
             };
           }
-          return { role: m.role, content: m.content };
+          return { role: m.role, content };
         });
 
       // Build file context for AI awareness of existing project files
@@ -169,9 +172,19 @@ export function useChat() {
         hasImages: images.length > 0,
       };
 
-      const agentRole = routeToAgent(userText, agentContext);
+      // LLM-based classification with regex fallback
+      let agentRole: AgentRole;
+      let agentModel: string | undefined;
+      const classification = await classifyWithLLM(userText, agentContext, store.apiKey);
+      if (classification) {
+        agentRole = classification.role;
+        agentModel = classification.model;
+      } else {
+        agentRole = routeToAgent(userText, agentContext);
+        agentModel = undefined;
+      }
       const agent = getAgent(agentRole);
-      const agentReasoning = getAgentReasoning(agentRole, agentContext);
+      const agentReasoning = classification?.reasoning || getAgentReasoning(agentRole, agentContext);
 
       // Set active agent in store
       store.setActiveAgent(agentRole);
@@ -206,7 +219,7 @@ export function useChat() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages: history,
-          model: agent.model, // Use agent's preferred model
+          model: agentModel || agent.model, // LLM-picked model or agent default
           apiKey: store.apiKey,
           fileContext,
           systemPrompt, // Pass custom system prompt
@@ -244,6 +257,37 @@ export function useChat() {
 
       parser.flush();
 
+      // AI-requested search: execute pending searches and auto-continue
+      if (pendingSearches.length > 0 && searchRetryRef.current < MAX_SEARCH_RETRIES) {
+        searchRetryRef.current++;
+        store.setGenerationPhase('searching');
+        store.setIsSearching(true);
+        try {
+          const { executeSearch, formatSearchResults } = await import('@/lib/searchClient');
+          const queries = pendingSearches.slice(0, 2); // Cap at 2 searches
+          const results: string[] = [];
+          for (const query of queries) {
+            try {
+              const data = await executeSearch(query);
+              results.push(formatSearchResults(data));
+            } catch (e) {
+              console.warn(`AI-requested search failed for "${query}":`, e);
+            }
+          }
+          if (results.length > 0) {
+            const searchResultsMsg = `Here are the web search results you requested:\n\n${results.join('\n\n')}\n\nPlease continue with the task using this information.`;
+            store.setIsSearching(false);
+            store.setIsStreaming(false);
+            submit(searchResultsMsg);
+            return;
+          }
+        } catch (e) {
+          console.warn('AI-requested search failed:', e);
+        } finally {
+          store.setIsSearching(false);
+        }
+      }
+
       // If diff preview is enabled, convert collected actions to pending changes
       if (store.showDiffPreview && collectedFileActions.length > 0) {
         const pendingChanges = collectedFileActions.map((action) => {
@@ -263,17 +307,55 @@ export function useChat() {
         return;
       }
 
-      // Run shell commands sequentially after all file writes
+      // Run shell commands sequentially after all file writes.
+      // Dev-server-like commands (npm run dev, npm start, vite, etc.) are
+      // long-running and never exit, so route them through startDevServerInSandbox
+      // instead of runShellInSandbox which awaits process.exit.
+      const DEV_SERVER_RE = /^(npm\s+(run\s+dev|start)|yarn\s+(dev|start)|pnpm\s+(dev|start)|npx\s+vite|vite)\b/;
+      const INSTALL_CMD_RE = /^(npm\s+(install|i|ci)\b|yarn(\s+install)?\b|pnpm\s+(install|i)\b)/;
+      let shellTriggeredServer = false;
+
       if (pendingShells.length > 0) {
+        const hasInstallCmd = pendingShells.some((cmd) => INSTALL_CMD_RE.test(cmd.trim()));
+        const prevSandboxStatus = useStore.getState().sandboxStatus;
+
         store.setGenerationPhase('installing');
-        store.setSandboxStatus('installing');
+        if (hasInstallCmd) {
+          store.setSandboxStatus('installing');
+        }
         for (const cmd of pendingShells) {
-          await runShellInSandbox(cmd);
+          if (DEV_SERVER_RE.test(cmd.trim())) {
+            // Will be handled as a server start below
+            shellTriggeredServer = true;
+          } else {
+            await runShellInSandbox(cmd);
+          }
+        }
+
+        // If an install command ran but no dev server start follows,
+        // automatically restart the dev server if one was previously running.
+        if (hasInstallCmd && !shellTriggeredServer && pendingStart === null) {
+          const hadServerRunning = prevSandboxStatus === 'ready' || !!useStore.getState().previewUrl;
+          if (hadServerRunning) {
+            shellTriggeredServer = true;
+          } else {
+            const currentStatus = useStore.getState().sandboxStatus;
+            if (currentStatus === 'installing' || currentStatus === 'starting') {
+              store.setSandboxStatus('idle');
+            }
+          }
+        } else if (!shellTriggeredServer && pendingStart === null) {
+          // Restore sandboxStatus if no dev server start follows and status is still transitional
+          const currentStatus = useStore.getState().sandboxStatus;
+          if (currentStatus === 'installing' || currentStatus === 'starting') {
+            const hasPreview = !!useStore.getState().previewUrl;
+            store.setSandboxStatus(hasPreview ? 'ready' : prevSandboxStatus === 'ready' ? 'ready' : 'idle');
+          }
         }
       }
 
       // Start dev server last — always install dependencies first
-      if (pendingStart !== null) {
+      if (pendingStart !== null || shellTriggeredServer) {
         // Check if npm install was already run as a shell command
         const alreadyInstalled = pendingShells.some(
           (cmd) => /npm\s+install|npm\s+i\b|yarn\s+install|pnpm\s+install/.test(cmd)
@@ -348,6 +430,13 @@ export function useChat() {
     } finally {
       store.setIsStreaming(false);
       store.setActivelyWritingFile(null);
+
+      // Safety net: reset sandboxStatus if still in a transitional state
+      // (excludes 'error' so the catch block's setSandboxStatus('error') is preserved)
+      const { sandboxStatus: finalStatus, previewUrl: finalPreviewUrl } = useStore.getState();
+      if (finalStatus === 'installing' || finalStatus === 'starting' || finalStatus === 'booting') {
+        store.setSandboxStatus(finalPreviewUrl ? 'ready' : 'idle');
+      }
     }
   }, [store]);
 
@@ -356,6 +445,12 @@ export function useChat() {
     store.setIsStreaming(false);
     store.setGenerationPhase('idle');
     store.setActivelyWritingFile(null);
+
+    // Reset sandboxStatus if stuck in a transitional state
+    const { sandboxStatus, previewUrl } = useStore.getState();
+    if (sandboxStatus === 'installing' || sandboxStatus === 'starting' || sandboxStatus === 'booting') {
+      store.setSandboxStatus(previewUrl ? 'ready' : 'idle');
+    }
   }, [store]);
 
   const submitComponentEdit = useCallback(

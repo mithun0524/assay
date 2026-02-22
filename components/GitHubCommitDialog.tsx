@@ -119,7 +119,7 @@ export function GitHubCommitDialog({ isOpen, onClose }: GitHubCommitDialogProps)
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
 
       <div
-        className="relative w-full max-w-md rounded-2xl glass-strong border border-white/[0.08] shadow-2xl"
+        className="relative w-full max-w-md rounded-2xl glass-strong border border-white/[0.06] shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -179,7 +179,7 @@ export function GitHubCommitDialog({ isOpen, onClose }: GitHubCommitDialogProps)
                   disabled={loadingRepos}
                   className={cn(
                     'w-full px-3 py-2 rounded-lg text-sm text-zinc-200',
-                    'bg-zinc-800 border border-white/[0.08]',
+                    'bg-zinc-800 border border-white/[0.06]',
                     'focus:outline-none focus:border-violet-500/40',
                     loadingRepos && 'opacity-50 cursor-not-allowed'
                   )}
@@ -205,7 +205,7 @@ export function GitHubCommitDialog({ isOpen, onClose }: GitHubCommitDialogProps)
                     onChange={(e) => setNewRepoName(e.target.value)}
                     className={cn(
                       'w-full px-3 py-2 rounded-lg text-sm text-zinc-200',
-                      'bg-zinc-800 border border-white/[0.08]',
+                      'bg-zinc-800 border border-white/[0.06]',
                       'focus:outline-none focus:border-violet-500/40',
                       'placeholder:text-zinc-600'
                     )}
@@ -217,7 +217,7 @@ export function GitHubCommitDialog({ isOpen, onClose }: GitHubCommitDialogProps)
                     rows={2}
                     className={cn(
                       'w-full px-3 py-2 rounded-lg text-sm text-zinc-200 resize-none',
-                      'bg-zinc-800 border border-white/[0.08]',
+                      'bg-zinc-800 border border-white/[0.06]',
                       'focus:outline-none focus:border-violet-500/40',
                       'placeholder:text-zinc-600'
                     )}
@@ -258,7 +258,7 @@ export function GitHubCommitDialog({ isOpen, onClose }: GitHubCommitDialogProps)
               rows={3}
               className={cn(
                 'w-full px-3 py-2 rounded-lg text-sm text-zinc-200 resize-none',
-                'bg-zinc-800 border border-white/[0.08]',
+                'bg-zinc-800 border border-white/[0.06]',
                 'focus:outline-none focus:border-violet-500/40',
                 'placeholder:text-zinc-600'
               )}

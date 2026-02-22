@@ -14,6 +14,8 @@ import {
   RiRocketLine,
   RiCheckboxCircleLine,
 } from '@remixicon/react';
+import { PanelLeftClose, Package, Rocket, Plus, Globe } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useStore } from '@/lib/store';
 import { useChat } from '@/hooks/useChat';
 import { MessageBubble } from './MessageBubble';
@@ -24,6 +26,11 @@ import { ImageUpload } from './ImageUpload';
 import { ImagePreview } from './ImagePreview';
 import { AgentBadge } from './AgentBadge';
 import { AgentRole } from '@/lib/agents';
+import { Tooltip } from './Tooltip';
+
+interface ChatPanelProps {
+  onCollapse?: () => void;
+}
 
 const QUICK_PROMPTS = [
   'A task management app',
@@ -32,7 +39,16 @@ const QUICK_PROMPTS = [
   'A landing page for a SaaS',
 ];
 
-export function ChatPanel() {
+const PLACEHOLDERS = [
+  'Build a todo app with drag and drop...',
+  'Create a landing page with animations...',
+  'Design a dashboard with charts...',
+  'Make a real-time chat interface...',
+  'Build an e-commerce product page...',
+  'Create a blog with markdown support...',
+];
+
+export function ChatPanel({ onCollapse }: ChatPanelProps) {
   const {
     messages,
     isStreaming,
@@ -51,6 +67,9 @@ export function ChatPanel() {
     generationPhase,
     activelyWritingFile,
     activeAgent,
+    webSearchEnabled,
+    setWebSearchEnabled,
+    isSearching,
   } = useStore();
 
   const { submit, stop } = useChat();
@@ -58,6 +77,7 @@ export function ChatPanel() {
   const [images, setImages] = useState<string[]>([]);
   const [rateLimitSeconds, setRateLimitSeconds] = useState(0);
   const [showScrollFab, setShowScrollFab] = useState(false);
+  const [placeholderIdx, setPlaceholderIdx] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -65,6 +85,17 @@ export function ChatPanel() {
   const usagePercent = Math.min(100, (tokenUsage / modelLimit) * 100);
   const isNearLimit = usagePercent > 80;
   const isAtLimit = usagePercent > 95;
+
+  const hasMessages = messages.length > 0;
+
+  // Rotating placeholder
+  useEffect(() => {
+    if (hasMessages || input) return;
+    const interval = setInterval(() => {
+      setPlaceholderIdx(i => (i + 1) % PLACEHOLDERS.length);
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [hasMessages, input]);
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -172,7 +203,19 @@ export function ChatPanel() {
   };
 
   const lastAssistantIndex = messages.map(m => m.role).lastIndexOf('assistant');
-  const hasMessages = messages.length > 0;
+
+  const getPhaseLabel = (phase: string, writingFile: string | null) => {
+    switch (phase) {
+      case 'writing':
+        return writingFile ? writingFile.split('/').pop() : null;
+      case 'installing':
+        return null;
+      case 'starting':
+        return null;
+      default:
+        return null;
+    }
+  };
 
   return (
     <div className="flex flex-col h-full bg-[#09090b] relative">
@@ -206,20 +249,32 @@ export function ChatPanel() {
           )}
         </div>
 
-        <button
-          onClick={handleNewProject}
-          className="flex items-center gap-1 px-2 py-1 text-xs text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.06] rounded-lg transition-all"
-          title="New Project"
-        >
-          <RiAddLine className="w-3 h-3" />
-          New
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={handleNewProject}
+            className="flex items-center gap-1 px-2 py-1 text-xs text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.06] rounded-lg transition-all"
+            title="New Project"
+          >
+            <RiAddLine className="w-3 h-3" />
+            New
+          </button>
+          {onCollapse && (
+            <Tooltip content="Collapse Chat" shortcut="\u2318B">
+              <button
+                onClick={onCollapse}
+                className="p-1.5 text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.06] rounded-lg transition-all"
+              >
+                <PanelLeftClose className="w-3.5 h-3.5" />
+              </button>
+            </Tooltip>
+          )}
+        </div>
       </div>
 
       {/* Messages area */}
       <div
         ref={scrollRef}
-        className="flex-1 min-h-0 overflow-y-auto px-3 py-3 space-y-4 scroll-smooth relative"
+        className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-3 py-3 scroll-smooth relative"
       >
         {/* Empty state */}
         {!hasMessages && (
@@ -230,11 +285,12 @@ export function ChatPanel() {
             <h3 className="text-sm font-medium text-zinc-300 mb-1">Start a conversation</h3>
             <p className="text-xs text-zinc-600 mb-5 max-w-[220px]">Describe what you want to build and I&apos;ll generate the code.</p>
             <div className="flex flex-col gap-1.5 w-full max-w-[240px]">
-              {QUICK_PROMPTS.map((text) => (
+              {QUICK_PROMPTS.map((text, index) => (
                 <button
                   key={text}
                   onClick={() => handleQuickPrompt(text)}
-                  className="w-full px-3 py-2 text-xs text-zinc-400 text-left rounded-lg bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.06] hover:border-white/[0.1] hover:text-zinc-200 transition-all"
+                  className="stagger-item w-full px-3 py-2 text-xs text-zinc-400 text-left rounded-lg bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.06] hover:border-white/[0.1] hover:text-zinc-200 transition-all"
+                  style={{ animationDelay: `${index * 75 + 200}ms` }}
                 >
                   {text}
                 </button>
@@ -244,20 +300,24 @@ export function ChatPanel() {
         )}
 
         {/* Message list */}
-        {messages.map((message, index) => (
-          <MessageBubble
-            key={message.id}
-            message={message}
-            isLastAssistant={index === lastAssistantIndex}
-            isStreaming={isStreaming}
-            onRetry={
-              index === lastAssistantIndex &&
-                (message.content.startsWith('Error:') || message.displayContent.startsWith('❌'))
-                ? handleRetry
-                : undefined
-            }
-          />
-        ))}
+        {messages.map((message, index) => {
+          const prevMessage = index > 0 ? messages[index - 1] : null;
+          const isSameRole = prevMessage && prevMessage.role === message.role;
+          return (
+            <div key={message.id} className={index === 0 ? '' : isSameRole ? 'mt-1.5' : 'mt-4'}>
+              <MessageBubble
+                message={message}
+                isLastAssistant={index === lastAssistantIndex}
+                isStreaming={isStreaming}
+                onRetry={
+                  index === lastAssistantIndex && !isStreaming && message.role === 'assistant'
+                    ? handleRetry
+                    : undefined
+                }
+              />
+            </div>
+          );
+        })}
 
         {/* Generation phase indicator (below messages, above input) */}
         {isStreaming && generationPhase !== 'idle' && (
@@ -270,8 +330,18 @@ export function ChatPanel() {
               <>
                 <RiFileCodeLine className="w-3.5 h-3.5 text-violet-400 animate-pulse" />
                 <span className="text-xs text-zinc-400">
-                  Writing <span className="text-zinc-300 font-medium">{activelyWritingFile?.split('/').pop() || 'files'}</span>...
+                  {activelyWritingFile ? (
+                    <>Writing <span className="text-zinc-300 font-medium">{activelyWritingFile.split('/').pop()}</span>...</>
+                  ) : (
+                    'Analyzing your request...'
+                  )}
                 </span>
+              </>
+            )}
+            {generationPhase === 'searching' && (
+              <>
+                <Globe className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
+                <span className="text-xs text-zinc-400">Searching the web...</span>
               </>
             )}
             {generationPhase === 'installing' && (
@@ -310,8 +380,9 @@ export function ChatPanel() {
       {/* Input area */}
       <div className="px-3 py-2.5 border-t border-white/[0.06]">
         <div className={cn(
-          'rounded-xl border border-white/[0.08] bg-white/[0.03]',
+          'rounded-xl border border-white/[0.06] bg-white/[0.03]',
           'focus-within:border-violet-500/30 focus-within:bg-white/[0.04]',
+          'focus-within:shadow-[inset_0_1px_3px_rgba(0,0,0,0.2),0_0_0_1px_rgba(124,58,237,0.15)]',
           'transition-all duration-200'
         )}>
           {/* Image Preview */}
@@ -326,23 +397,41 @@ export function ChatPanel() {
             </div>
           )}
 
-          {/* Textarea */}
-          <textarea
-            ref={textareaRef}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Describe what to build..."
-            disabled={isStreaming}
-            className={cn(
-              'w-full bg-transparent rounded-t-xl px-3.5 py-3 text-sm text-zinc-200 resize-none',
-              'focus:outline-none',
-              'placeholder:text-zinc-600',
-              'min-h-[44px] max-h-[200px]',
-              isStreaming && 'opacity-40 cursor-not-allowed'
+          {/* Textarea with rotating placeholder */}
+          <div className="relative">
+            {!hasMessages && !input && (
+              <div className="absolute inset-0 flex items-center px-3.5 py-3 pointer-events-none">
+                <AnimatePresence mode="wait">
+                  <motion.span
+                    key={placeholderIdx}
+                    initial={{ opacity: 0, y: 4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -4 }}
+                    transition={{ duration: 0.2 }}
+                    className="text-sm text-zinc-600"
+                  >
+                    {PLACEHOLDERS[placeholderIdx]}
+                  </motion.span>
+                </AnimatePresence>
+              </div>
             )}
-            rows={1}
-          />
+            <textarea
+              ref={textareaRef}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={hasMessages ? 'Describe what to build...' : ''}
+              disabled={isStreaming}
+              className={cn(
+                'w-full bg-transparent rounded-t-xl px-3.5 py-3 text-sm text-zinc-200 resize-none',
+                'focus:outline-none',
+                'placeholder:text-zinc-600',
+                'min-h-[44px] max-h-[200px]',
+                isStreaming && 'opacity-40 cursor-not-allowed'
+              )}
+              rows={1}
+            />
+          </div>
 
           {/* Bottom toolbar */}
           <div className="flex items-center justify-between px-2 py-1.5 border-t border-white/[0.04]">
@@ -356,12 +445,22 @@ export function ChatPanel() {
                 dropUp
               />
 
-              {/* Shift+Enter hint */}
-              {input.includes('\n') || input.length > 60 ? null : (
-                <span className="text-[10px] text-zinc-700 hidden sm:block">
-                  Shift+Enter for new line
-                </span>
-              )}
+              {/* Web search toggle */}
+              <Tooltip content="Web search">
+                <button
+                  onClick={() => setWebSearchEnabled(!webSearchEnabled)}
+                  className={cn(
+                    'p-1.5 rounded-lg transition-all',
+                    webSearchEnabled
+                      ? 'bg-cyan-500/15 text-cyan-400'
+                      : 'text-zinc-600 hover:text-zinc-400 hover:bg-white/[0.06]'
+                  )}
+                  title="Toggle web search"
+                >
+                  <Globe className="w-3.5 h-3.5" />
+                </button>
+              </Tooltip>
+
             </div>
 
             <div className="flex items-center gap-1.5">
@@ -398,7 +497,7 @@ export function ChatPanel() {
                   className={cn(
                     'p-2 rounded-lg transition-all',
                     input.trim() && !isRateLimited
-                      ? 'bg-violet-500 hover:bg-violet-400 text-white shadow-lg shadow-violet-500/20'
+                      ? 'bg-violet-500 hover:bg-violet-400 text-white shadow-lg shadow-violet-500/20 pulse-glow'
                       : 'bg-white/[0.04] text-zinc-600 cursor-not-allowed'
                   )}
                   title="Send message"

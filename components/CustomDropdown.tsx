@@ -51,7 +51,7 @@ export function CustomDropdown({ options, value, onChange, className, dropUp = f
                 onClick={() => setIsOpen(!isOpen)}
                 className={cn(
                     'w-full flex items-center justify-between gap-2',
-                    'bg-white/[0.04] border border-white/[0.08] rounded-lg',
+                    'bg-white/[0.04] border border-white/[0.06] rounded-lg',
                     'px-2.5 py-1.5 text-xs text-zinc-400',
                     'hover:bg-white/[0.06] hover:border-white/[0.12]',
                     'focus:outline-none focus-visible:ring-1 focus-visible:ring-violet-500/30',

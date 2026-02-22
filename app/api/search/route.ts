@@ -1,0 +1,64 @@
+import { NextRequest, NextResponse } from 'next/server';
+
+export const runtime = 'edge';
+
+export async function POST(req: NextRequest) {
+  const apiKey = process.env.TAVILY_API_KEY;
+  if (!apiKey) {
+    return NextResponse.json(
+      { error: 'TAVILY_API_KEY is not configured on the server.' },
+      { status: 500 }
+    );
+  }
+
+  let body: { query?: string; maxResults?: number };
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body.' }, { status: 400 });
+  }
+
+  const query = body.query?.trim();
+  if (!query) {
+    return NextResponse.json({ error: 'Missing "query" field.' }, { status: 400 });
+  }
+
+  const maxResults = Math.min(Math.max(body.maxResults ?? 5, 1), 10);
+
+  try {
+    const res = await fetch('https://api.tavily.com/search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        api_key: apiKey,
+        query,
+        search_depth: 'basic',
+        include_answer: true,
+        max_results: maxResults,
+      }),
+    });
+
+    if (res.status === 429) {
+      return NextResponse.json(
+        { error: 'Search rate limit exceeded. Please try again later.' },
+        { status: 429 }
+      );
+    }
+
+    if (!res.ok) {
+      const err = await res.text().catch(() => `HTTP ${res.status}`);
+      return NextResponse.json(
+        { error: `Tavily API error: ${err}` },
+        { status: res.status }
+      );
+    }
+
+    const data = await res.json();
+    return NextResponse.json(data);
+  } catch (err) {
+    return NextResponse.json(
+      { error: `Search request failed: ${(err as Error).message}` },
+      { status: 500 }
+    );
+  }
+}
