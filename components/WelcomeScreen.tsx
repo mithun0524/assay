@@ -1,7 +1,8 @@
 'use client';
 
 import { useRef, useEffect, useState, useCallback } from 'react';
-import { RiSparklingLine, RiArrowRightLine, RiGridLine, RiDownloadLine } from '@remixicon/react';
+import { RiArrowRightLine, RiGridLine, RiDownloadLine } from '@remixicon/react';
+import Image from 'next/image';
 import { useStore } from '@/lib/store';
 import { useChat } from '@/hooks/useChat';
 import { FREE_MODELS } from '@/lib/openrouter';
@@ -112,10 +113,7 @@ export function WelcomeScreen() {
             {/* Minimal top bar */}
             <div className="relative z-10 h-12 px-5 flex items-center border-b border-white/[0.06]">
                 <div className="flex items-center gap-2">
-                    <RiSparklingLine className="w-4 h-4 text-violet-400" />
-                    <span className="text-sm font-semibold text-zinc-100 tracking-tight">
-                        DevForge
-                    </span>
+                    <Image src="/logo-with-typo.png" alt="DevForge" width={100} height={24} className="h-6 w-auto" />
                 </div>
             </div>
 

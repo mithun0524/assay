@@ -1,33 +1,34 @@
 /**
  * Format AI responses for display in chat
- * Shows what was generated without showing the full code
+ * Shows compact action cards instead of raw code
  */
-
-import { BoltAction } from './streamParser';
 
 /**
- * Format the AI response for display in the chat
- * Shows summaries of actions instead of raw code
+ * Format the AI response for display in the chat.
+ * Embeds ACTION_CARD markers that MessageBubble renders as collapsible cards.
  */
 export function formatForDisplay(rawContent: string): string {
-  const lines: string[] = [];
+  const parts: string[] = [];
 
-  // Extract any text before the first action
+  // Check if there are any actions (completed or in-progress)
+  const hasAnyActions = /<boltAction/.test(rawContent);
+
+  // Extract text before the first action
   const firstActionMatch = rawContent.match(/<boltAction/);
   if (firstActionMatch && firstActionMatch.index && firstActionMatch.index > 0) {
-    const introText = rawContent.substring(0, firstActionMatch.index).trim();
+    const introText = rawContent.substring(0, firstActionMatch.index)
+      .replace(/<\/?boltArtifact[^>]*>/g, '')
+      .trim();
     if (introText) {
-      lines.push(introText);
-      lines.push('');
+      parts.push(introText);
     }
   }
 
-  // Parse all actions and create summaries
+  // Parse completed actions
   const fileActions: string[] = [];
   const shellActions: string[] = [];
   let startAction: string | null = null;
 
-  // Match all boltAction tags
   const actionRegex = /<boltAction\s+type="([^"]+)"(?:\s+filePath="([^"]+)")?>[\s\S]*?<\/boltAction>/g;
   let match;
 
@@ -37,100 +38,78 @@ export function formatForDisplay(rawContent: string): string {
     if (type === 'file' && filePath) {
       fileActions.push(filePath);
     } else if (type === 'shell') {
-      // Extract command from content
       const commandMatch = match[0].match(/>([^<]+)</);
-      if (commandMatch) {
-        shellActions.push(commandMatch[1].trim());
-      }
+      if (commandMatch) shellActions.push(commandMatch[1].trim());
     } else if (type === 'start') {
       const commandMatch = match[0].match(/>([^<]+)</);
-      if (commandMatch) {
-        startAction = commandMatch[1].trim();
+      if (commandMatch) startAction = commandMatch[1].trim();
+    }
+  }
+
+  // Also capture in-progress (unclosed) action tags for file paths
+  const pendingFileMatch = rawContent.match(/<boltAction\s+type="file"\s+filePath="([^"]+)">[^<]*$/);
+  if (pendingFileMatch && !fileActions.includes(pendingFileMatch[1])) {
+    fileActions.push(pendingFileMatch[1]);
+  }
+  const pendingShellMatch = rawContent.match(/<boltAction\s+type="shell">[^<]*$/);
+  if (pendingShellMatch) {
+    const cmdText = pendingShellMatch[0].match(/>([^<]*)$/);
+    if (cmdText && cmdText[1].trim()) shellActions.push(cmdText[1].trim());
+  }
+  const pendingStartMatch = rawContent.match(/<boltAction\s+type="start">[^<]*$/);
+  if (pendingStartMatch) {
+    const cmdText = pendingStartMatch[0].match(/>([^<]*)$/);
+    if (cmdText && cmdText[1].trim()) startAction = cmdText[1].trim();
+  }
+
+  // Build the action card data if we have any actions
+  if (hasAnyActions || fileActions.length > 0 || shellActions.length > 0 || startAction) {
+    const cardData = JSON.stringify({
+      files: fileActions,
+      commands: shellActions,
+      startCommand: startAction,
+    });
+    parts.push(`\n<!--ACTION_CARD:${cardData}-->\n`);
+  }
+
+  // Extract text after the last action (only if stream is likely done)
+  const lastCloseIdx = rawContent.lastIndexOf('</boltAction>');
+  if (lastCloseIdx !== -1) {
+    const afterActions = rawContent.substring(lastCloseIdx + '</boltAction>'.length);
+    // Only add trailing text if there's no pending action tag after the last close
+    if (!/<boltAction/.test(afterActions)) {
+      const endText = afterActions
+        .replace(/<\/?boltArtifact[^>]*>/g, '')
+        .trim();
+      if (endText) {
+        parts.push(endText);
       }
     }
   }
 
-  // Format the actions into readable summaries
-  if (fileActions.length > 0) {
-    lines.push('**Files Generated:**');
-    fileActions.forEach(file => {
-      const fileName = file.split('/').pop();
-      const fileType = getFileType(file);
-      lines.push(`   • \`${file}\``);
-    });
-    lines.push('');
-  }
-
-  if (shellActions.length > 0) {
-    lines.push('**Commands Executed:**');
-    shellActions.forEach(cmd => {
-      lines.push(`   • \`${cmd}\``);
-    });
-    lines.push('');
-  }
-
-  if (startAction) {
-    lines.push('**Dev Server:**');
-    lines.push(`   • \`${startAction}\``);
-    lines.push('');
-  }
-
-  // Extract any text after the last action
-  const lastActionMatch = rawContent.match(/<\/boltAction>/g);
-  if (lastActionMatch) {
-    const lastIndex = rawContent.lastIndexOf('</boltAction>');
-    const endText = rawContent.substring(lastIndex + '</boltAction>'.length).trim();
-    if (endText) {
-      lines.push(endText);
-    }
-  }
-
-  // If no actions were found, return the stripped content
-  if (fileActions.length === 0 && shellActions.length === 0 && !startAction) {
-    // Just remove the boltAction tags but keep explanatory text
-    return rawContent
+  // If no actions found at all, strip all bolt tags and return clean text
+  if (!hasAnyActions && fileActions.length === 0 && shellActions.length === 0 && !startAction) {
+    let cleaned = rawContent
       .replace(/<boltAction[\s\S]*?<\/boltAction>/g, '')
+      .replace(/<\/?boltAction[^>]*>/g, '')
+      .replace(/<\/?boltArtifact[^>]*>/g, '')
       .replace(/\n{3,}/g, '\n\n')
       .trim();
+
+    if (cleaned && !cleaned.match(/[.!?]\s/) && (cleaned.includes('{') || cleaned.includes('import ') || cleaned.includes('function '))) {
+      return '```\n' + cleaned + '\n```';
+    }
+
+    return cleaned;
   }
 
-  return lines.join('\n');
-}
-
-function getFileType(filePath: string): string {
-  const ext = filePath.split('.').pop()?.toLowerCase();
-  const typeMap: Record<string, string> = {
-    tsx: 'react',
-    jsx: 'react',
-    ts: 'typescript',
-    js: 'javascript',
-    css: 'style',
-    html: 'markup',
-    json: 'config',
-    md: 'markdown',
-  };
-  return typeMap[ext || ''] || 'file';
-}
-
-function getFileIcon(type: string): string {
-  const iconMap: Record<string, string> = {
-    react: '⚛️',
-    typescript: '📘',
-    javascript: '📄',
-    style: '🎨',
-    markup: '📄',
-    config: '⚙️',
-    markdown: '📝',
-    file: '📄',
-  };
-  return iconMap[type] || '📄';
+  return parts.join('\n');
 }
 
 /**
  * Extract just the planning text from the response
  */
 export function extractPlanningText(rawContent: string): string {
-  // Get text before first action
   const firstActionMatch = rawContent.match(/<boltAction/);
   if (firstActionMatch && firstActionMatch.index) {
     return rawContent.substring(0, firstActionMatch.index).trim();

@@ -13,6 +13,7 @@ export function Terminal() {
     useEffect(() => {
         let cancelled = false;
         let handleResize: (() => void) | null = null;
+        let resizeObserver: ResizeObserver | null = null;
 
         const initTerminal = async () => {
             if (!terminalRef.current) return;
@@ -70,8 +71,14 @@ export function Terminal() {
             termRef.current = term;
             setTerminalInstance(term);
 
-            handleResize = () => safeFit();
+            handleResize = safeFit;
             window.addEventListener('resize', handleResize);
+
+            // Also refit when the container itself resizes (e.g. panel collapse/expand)
+            resizeObserver = new ResizeObserver(() => {
+                if (!cancelled) safeFit();
+            });
+            resizeObserver.observe(terminalRef.current);
 
             setTimeout(() => safeFit(), 100);
         };
@@ -81,6 +88,7 @@ export function Terminal() {
         return () => {
             cancelled = true;
             if (handleResize) window.removeEventListener('resize', handleResize);
+            if (resizeObserver) resizeObserver.disconnect();
             if (termRef.current) {
                 termRef.current.dispose();
                 termRef.current = null;

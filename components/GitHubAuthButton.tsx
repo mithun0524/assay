@@ -1,98 +1,59 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { RiGithubLine, RiLogoutBoxRLine } from '@remixicon/react';
-import { useStore } from '@/lib/store';
+import { useState } from 'react';
+import { RiGithubLine, RiLogoutBoxRLine, RiLinkM } from '@remixicon/react';
 import { cn } from '@/lib/utils';
-import {
-  initiateGitHubOAuth,
-  getGitHubToken,
-  getGitHubUser,
-  setGitHubToken,
-  setGitHubUser,
-} from '@/lib/githubAuth';
-import { getGitHubUser as fetchGitHubUser } from '@/lib/github';
+import { useAuthContext } from './Providers';
+import { AuthModal } from './AuthModal';
 
 export function GitHubAuthButton() {
-  const { githubUser, setGitHubUser: setStoreGitHubUser, disconnectGitHub } = useStore();
-  const [loading, setLoading] = useState(false);
+  const { user, loading, isGitHubLinked, signOut, linkGitHub } = useAuthContext();
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [linking, setLinking] = useState(false);
 
-  // Load GitHub user from localStorage on mount
-  useEffect(() => {
-    const token = getGitHubToken();
-    const user = getGitHubUser();
-
-    if (token && user) {
-      setStoreGitHubUser(user);
+  const handleSignOut = async () => {
+    if (confirm('Sign out? You can sign back in anytime.')) {
+      await signOut();
     }
-  }, [setStoreGitHubUser]);
+  };
 
-  const handleConnect = async () => {
-    setLoading(true);
+  const handleLinkGitHub = async () => {
+    setLinking(true);
     try {
-      // For now, we'll use a personal access token approach
-      // In production, you'd use the OAuth flow
-      const token = prompt(
-        'Enter your GitHub Personal Access Token:\n\n' +
-          '1. Go to https://github.com/settings/tokens\n' +
-          '2. Click "Generate new token (classic)"\n' +
-          '3. Select "repo" scope\n' +
-          '4. Generate and copy the token'
-      );
-
-      if (!token) {
-        setLoading(false);
-        return;
-      }
-
-      // Validate token by fetching user info
-      const user = await fetchGitHubUser(token);
-
-      // Store token and user info
-      setGitHubToken(token);
-      setGitHubUser({
-        login: user.login,
-        name: user.name,
-        avatar_url: user.avatar_url,
-      });
-
-      // Update store
-      setStoreGitHubUser({
-        login: user.login,
-        name: user.name,
-        avatar_url: user.avatar_url,
-      });
-    } catch (error) {
-      console.error('GitHub auth error:', error);
-      alert(
-        'Failed to authenticate with GitHub. Please check your token and try again.'
-      );
+      await linkGitHub();
+    } catch (err) {
+      console.error('Link GitHub error:', err);
+      alert('Failed to link GitHub. Please try again.');
     } finally {
-      setLoading(false);
+      setLinking(false);
     }
   };
 
-  const handleDisconnect = () => {
-    if (confirm('Disconnect from GitHub? You can reconnect anytime.')) {
-      disconnectGitHub();
-    }
-  };
+  if (loading) {
+    return (
+      <div className="px-3 py-1.5 rounded-lg bg-zinc-800/50 animate-pulse">
+        <div className="w-16 h-4" />
+      </div>
+    );
+  }
 
-  if (githubUser) {
+  // Signed in with GitHub linked
+  if (user && isGitHubLinked) {
+    const avatarUrl = user.user_metadata?.avatar_url;
+    const name = user.user_metadata?.user_name || user.user_metadata?.full_name || user.email;
+
     return (
       <div className="flex items-center gap-2">
         <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-zinc-800/50">
-          <img
-            src={githubUser.avatar_url}
-            alt={githubUser.login}
-            className="w-5 h-5 rounded-full"
-          />
-          <span className="text-xs text-zinc-300">{githubUser.login}</span>
+          {avatarUrl && (
+            <img src={avatarUrl} alt="" className="w-5 h-5 rounded-full" />
+          )}
+          <span className="text-xs text-zinc-300">{name}</span>
         </div>
         <button
-          onClick={handleDisconnect}
+          onClick={handleSignOut}
           className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors"
-          title="Disconnect GitHub"
+          title="Sign out"
         >
           <RiLogoutBoxRLine size={16} />
         </button>
@@ -100,19 +61,57 @@ export function GitHubAuthButton() {
     );
   }
 
+  // Signed in but GitHub NOT linked (Google/Email user)
+  if (user && !isGitHubLinked) {
+    const avatarUrl = user.user_metadata?.avatar_url;
+    const name = user.user_metadata?.full_name || user.email;
+
+    return (
+      <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-zinc-800/50">
+          {avatarUrl && (
+            <img src={avatarUrl} alt="" className="w-5 h-5 rounded-full" />
+          )}
+          <span className="text-xs text-zinc-300">{name}</span>
+        </div>
+        <button
+          onClick={handleLinkGitHub}
+          disabled={linking}
+          className={cn(
+            'flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all',
+            linking
+              ? 'bg-zinc-800 text-zinc-600 cursor-not-allowed'
+              : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-zinc-100'
+          )}
+        >
+          <RiLinkM size={14} />
+          {linking ? 'Linking...' : 'Link GitHub'}
+        </button>
+        <button
+          onClick={handleSignOut}
+          className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors"
+          title="Sign out"
+        >
+          <RiLogoutBoxRLine size={16} />
+        </button>
+      </div>
+    );
+  }
+
+  // Not signed in
   return (
-    <button
-      onClick={handleConnect}
-      disabled={loading}
-      className={cn(
-        'flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all',
-        loading
-          ? 'bg-zinc-800 text-zinc-600 cursor-not-allowed'
-          : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-zinc-100'
-      )}
-    >
-      <RiGithubLine size={16} />
-      {loading ? 'Connecting...' : 'Connect GitHub'}
-    </button>
+    <>
+      <button
+        onClick={() => setShowAuthModal(true)}
+        className={cn(
+          'flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all',
+          'bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-zinc-100'
+        )}
+      >
+        <RiGithubLine size={16} />
+        Sign In
+      </button>
+      <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
+    </>
   );
 }

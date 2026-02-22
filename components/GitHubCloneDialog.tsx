@@ -2,9 +2,10 @@
 
 import { useState } from 'react';
 import { RiCloseLine, RiDownloadLine, RiErrorWarningLine } from '@remixicon/react';
+import { toast } from 'sonner';
 import { useStore } from '@/lib/store';
 import { cn } from '@/lib/utils';
-import { cloneRepository, parseGitHubUrl } from '@/lib/github';
+import { cloneRepo, parseGitHubUrl } from '@/lib/github-client';
 import { writeFileToSandbox } from '@/lib/fileSystem';
 
 interface GitHubCloneDialogProps {
@@ -37,7 +38,7 @@ export function GitHubCloneDialog({ isOpen, onClose }: GitHubCloneDialogProps) {
 
     try {
       // Clone repository
-      const files = await cloneRepository(parsed.owner, parsed.repo, branch);
+      const files = await cloneRepo(parsed.owner, parsed.repo, branch);
 
       // Clear existing project
       clearFiles();
@@ -69,7 +70,7 @@ export function GitHubCloneDialog({ isOpen, onClose }: GitHubCloneDialogProps) {
 
       // Success!
       onClose();
-      alert(`Successfully cloned ${parsed.owner}/${parsed.repo}!`);
+      toast.success(`Cloned ${parsed.owner}/${parsed.repo}`);
     } catch (err) {
       console.error('Clone error:', err);
       setError(
@@ -92,7 +93,7 @@ export function GitHubCloneDialog({ isOpen, onClose }: GitHubCloneDialogProps) {
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
 
       <div
-        className="relative w-full max-w-md rounded-2xl glass-strong border border-white/[0.08] shadow-2xl"
+        className="relative w-full max-w-md rounded-2xl glass-strong border border-white/[0.06] shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -126,7 +127,7 @@ export function GitHubCloneDialog({ isOpen, onClose }: GitHubCloneDialogProps) {
               placeholder="https://github.com/owner/repo"
               className={cn(
                 'w-full px-3 py-2 rounded-lg text-sm text-zinc-200',
-                'bg-zinc-800 border border-white/[0.08]',
+                'bg-zinc-800 border border-white/[0.06]',
                 'focus:outline-none focus:border-violet-500/40',
                 'placeholder:text-zinc-600'
               )}
@@ -145,7 +146,7 @@ export function GitHubCloneDialog({ isOpen, onClose }: GitHubCloneDialogProps) {
               placeholder="main"
               className={cn(
                 'w-full px-3 py-2 rounded-lg text-sm text-zinc-200',
-                'bg-zinc-800 border border-white/[0.08]',
+                'bg-zinc-800 border border-white/[0.06]',
                 'focus:outline-none focus:border-violet-500/40',
                 'placeholder:text-zinc-600'
               )}

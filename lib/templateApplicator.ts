@@ -50,14 +50,9 @@ export async function applyTemplate(template: Template): Promise<void> {
       store.openTab(mainFile);
     }
 
-    // Install dependencies
+    // Install dependencies (installDependencies prints its own status messages)
     store.setGenerationPhase('installing');
-    store.setSandboxStatus('installing');
-    store.appendTerminal('📦 Installing dependencies...\r\n');
-
     await installDependencies();
-
-    store.appendTerminal('✓ Dependencies installed\r\n\r\n');
 
     // Start dev server
     store.setGenerationPhase('starting');

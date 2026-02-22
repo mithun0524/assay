@@ -5,6 +5,61 @@
 import { AgentRole, AgentContext } from './types';
 
 /**
+ * Result from the LLM-based classification endpoint
+ */
+export interface ClassificationResult {
+  role: AgentRole;
+  model: string;
+  reasoning: string;
+}
+
+const VALID_ROLES: AgentRole[] = ['architect', 'coder', 'debugger', 'designer', 'tester'];
+
+/**
+ * Classify user intent via LLM. Returns null on any failure (triggers regex fallback).
+ */
+export async function classifyWithLLM(
+  userMessage: string,
+  context: AgentContext,
+  apiKey?: string | null
+): Promise<ClassificationResult | null> {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 20000);
+
+    const res = await fetch('/api/classify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: userMessage, context, apiKey }),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeout);
+
+    if (!res.ok) {
+      console.warn(`[classifyWithLLM] Server returned ${res.status}, falling back to regex`);
+      return null;
+    }
+
+    const data = await res.json();
+
+    if (!data.role || !VALID_ROLES.includes(data.role)) {
+      console.warn(`[classifyWithLLM] Invalid role "${data.role}", falling back to regex`);
+      return null;
+    }
+
+    return {
+      role: data.role,
+      model: data.model || '',
+      reasoning: data.reasoning || '',
+    };
+  } catch (err) {
+    console.warn('[classifyWithLLM] Failed, falling back to regex:', err instanceof Error ? err.message : err);
+    return null;
+  }
+}
+
+/**
  * Route to appropriate agent based on user message and context
  */
 export function routeToAgent(userMessage: string, context: AgentContext): AgentRole {

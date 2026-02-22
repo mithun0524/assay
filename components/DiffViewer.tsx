@@ -55,7 +55,7 @@ export function DiffViewer() {
       : null;
 
   return (
-    <div className="fixed inset-0 z-50 flex bg-black/70 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex bg-black/60 backdrop-blur-sm">
       {/* Sidebar */}
       <div className="w-80 border-r border-white/[0.06] bg-zinc-900 flex flex-col">
         <div className="p-4 border-b border-white/[0.06]">

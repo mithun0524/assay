@@ -1,7 +1,8 @@
 export type FileAction = { type: 'file'; filePath: string; content: string };
 export type ShellAction = { type: 'shell'; command: string };
 export type StartAction = { type: 'start'; command: string };
-export type BoltAction = FileAction | ShellAction | StartAction;
+export type SearchAction = { type: 'search'; query: string };
+export type BoltAction = FileAction | ShellAction | StartAction | SearchAction;
 
 type Callback = (action: BoltAction) => void | Promise<void>;
 
@@ -99,6 +100,8 @@ export function createStreamParser(onAction: Callback) {
       onAction({ type: 'shell', command: body.trim() });
     } else if (type === 'start') {
       onAction({ type: 'start', command: body.trim() });
+    } else if (type === 'search') {
+      onAction({ type: 'search', query: body.trim() });
     }
   }
 

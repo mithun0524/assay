@@ -5,6 +5,9 @@ import { getLanguageFromPath } from './utils';
 
 let devServerProcess: WebContainerProcess | null = null;
 
+// Mutex to prevent concurrent npm install processes from deadlocking
+let installLock: Promise<void> | null = null;
+
 export async function writeFileToSandbox(filePath: string, content: string) {
   const wc = await getWebContainer();
   const dir = filePath.split('/').slice(0, -1).join('/');
@@ -18,21 +21,34 @@ export async function writeFileToSandbox(filePath: string, content: string) {
     content,
     language: getLanguageFromPath(filePath),
   });
-
-  // Open the file in the editor so it's visible
-  store.openTab(filePath);
 }
 
-export async function runShellInSandbox(command: string): Promise<number> {
+export async function runShellInSandbox(command: string, timeoutMs = 180000): Promise<number> {
   const wc = await getWebContainer();
   const { appendTerminal } = useStore.getState();
   const [cmd, ...args] = command.trim().split(/\s+/);
   appendTerminal(`\n$ ${command}\n`);
-  const process = await wc.spawn(cmd, args);
-  process.output.pipeTo(
-    new WritableStream({ write(data) { appendTerminal(data); } })
-  );
-  return process.exit;
+  const proc = await wc.spawn(cmd, args);
+
+  const streamAbort = new AbortController();
+  proc.output.pipeTo(
+    new WritableStream({ write(data) { appendTerminal(data); } }),
+    { signal: streamAbort.signal }
+  ).catch(() => {});
+
+  const exitCode = await Promise.race([
+    proc.exit,
+    new Promise<number>((resolve) =>
+      setTimeout(() => {
+        streamAbort.abort();
+        proc.kill();
+        appendTerminal(`\n⚠️ Command timed out after ${timeoutMs / 1000}s: ${command}\n`);
+        resolve(1);
+      }, timeoutMs)
+    ),
+  ]);
+
+  return exitCode;
 }
 
 export async function stopDevServer() {
@@ -44,27 +60,54 @@ export async function stopDevServer() {
   }
 }
 
-export async function installDependencies() {
+export async function installDependencies(retries = 2) {
+  // If an install is already running, wait for it instead of starting a second one.
+  // Two concurrent `npm install` processes in the same WebContainer deadlock on the
+  // node_modules lock — this was the root cause of the infinite-hang bug.
+  if (installLock) {
+    await installLock;
+    return;
+  }
+
+  let unlock: () => void;
+  installLock = new Promise<void>((resolve) => { unlock = resolve; });
+
   const wc = await getWebContainer();
   const { appendTerminal, setSandboxStatus } = useStore.getState();
 
   setSandboxStatus('installing');
   appendTerminal('\n📦 Installing dependencies...\n');
 
-  const process = await wc.spawn('npm', ['install']);
+  try {
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      if (attempt > 0) {
+        appendTerminal(`\n🔄 Retrying installation (attempt ${attempt + 1}/${retries + 1})...\n`);
+        // Brief pause before retry to let the container settle
+        await new Promise((r) => setTimeout(r, 2000));
+      }
 
-  process.output.pipeTo(
-    new WritableStream({ write: (data) => appendTerminal(data) })
-  );
+      const proc = await wc.spawn('npm', ['install']);
 
-  const exitCode = await process.exit;
-  if (exitCode !== 0) {
-    appendTerminal(`\n❌ Installation failed with code ${exitCode}\n`);
+      proc.output.pipeTo(
+        new WritableStream({ write: (data) => appendTerminal(data) })
+      ).catch(() => {});
+
+      const exitCode = await proc.exit;
+
+      if (exitCode === 0) {
+        appendTerminal('\n✅ Dependencies installed\n');
+        setSandboxStatus('idle');
+        return;
+      }
+
+      appendTerminal(`\n❌ Installation failed with code ${exitCode}\n`);
+    }
+
     setSandboxStatus('error');
     throw new Error('Installation failed');
-  } else {
-    appendTerminal('\n✅ Dependencies installed\n');
-    setSandboxStatus('idle');
+  } finally {
+    installLock = null;
+    unlock!();
   }
 }
 
