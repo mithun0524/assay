@@ -89,19 +89,19 @@ export function Header({ onOpenProjects, onOpenShortcuts }: HeaderProps) {
       <header className="h-11 shrink-0 px-4 flex items-center justify-between glass border-b-0 z-20 relative"
       >
         <div className="flex items-center gap-3">
+          <div className="flex items-center">
+            <Image src="/logo-with-typo.png" alt="DevForge" width={100} height={24} className="h-6 w-auto" />
+          </div>
           {onOpenProjects && (
             <Tooltip content="Projects">
               <button
                 onClick={onOpenProjects}
-                className="p-1.5 -ml-1.5 text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.06] rounded-lg transition-colors"
+                className="p-1.5 text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.06] rounded-lg transition-colors"
               >
                 <RiFolderLine className="w-4 h-4" />
               </button>
             </Tooltip>
           )}
-          <div className="flex items-center">
-            <Image src="/logo-with-typo.png" alt="DevForge" width={100} height={24} className="h-6 w-auto" />
-          </div>
         </div>
 
         <div className={cn('flex items-center gap-1.5 text-xs', config.color)}>

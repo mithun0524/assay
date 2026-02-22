@@ -51,11 +51,32 @@ export async function requireAuth(): Promise<AuthResult> {
 
 /* ── CSRF origin check ───────────────────────────── */
 
-const ALLOWED_ORIGINS = new Set([
-  process.env.NEXT_PUBLIC_APP_URL,
-  'http://localhost:3000',
-  'http://localhost:3001',
-].filter(Boolean));
+/**
+ * Build the allowed origins set at request time so env vars
+ * that are injected at runtime (e.g. on Vercel) are included.
+ */
+function getAllowedOrigins(request: NextRequest): Set<string> {
+  const origins: string[] = [
+    'http://localhost:3000',
+    'http://localhost:3001',
+  ];
+
+  // The app's own origin derived from the incoming request
+  try {
+    const requestOrigin = new URL(request.url).origin;
+    origins.push(requestOrigin);
+  } catch { /* ignore */ }
+
+  // Explicitly configured app URL
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+  if (appUrl) {
+    try {
+      origins.push(new URL(appUrl).origin);
+    } catch { /* ignore malformed */ }
+  }
+
+  return new Set(origins);
+}
 
 /**
  * For state-changing requests (POST / PUT / DELETE) verify that the
@@ -71,20 +92,22 @@ export function checkCsrf(request: NextRequest): NextResponse | null {
   const origin = request.headers.get('origin');
   const referer = request.headers.get('referer');
 
-  // If both are absent this is likely a server-to-server or same-origin fetch
+  // If both are absent this is likely a same-origin fetch
   // (browsers always send Origin on cross-origin POST).
   if (!origin && !referer) {
     return null;
   }
 
-  if (origin && ALLOWED_ORIGINS.has(origin)) {
+  const allowed = getAllowedOrigins(request);
+
+  if (origin && allowed.has(origin)) {
     return null;
   }
 
   if (referer) {
     try {
       const refOrigin = new URL(referer).origin;
-      if (ALLOWED_ORIGINS.has(refOrigin)) {
+      if (allowed.has(refOrigin)) {
         return null;
       }
     } catch { /* malformed referer — fall through */ }
