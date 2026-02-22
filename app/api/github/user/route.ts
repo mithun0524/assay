@@ -1,20 +1,22 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getGitHubUser } from '@/lib/github-server';
-import { createClient } from '@/lib/supabase/server';
+import { requireAuth, rateLimit, safeError } from '@/lib/api-auth';
 
-export async function GET() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+export async function GET(request: NextRequest) {
+  const rl = rateLimit(request, { windowMs: 60_000, max: 30 });
+  if (rl) return rl;
 
-  if (!user) {
-    return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
-  }
+  const { error: authErr } = await requireAuth();
+  if (authErr) return authErr;
 
   try {
     const githubUser = await getGitHubUser();
     return NextResponse.json(githubUser);
-  } catch (err: any) {
-    const status = err.message?.includes('not linked') ? 403 : 500;
-    return NextResponse.json({ error: err.message }, { status });
+  } catch (err) {
+    const msg = err instanceof Error && err.message?.includes('not linked')
+      ? 'GitHub account not linked'
+      : safeError(err, 'Failed to get GitHub user');
+    const status = msg.includes('not linked') ? 403 : 500;
+    return NextResponse.json({ error: msg }, { status });
   }
 }

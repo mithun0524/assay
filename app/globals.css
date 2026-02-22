@@ -641,3 +641,26 @@ textarea:focus {
 .status-ring {
   animation: ring-expand 0.6s ease-out forwards;
 }
+
+/* ─── Marquee ─── */
+@keyframes marquee {
+  0% {
+    transform: translateX(0);
+  }
+
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.marquee {
+  animation: marquee 20s linear infinite;
+}
+
+.marquee-slow {
+  animation: marquee 30s linear infinite;
+}
+
+.marquee-slow:hover {
+  animation-play-state: paused;
+}

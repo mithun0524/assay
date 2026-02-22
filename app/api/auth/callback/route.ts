@@ -2,10 +2,24 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 
+/** Allowlisted internal redirect paths after auth. */
+const ALLOWED_NEXT_PATHS = ['/app', '/landing', '/'];
+
+function sanitizeNext(raw: string | null): string {
+  if (!raw) return '/app';
+  // Must be a relative path starting with / and NOT starting with //
+  if (!raw.startsWith('/') || raw.startsWith('//')) return '/app';
+  // Only allow known safe prefixes
+  if (ALLOWED_NEXT_PATHS.some((p) => raw === p || raw.startsWith(p + '/'))) {
+    return raw;
+  }
+  return '/app';
+}
+
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get('code');
-  const next = searchParams.get('next') ?? '/';
+  const next = sanitizeNext(searchParams.get('next'));
 
   if (!code) {
     return NextResponse.redirect(`${origin}/?auth_error=missing_code`);

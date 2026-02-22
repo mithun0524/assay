@@ -2,9 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import {
-  RiGithubLine,
   RiLoader4Line,
-  RiSparklingLine,
   RiSettings3Line,
   RiDownloadLine,
   RiFolderLine,
@@ -14,6 +12,7 @@ import {
   RiPaletteLine,
 } from '@remixicon/react';
 import { Keyboard } from 'lucide-react';
+import Image from 'next/image';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useStore } from '@/lib/store';
 import { cn } from '@/lib/utils';
@@ -100,11 +99,8 @@ export function Header({ onOpenProjects, onOpenShortcuts }: HeaderProps) {
               </button>
             </Tooltip>
           )}
-          <div className="flex items-center gap-2">
-            <RiSparklingLine className="w-3.5 h-3.5 text-violet-400" />
-            <span className="text-sm font-semibold text-zinc-100 tracking-tight">
-              DevForge
-            </span>
+          <div className="flex items-center">
+            <Image src="/logo-with-typo.png" alt="DevForge" width={100} height={24} className="h-6 w-auto" />
           </div>
         </div>
 

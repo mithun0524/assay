@@ -5,8 +5,22 @@
 
 import type { FileEntry } from './store';
 
-// Re-export parseGitHubUrl — purely client-side, no auth needed
-export { parseGitHubUrl } from './github';
+/**
+ * Parse a GitHub URL to extract owner and repo.
+ */
+export function parseGitHubUrl(url: string): { owner: string; repo: string } | null {
+  const patterns = [
+    /github\.com\/([^\/]+)\/([^\/]+)/,
+    /github\.com\/([^\/]+)\/([^\/\.]+)\.git/,
+  ];
+  for (const pattern of patterns) {
+    const match = url.match(pattern);
+    if (match) {
+      return { owner: match[1], repo: match[2].replace('.git', '') };
+    }
+  }
+  return null;
+}
 
 export async function fetchGitHubUser() {
   const res = await fetch('/api/github/user');

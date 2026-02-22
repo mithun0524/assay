@@ -7,7 +7,6 @@ import {
   RiAddLine,
   RiTimeLine,
   RiArrowDownLine,
-  RiSparklingLine,
   RiRobot2Line,
   RiFileCodeLine,
   RiArchiveLine,
@@ -15,6 +14,7 @@ import {
   RiCheckboxCircleLine,
 } from '@remixicon/react';
 import { PanelLeftClose, Package, Rocket, Plus, Globe } from 'lucide-react';
+import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useStore } from '@/lib/store';
 import { useChat } from '@/hooks/useChat';
@@ -280,7 +280,7 @@ export function ChatPanel({ onCollapse }: ChatPanelProps) {
         {!hasMessages && (
           <div className="h-full flex flex-col items-center justify-center text-center px-4">
             <div className="w-10 h-10 rounded-xl bg-violet-500/10 flex items-center justify-center mb-4">
-              <RiSparklingLine className="w-5 h-5 text-violet-400" />
+              <Image src="/logo.png" alt="DevForge" width={20} height={20} className="w-5 h-5" />
             </div>
             <h3 className="text-sm font-medium text-zinc-300 mb-1">Start a conversation</h3>
             <p className="text-xs text-zinc-600 mb-5 max-w-[220px]">Describe what you want to build and I&apos;ll generate the code.</p>

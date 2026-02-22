@@ -38,7 +38,26 @@ export async function middleware(request: NextRequest) {
   );
 
   // Refresh the session — this keeps the auth cookie alive
-  await supabase.auth.getUser();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  const { pathname } = request.nextUrl;
+
+  // Public routes — accessible without auth
+  const isPublicRoute = pathname === '/' || pathname === '/login' || pathname === '/landing' || pathname.startsWith('/api/auth');
+
+  // Unauthenticated users can only access public routes
+  if (!user && !isPublicRoute) {
+    const loginUrl = request.nextUrl.clone();
+    loginUrl.pathname = '/login';
+    return NextResponse.redirect(loginUrl);
+  }
+
+  // Authenticated users shouldn't see the login page — send to app
+  if (user && pathname === '/login') {
+    const appUrl = request.nextUrl.clone();
+    appUrl.pathname = '/app';
+    return NextResponse.redirect(appUrl);
+  }
 
   return supabaseResponse;
 }

@@ -154,6 +154,11 @@ type AppStore = {
   setDesignMode: (enabled: boolean) => void;
   inspectedElement: any | null;
   setInspectedElement: (element: any | null) => void;
+
+  vercelProjectId: string | null;
+  setVercelProjectId: (id: string | null) => void;
+  lastDeployUrl: string | null;
+  setLastDeployUrl: (url: string | null) => void;
 };
 
 const actionHistory = new ActionHistory();
@@ -470,4 +475,9 @@ export const useStore = create<AppStore>((set) => ({
   setDesignMode: (enabled) => set({ designMode: enabled }),
   inspectedElement: null,
   setInspectedElement: (element) => set({ inspectedElement: element }),
+
+  vercelProjectId: null,
+  setVercelProjectId: (id) => set({ vercelProjectId: id }),
+  lastDeployUrl: null,
+  setLastDeployUrl: (url) => set({ lastDeployUrl: url }),
 }));

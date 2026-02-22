@@ -4,8 +4,19 @@ import { NextRequest } from 'next/server';
 import { SYSTEM_PROMPT } from '@/lib/systemPrompt';
 import { OPENROUTER_BASE_URL } from '@/lib/openrouter';
 import { createClient } from '@/lib/supabase/server';
+import { requireAuth, checkCsrf, rateLimit } from '@/lib/api-auth';
 
 export async function POST(req: NextRequest) {
+  // ── Security guards ──
+  const csrfBlock = checkCsrf(req);
+  if (csrfBlock) return csrfBlock;
+
+  const rl = rateLimit(req, { windowMs: 60_000, max: 30 });
+  if (rl) return rl;
+
+  const { user, error: authErr } = await requireAuth();
+  if (authErr) return authErr;
+
   const {
     messages,
     model,
@@ -21,19 +32,16 @@ export async function POST(req: NextRequest) {
   if (!resolvedKey) {
     try {
       const supabase = await createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data: secrets } = await supabase
-          .from('user_secrets')
-          .select('openrouter_key')
-          .eq('user_id', user.id)
-          .single();
-        if (secrets?.openrouter_key) {
-          resolvedKey = secrets.openrouter_key;
-        }
+      const { data: secrets } = await supabase
+        .from('user_secrets')
+        .select('openrouter_key')
+        .eq('user_id', user.id)
+        .single();
+      if (secrets?.openrouter_key) {
+        resolvedKey = secrets.openrouter_key;
       }
     } catch {
-      // Not authenticated or DB error — fall through to client key
+      // DB error — fall through to client key
     }
   }
 
@@ -83,7 +91,6 @@ export async function POST(req: NextRequest) {
   try {
     const result = await streamText({
       // CRITICAL: Use .chat() to force the Chat Completions API (/v1/chat/completions).
-      // The default openrouter() uses the Responses API (/v1/responses) which OpenRouter doesn't support.
       model: openrouter.chat(model ?? 'stepfun/step-3.5-flash:free'),
       system: systemPrompt,
       messages: sanitizedMessages,
@@ -92,8 +99,7 @@ export async function POST(req: NextRequest) {
 
     return result.toTextStreamResponse();
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Unknown error';
-    // Handle rate limit
+    const message = err instanceof Error ? err.message : '';
     if (message.includes('429')) {
       return new Response(
         JSON.stringify({ error: 'Rate limit hit. Please wait 10 seconds and try again.' }),
@@ -101,7 +107,7 @@ export async function POST(req: NextRequest) {
       );
     }
     return new Response(
-      JSON.stringify({ error: message }),
+      JSON.stringify({ error: 'Chat request failed. Please try again.' }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     );
   }

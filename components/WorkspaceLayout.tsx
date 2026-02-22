@@ -137,14 +137,9 @@ export function WorkspaceLayout() {
         .catch(console.error);
     }
 
-    fetch('/api/user/secrets')
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (data?.openrouterKey) {
-          useStore.getState().setApiKey(data.openrouterKey);
-        }
-      })
-      .catch(console.error);
+    // Secrets are resolved server-side; no need to fetch the full key to the client.
+    // The apiKey in the store is only used as a client-provided fallback and is
+    // hydrated from localStorage by the store initialiser.
   }, [user, isGitHubLinked]);
 
   // Track whether user has a project (files or messages)

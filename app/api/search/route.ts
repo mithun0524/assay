@@ -1,12 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
-
-export const runtime = 'edge';
+import { requireAuth, checkCsrf, rateLimit } from '@/lib/api-auth';
 
 export async function POST(req: NextRequest) {
+  // ── Security guards ──
+  const csrfBlock = checkCsrf(req);
+  if (csrfBlock) return csrfBlock;
+
+  const rl = rateLimit(req, { windowMs: 60_000, max: 20 });
+  if (rl) return rl;
+
+  const { error: authErr } = await requireAuth();
+  if (authErr) return authErr;
+
   const apiKey = process.env.TAVILY_API_KEY;
   if (!apiKey) {
     return NextResponse.json(
-      { error: 'TAVILY_API_KEY is not configured on the server.' },
+      { error: 'Search is not configured on the server.' },
       { status: 500 }
     );
   }
@@ -46,18 +55,17 @@ export async function POST(req: NextRequest) {
     }
 
     if (!res.ok) {
-      const err = await res.text().catch(() => `HTTP ${res.status}`);
       return NextResponse.json(
-        { error: `Tavily API error: ${err}` },
+        { error: 'Search request failed. Please try again.' },
         { status: res.status }
       );
     }
 
     const data = await res.json();
     return NextResponse.json(data);
-  } catch (err) {
+  } catch {
     return NextResponse.json(
-      { error: `Search request failed: ${(err as Error).message}` },
+      { error: 'Search request failed. Please try again.' },
       { status: 500 }
     );
   }

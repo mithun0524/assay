@@ -18,7 +18,10 @@ export async function POST() {
   });
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
+    return NextResponse.json(
+      { error: 'Failed to initiate GitHub linking' },
+      { status: 400 },
+    );
   }
 
   return NextResponse.json({ url: data.url });

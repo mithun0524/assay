@@ -3,6 +3,7 @@ import { generateText } from 'ai';
 import { NextRequest } from 'next/server';
 import { OPENROUTER_BASE_URL } from '@/lib/openrouter';
 import { createClient } from '@/lib/supabase/server';
+import { requireAuth, checkCsrf, rateLimit } from '@/lib/api-auth';
 
 const VALID_ROLES = ['architect', 'coder', 'debugger', 'designer', 'tester'] as const;
 type Role = (typeof VALID_ROLES)[number];
@@ -53,6 +54,16 @@ function classifyLocally(message: string, context: { hasProject: boolean; hasErr
 }
 
 export async function POST(req: NextRequest) {
+  // ── Security guards ──
+  const csrfBlock = checkCsrf(req);
+  if (csrfBlock) return csrfBlock;
+
+  const rl = rateLimit(req, { windowMs: 60_000, max: 60 });
+  if (rl) return rl;
+
+  const { user, error: authErr } = await requireAuth();
+  if (authErr) return authErr;
+
   const { message, context, apiKey: clientKey } = await req.json();
 
   let resolvedKey = process.env.OPENROUTER_API_KEY || '';
@@ -60,16 +71,13 @@ export async function POST(req: NextRequest) {
   if (!resolvedKey) {
     try {
       const supabase = await createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data: secrets } = await supabase
-          .from('user_secrets')
-          .select('openrouter_key')
-          .eq('user_id', user.id)
-          .single();
-        if (secrets?.openrouter_key) {
-          resolvedKey = secrets.openrouter_key;
-        }
+      const { data: secrets } = await supabase
+        .from('user_secrets')
+        .select('openrouter_key')
+        .eq('user_id', user.id)
+        .single();
+      if (secrets?.openrouter_key) {
+        resolvedKey = secrets.openrouter_key;
       }
     } catch {
       // fall through
@@ -111,30 +119,22 @@ Message: "${String(message).slice(0, 300)}"`;
       if (!text) continue;
 
       const jsonMatch = text.match(/\{[\s\S]*?"role"\s*:\s*"([^"]*)"[\s\S]*?\}/);
-      if (!jsonMatch) {
-        console.warn(`[classify] No JSON from ${classifierModel}:`, text);
-        continue;
-      }
+      if (!jsonMatch) continue;
 
       const parsed = JSON.parse(jsonMatch[0]);
-      if (!VALID_ROLES.includes(parsed.role)) {
-        console.warn(`[classify] Invalid role "${parsed.role}" from ${classifierModel}`);
-        continue;
-      }
+      if (!VALID_ROLES.includes(parsed.role)) continue;
 
       return Response.json({
         role: parsed.role,
         model: parsed.model || 'arcee-ai/trinity-large-preview:free',
         reasoning: parsed.reasoning || '',
       });
-    } catch (err) {
-      console.warn(`[classify] ${classifierModel} failed:`, err instanceof Error ? err.message : err);
+    } catch {
       continue;
     }
   }
 
   // All LLM attempts failed — deterministic fallback
-  console.warn('[classify] All models failed, using local fallback');
   const local = classifyLocally(message, context);
   return Response.json(local);
 }

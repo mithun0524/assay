@@ -1,108 +1,107 @@
 /**
- * Deployment utilities for one-click deployment
+ * Deployment types and utilities for one-click Vercel deployment.
  */
 
-import { FileEntry } from './store';
+import type { FileEntry } from './store';
 
-export type DeployProvider = 'vercel' | 'netlify' | 'cloudflare';
+export type DeploymentStatus = 'QUEUED' | 'BUILDING' | 'READY' | 'ERROR' | 'CANCELED';
 
-export type Deployment = {
+export type DeploymentResult = {
   id: string;
-  provider: DeployProvider;
   url: string;
-  status: 'pending' | 'building' | 'success' | 'error';
-  timestamp: number;
+  readyState: DeploymentStatus;
+  projectId: string;
   error?: string;
 };
 
+export type FrameworkType = 'nextjs' | 'vite' | 'create-react-app' | null;
+
+const EXCLUDED_DIRS = new Set([
+  'node_modules',
+  '.next',
+  '.git',
+  'dist',
+  'build',
+  '.cache',
+  '.turbo',
+  '.vercel',
+  'coverage',
+]);
+
+const EXCLUDED_FILES = new Set([
+  '.DS_Store',
+  'Thumbs.db',
+  '.env',
+  '.env.local',
+  '.env.production',
+  '.env.development',
+]);
+
 /**
- * Deploy to Vercel using their public API
- * Note: This is a simplified implementation
- * For production, users would need to connect their Vercel account
+ * Filter files to only those suitable for deployment.
+ * Strips node_modules, .next, .git, dist, build, .cache, .env*, etc.
+ * Keeps package-lock.json and all source/config files.
  */
-export async function deployToVercel(
-  files: Record<string, FileEntry>,
-  projectName: string
-): Promise<{ url: string; deploymentId: string }> {
-  // In a real implementation, this would:
-  // 1. Create a tarball of the files
-  // 2. Upload to Vercel's deployment API
-  // 3. Return the deployment URL
+export function filterDeployableFiles(
+  files: Record<string, FileEntry>
+): Record<string, FileEntry> {
+  const result: Record<string, FileEntry> = {};
 
-  // For now, we'll direct users to Vercel's import from GitHub flow
-  const githubUrl = prompt(
-    'To deploy to Vercel:\n\n' +
-      '1. First push your project to GitHub\n' +
-      '2. Then visit vercel.com/new\n' +
-      '3. Import your GitHub repository\n\n' +
-      'Would you like to open Vercel now? (Enter "yes" to continue)'
-  );
+  for (const [path, entry] of Object.entries(files)) {
+    const parts = path.split('/');
 
-  if (githubUrl?.toLowerCase() === 'yes') {
-    window.open('https://vercel.com/new', '_blank');
+    // Skip if any directory segment is in the exclusion list
+    const hasExcludedDir = parts.some((part) => EXCLUDED_DIRS.has(part));
+    if (hasExcludedDir) continue;
+
+    // Skip excluded files
+    const fileName = parts[parts.length - 1];
+    if (EXCLUDED_FILES.has(fileName)) continue;
+
+    // Skip any .env* file pattern
+    if (fileName.startsWith('.env')) continue;
+
+    result[path] = entry;
   }
 
-  throw new Error(
-    'Please push to GitHub first, then deploy via vercel.com/new'
-  );
+  return result;
 }
 
 /**
- * Deploy to Netlify
+ * Detect the framework from package.json dependencies.
  */
-export async function deployToNetlify(
-  files: Record<string, FileEntry>,
-  projectName: string
-): Promise<{ url: string; deploymentId: string }> {
-  // Similar to Vercel, direct users to Netlify's import flow
-  const response = prompt(
-    'To deploy to Netlify:\n\n' +
-      '1. First push your project to GitHub\n' +
-      '2. Then visit app.netlify.com/start\n' +
-      '3. Import your GitHub repository\n\n' +
-      'Would you like to open Netlify now? (Enter "yes" to continue)'
-  );
+export function detectFramework(
+  files: Record<string, FileEntry>
+): FrameworkType {
+  const pkgFile = files['package.json'];
+  if (!pkgFile) return null;
 
-  if (response?.toLowerCase() === 'yes') {
-    window.open('https://app.netlify.com/start', '_blank');
+  try {
+    const pkg = JSON.parse(pkgFile.content);
+    const allDeps = {
+      ...pkg.dependencies,
+      ...pkg.devDependencies,
+    };
+
+    if (allDeps['next']) return 'nextjs';
+    if (allDeps['vite']) return 'vite';
+    if (allDeps['react-scripts']) return 'create-react-app';
+  } catch {
+    // Invalid package.json
   }
 
-  throw new Error(
-    'Please push to GitHub first, then deploy via app.netlify.com/start'
-  );
+  return null;
 }
 
 /**
- * Deploy to Cloudflare Pages
+ * Sanitize a project name for Vercel.
+ * Lowercase, replace non-alphanumeric with hyphens, max 52 chars.
  */
-export async function deployToCloudflare(
-  files: Record<string, FileEntry>,
-  projectName: string
-): Promise<{ url: string; deploymentId: string }> {
-  // Similar to others, direct users to Cloudflare's import flow
-  const response = prompt(
-    'To deploy to Cloudflare Pages:\n\n' +
-      '1. First push your project to GitHub\n' +
-      '2. Then visit dash.cloudflare.com/pages\n' +
-      '3. Create a new project and connect your GitHub repository\n\n' +
-      'Would you like to open Cloudflare Pages now? (Enter "yes" to continue)'
-  );
-
-  if (response?.toLowerCase() === 'yes') {
-    window.open('https://dash.cloudflare.com/', '_blank');
-  }
-
-  throw new Error(
-    'Please push to GitHub first, then deploy via dash.cloudflare.com/pages'
-  );
-}
-
-/**
- * Helper function to generate deployment-ready build
- * Runs build command in WebContainer and returns build output
- */
-export async function buildProject(): Promise<boolean> {
-  // This would integrate with WebContainer to run npm run build
-  // For now, it's a placeholder
-  return true;
+export function sanitizeProjectName(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9-]/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 52);
 }
