@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { X, Folder, Plus, Trash2, Clock, Check } from 'lucide-react';
+import { RiCloseLine, RiFolderLine, RiAddLine, RiDeleteBinLine, RiTimeLine, RiCheckLine } from '@remixicon/react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { getAllProjects, deleteProject, createNewProject } from '@/lib/db';
@@ -85,7 +85,7 @@ export function ProjectSidebar({ isOpen, onClose, onSelectProject, onNewProject 
                         onClick={onClose}
                         className="p-1.5 text-zinc-400 hover:text-white hover:bg-white/[0.06] rounded-lg transition-colors"
                     >
-                        <X className="w-4 h-4" />
+                        <RiCloseLine className="w-4 h-4" />
                     </button>
                 </div>
 
@@ -109,7 +109,7 @@ export function ProjectSidebar({ isOpen, onClose, onSelectProject, onNewProject 
                                     "p-2 rounded-lg",
                                     currentProjectId === project.id ? "bg-violet-500/20 text-violet-300" : "bg-white/[0.06] text-zinc-400 group-hover:text-zinc-200"
                                 )}>
-                                    <Folder className="w-4 h-4" />
+                                    <RiFolderLine className="w-4 h-4" />
                                 </div>
                                 <div className="flex flex-col min-w-0">
                                     <span className={cn(
@@ -119,7 +119,7 @@ export function ProjectSidebar({ isOpen, onClose, onSelectProject, onNewProject 
                                         {project.name}
                                     </span>
                                     <div className="flex items-center gap-1.5 text-[10px] text-zinc-500">
-                                        <Clock className="w-3 h-3" />
+                                        <RiTimeLine className="w-3 h-3" />
                                         <span>{new Date(project.lastModified).toLocaleDateString()}</span>
                                     </div>
                                 </div>
@@ -127,7 +127,7 @@ export function ProjectSidebar({ isOpen, onClose, onSelectProject, onNewProject 
 
                             {currentProjectId === project.id && (
                                 <div className="text-violet-400">
-                                    <Check className="w-4 h-4" />
+                                    <RiCheckLine className="w-4 h-4" />
                                 </div>
                             )}
 
@@ -136,7 +136,7 @@ export function ProjectSidebar({ isOpen, onClose, onSelectProject, onNewProject 
                                 className="opacity-0 group-hover:opacity-100 p-1.5 text-zinc-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all"
                                 title="Delete project"
                             >
-                                <Trash2 className="w-4 h-4" />
+                                <RiDeleteBinLine className="w-4 h-4" />
                             </button>
                         </div>
                     ))}
@@ -156,7 +156,7 @@ export function ProjectSidebar({ isOpen, onClose, onSelectProject, onNewProject 
                         }}
                         className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-white/[0.06] hover:bg-white/[0.09] text-zinc-200 text-sm font-medium rounded-xl border border-white/[0.06] transition-all"
                     >
-                        <Plus className="w-4 h-4" />
+                        <RiAddLine className="w-4 h-4" />
                         New Project
                     </button>
                 </div>

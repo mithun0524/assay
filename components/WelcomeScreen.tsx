@@ -1,12 +1,16 @@
 'use client';
 
 import { useRef, useEffect, useState, useCallback } from 'react';
-import { ArrowRight, Sparkles } from 'lucide-react';
+import { RiSparklingLine, RiArrowRightLine, RiGridLine, RiDownloadLine } from '@remixicon/react';
 import { useStore } from '@/lib/store';
 import { useChat } from '@/hooks/useChat';
 import { FREE_MODELS } from '@/lib/openrouter';
 import { CustomDropdown } from './CustomDropdown';
 import { cn } from '@/lib/utils';
+import { TemplateGallery } from './TemplateGallery';
+import { Template } from '@/lib/templates';
+import { applyTemplate } from '@/lib/templateApplicator';
+import { GitHubCloneDialog } from './GitHubCloneDialog';
 
 const SUGGESTIONS = [
     'A task management app with drag-and-drop',
@@ -31,6 +35,9 @@ export function WelcomeScreen() {
     const [promptIndex, setPromptIndex] = useState(0);
     const [charIndex, setCharIndex] = useState(0);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [showTemplateGallery, setShowTemplateGallery] = useState(false);
+    const [showCloneDialog, setShowCloneDialog] = useState(false);
+    const [applyingTemplate, setApplyingTemplate] = useState(false);
 
     useEffect(() => {
         textareaRef.current?.focus();
@@ -86,6 +93,17 @@ export function WelcomeScreen() {
         submit(text);
     };
 
+    const handleTemplateSelect = async (template: Template) => {
+        setApplyingTemplate(true);
+        try {
+            await applyTemplate(template);
+        } catch (error) {
+            console.error('Failed to apply template:', error);
+        } finally {
+            setApplyingTemplate(false);
+        }
+    };
+
     return (
         <div className="h-screen w-screen flex flex-col relative overflow-hidden">
             {/* Animated gradient mesh background */}
@@ -94,7 +112,7 @@ export function WelcomeScreen() {
             {/* Minimal top bar */}
             <div className="relative z-10 h-12 px-5 flex items-center border-b border-white/[0.06]">
                 <div className="flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-violet-400" />
+                    <RiSparklingLine className="w-4 h-4 text-violet-400" />
                     <span className="text-sm font-semibold text-zinc-100 tracking-tight">
                         DevForge
                     </span>
@@ -155,7 +173,7 @@ export function WelcomeScreen() {
                                 )}
                             >
                                 Start
-                                <ArrowRight className="w-3.5 h-3.5" />
+                                <RiArrowRightLine className="w-3.5 h-3.5" />
                             </button>
                         </div>
                     </div>
@@ -178,8 +196,55 @@ export function WelcomeScreen() {
                             </button>
                         ))}
                     </div>
+
+                    {/* Template and Clone buttons */}
+                    <div className="mt-8 text-center">
+                        <p className="text-xs text-zinc-500 mb-3">Or start from a template or GitHub repo</p>
+                        <div className="flex gap-3 justify-center">
+                            <button
+                                onClick={() => setShowTemplateGallery(true)}
+                                disabled={applyingTemplate}
+                                className={cn(
+                                    'inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium',
+                                    'glass glow-hover',
+                                    'text-zinc-300 hover:text-zinc-100',
+                                    'animate-fade-up delay-500',
+                                    applyingTemplate && 'opacity-50 cursor-not-allowed'
+                                )}
+                            >
+                                <RiGridLine className="w-4 h-4" />
+                                {applyingTemplate ? 'Loading Template...' : 'Browse Templates'}
+                            </button>
+                            <button
+                                onClick={() => setShowCloneDialog(true)}
+                                className={cn(
+                                    'inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium',
+                                    'glass glow-hover',
+                                    'text-zinc-300 hover:text-zinc-100',
+                                    'animate-fade-up delay-600'
+                                )}
+                            >
+                                <RiDownloadLine className="w-4 h-4" />
+                                Clone from GitHub
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
+
+            {/* Template Gallery Modal */}
+            {showTemplateGallery && (
+                <TemplateGallery
+                    onSelectTemplate={handleTemplateSelect}
+                    onClose={() => setShowTemplateGallery(false)}
+                />
+            )}
+
+            {/* Clone Dialog */}
+            <GitHubCloneDialog
+                isOpen={showCloneDialog}
+                onClose={() => setShowCloneDialog(false)}
+            />
         </div>
     );
 }

@@ -2,14 +2,32 @@
 
 import { useCallback, useRef } from 'react';
 import { useStore } from '@/lib/store';
-import { createStreamParser, stripActions } from '@/lib/streamParser';
+import { createStreamParser } from '@/lib/streamParser';
+import { formatForDisplay } from '@/lib/displayFormatter';
 import { writeFileToSandbox, runShellInSandbox, startDevServerInSandbox } from '@/lib/fileSystem';
 import type { Message } from '@/lib/store';
 import { SYSTEM_PROMPT } from '@/lib/systemPrompt';
 import { buildFileContext } from '@/lib/contextBuilder';
+import { routeToAgent, getAgent, getAgentReasoning, AgentContext } from '@/lib/agents';
 
 function estimateTokens(text: string) {
   return Math.ceil(text.length / 4);
+}
+
+function getLanguageFromPath(path: string): string {
+  const ext = path.split('.').pop()?.toLowerCase();
+  const langMap: Record<string, string> = {
+    js: 'javascript',
+    jsx: 'javascript',
+    ts: 'typescript',
+    tsx: 'typescript',
+    json: 'json',
+    html: 'html',
+    css: 'css',
+    md: 'markdown',
+    txt: 'plaintext',
+  };
+  return langMap[ext || ''] || 'plaintext';
 }
 
 // Common terminal error patterns
@@ -79,6 +97,7 @@ export function useChat() {
     store.addMessage(assistantMsg);
     store.setIsStreaming(true);
     store.setGenerationPhase('writing');
+    store.clearPreviewErrors();
     abortRef.current = new AbortController();
 
     // Reset retry counter on real user messages (not auto-retries)
@@ -93,12 +112,20 @@ export function useChat() {
     const pendingShells: string[] = [];
     let pendingStart: string | null = null;
     let firstFileWritten = false;
+    const collectedFileActions: Array<{ filePath: string; content: string }> = [];
 
     const parser = createStreamParser(async (action) => {
       if (action.type === 'file') {
         store.setActivelyWritingFile(action.filePath);
         store.setGenerationPhase('writing');
-        await writeFileToSandbox(action.filePath, action.content);
+
+        // If diff preview is enabled, collect changes instead of writing immediately
+        if (store.showDiffPreview) {
+          collectedFileActions.push({ filePath: action.filePath, content: action.content });
+        } else {
+          await writeFileToSandbox(action.filePath, action.content);
+        }
+
         store.setActivelyWritingFile(null);
 
         // On first file, signal that we have a project
@@ -133,8 +160,31 @@ export function useChat() {
       // Build file context for AI awareness of existing project files
       const fileContext = buildFileContext(store.files);
 
+      // Route to appropriate agent based on message and context
+      const agentContext: AgentContext = {
+        hasProject: store.hasProject,
+        fileCount: Object.keys(store.files).length,
+        hasErrors: store.previewErrors.length > 0,
+        lastMessage: userText,
+        hasImages: images.length > 0,
+      };
+
+      const agentRole = routeToAgent(userText, agentContext);
+      const agent = getAgent(agentRole);
+      const agentReasoning = getAgentReasoning(agentRole, agentContext);
+
+      // Set active agent in store
+      store.setActiveAgent(agentRole);
+
+      // Use agent's system prompt combined with base prompt
+      // If there's a project loaded, emphasize we're editing existing code
+      const projectContext = store.hasProject
+        ? '\n\nIMPORTANT: The user has a project loaded. They are asking you to MODIFY the existing code shown in <current_files>. Output the modified files immediately.\n\n'
+        : '';
+      const systemPrompt = SYSTEM_PROMPT + projectContext + '\n\n' + agent.systemPrompt;
+
       // Estimate base tokens (System + Context + History)
-      const systemTokens = estimateTokens(SYSTEM_PROMPT) + estimateTokens(fileContext);
+      const systemTokens = estimateTokens(systemPrompt) + estimateTokens(fileContext);
       const historyTokens = history.reduce((acc, m) => {
         let contentTokens = 0;
         if (Array.isArray(m.content)) {
@@ -154,7 +204,14 @@ export function useChat() {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: history, model: store.selectedModel, apiKey: store.apiKey, fileContext }),
+        body: JSON.stringify({
+          messages: history,
+          model: agent.model, // Use agent's preferred model
+          apiKey: store.apiKey,
+          fileContext,
+          systemPrompt, // Pass custom system prompt
+          temperature: agent.temperature, // Use agent's temperature
+        }),
         signal: abortRef.current.signal,
       });
 
@@ -179,13 +236,32 @@ export function useChat() {
         const chunk = decoder.decode(value, { stream: true });
         fullContent += chunk;
         parser.feed(chunk);
-        store.updateLastAssistantMessage(fullContent, stripActions(fullContent));
+        store.updateLastAssistantMessage(fullContent, formatForDisplay(fullContent));
 
         // Update token usage with new content
         store.setTokenUsage(baseUsage + estimateTokens(fullContent));
       }
 
       parser.flush();
+
+      // If diff preview is enabled, convert collected actions to pending changes
+      if (store.showDiffPreview && collectedFileActions.length > 0) {
+        const pendingChanges = collectedFileActions.map((action) => {
+          const oldContent = store.files[action.filePath]?.content || null;
+          const language = getLanguageFromPath(action.filePath);
+          return {
+            filePath: action.filePath,
+            oldContent,
+            newContent: action.content,
+            language,
+            status: 'pending' as const,
+          };
+        });
+        store.setPendingChanges(pendingChanges);
+        // Don't continue with shell commands and dev server - let user review first
+        store.setIsStreaming(false);
+        return;
+      }
 
       // Run shell commands sequentially after all file writes
       if (pendingShells.length > 0) {
@@ -282,5 +358,51 @@ export function useChat() {
     store.setActivelyWritingFile(null);
   }, [store]);
 
-  return { submit, stop };
+  const submitComponentEdit = useCallback(
+    async (
+      filePath: string,
+      selectionRange: { startLine: number; endLine: number },
+      instruction: string
+    ) => {
+      // Get file content
+      const fileContent = store.files[filePath]?.content;
+      if (!fileContent) {
+        console.error('File not found:', filePath);
+        return;
+      }
+
+      // Extract component context
+      const { extractComponentContext, buildComponentEditPrompt } = await import(
+        '@/lib/componentExtractor'
+      );
+      const context = extractComponentContext(filePath, fileContent, selectionRange);
+
+      // Build component edit prompt
+      const componentPrompt = buildComponentEditPrompt(
+        filePath,
+        context.componentName,
+        context.componentCode,
+        context.imports,
+        instruction
+      );
+
+      // Set component edit mode
+      store.setComponentEditMode({
+        active: true,
+        filePath,
+        componentName: context.componentName,
+      });
+
+      // Submit with component-specific prompt
+      await submit(componentPrompt, []);
+
+      // Clear component edit mode after submission
+      setTimeout(() => {
+        store.setComponentEditMode({ active: false, filePath: null, componentName: null });
+      }, 100);
+    },
+    [store, submit]
+  );
+
+  return { submit, stop, submitComponentEdit };
 }

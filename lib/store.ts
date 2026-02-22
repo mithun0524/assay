@@ -23,6 +23,14 @@ export type SandboxStatus =
   | 'ready'
   | 'error';
 
+export type PendingChange = {
+  filePath: string;
+  oldContent: string | null; // null if new file
+  newContent: string;
+  language: string;
+  status: 'pending' | 'accepted' | 'rejected';
+};
+
 type AppStore = {
   messages: Message[];
   addMessage: (msg: Message) => void;
@@ -88,6 +96,48 @@ type AppStore = {
   takeSnapshot: () => void;
   undo: () => void;
   redo: () => void;
+
+  currentTemplateId: string | null;
+  setCurrentTemplateId: (id: string | null) => void;
+
+  pendingChanges: PendingChange[];
+  setPendingChanges: (changes: PendingChange[]) => void;
+  acceptChange: (filePath: string) => void;
+  rejectChange: (filePath: string) => void;
+  acceptAllChanges: () => void;
+  rejectAllChanges: () => void;
+  clearPendingChanges: () => void;
+  applyAcceptedChanges: () => Promise<void>;
+
+  showDiffPreview: boolean;
+  setShowDiffPreview: (show: boolean) => void;
+
+  githubToken: string | null;
+  githubUser: { login: string; name: string | null; avatar_url: string } | null;
+  githubRepo: { owner: string; name: string; url: string } | null;
+  setGitHubToken: (token: string | null) => void;
+  setGitHubUser: (user: { login: string; name: string | null; avatar_url: string } | null) => void;
+  setGitHubRepo: (repo: { owner: string; name: string; url: string } | null) => void;
+  disconnectGitHub: () => void;
+
+  componentEditMode: {
+    active: boolean;
+    filePath: string | null;
+    componentName: string | null;
+  };
+  setComponentEditMode: (mode: {
+    active: boolean;
+    filePath: string | null;
+    componentName: string | null;
+  }) => void;
+
+  activeAgent: string | null;
+  setActiveAgent: (agent: string | null) => void;
+
+  designMode: boolean;
+  setDesignMode: (enabled: boolean) => void;
+  inspectedElement: any | null;
+  setInspectedElement: (element: any | null) => void;
 };
 
 const actionHistory = new ActionHistory();
@@ -146,6 +196,23 @@ export const useStore = create<AppStore>((set) => ({
     let buffer = '';
     let rafId: ReturnType<typeof requestAnimationFrame> | null = null;
 
+    // Error patterns from Vite / TypeScript / runtime
+    const ERROR_PATTERNS = [
+      /Failed to resolve import ["']([^"']+)["']/,
+      /\[vite\] Internal server error:\s*(.+)/,
+      /✘ \[ERROR\]\s*(.+)/,
+      /SyntaxError:\s*(.+)/,
+      /TypeError:\s*(.+)/,
+      /ReferenceError:\s*(.+)/,
+      /error TS\d+:\s*(.+)/,
+      /Module not found:\s*(.+)/,
+      /Cannot find module\s+["']([^"']+)["']/,
+      /Unexpected token/,
+    ];
+
+    // Debounce error detection to avoid duplicate triggers
+    let errorDebounce: ReturnType<typeof setTimeout> | null = null;
+
     return (text: string) => {
       // Write to xterm immediately for smooth visual output
       const instance = useStore.getState().terminalInstance;
@@ -161,6 +228,22 @@ export const useStore = create<AppStore>((set) => ({
           set((s) => ({ terminalOutput: s.terminalOutput + pending }));
         });
       }
+
+      // Detect errors in terminal output (debounced)
+      if (errorDebounce) clearTimeout(errorDebounce);
+      errorDebounce = setTimeout(() => {
+        // Strip ANSI escape codes for pattern matching
+        const clean = text.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '');
+        for (const pattern of ERROR_PATTERNS) {
+          const match = clean.match(pattern);
+          if (match) {
+            const errorMsg = match[0].trim();
+            useStore.getState().addPreviewError(errorMsg);
+            break;
+          }
+        }
+        errorDebounce = null;
+      }, 300);
     };
   })(),
   clearTerminal: () => {
@@ -172,7 +255,7 @@ export const useStore = create<AppStore>((set) => ({
   isStreaming: false,
   setIsStreaming: (v) => set({ isStreaming: v }),
 
-  selectedModel: 'stepfun/step-3.5-flash:free',
+  selectedModel: 'stepfun/step-3.5-flash:free', // Reliable fallback model
   setSelectedModel: (m) => set({ selectedModel: m }),
 
   hasProject: false,
@@ -249,4 +332,91 @@ export const useStore = create<AppStore>((set) => ({
       });
     });
   },
+
+  currentTemplateId: null,
+  setCurrentTemplateId: (id) => set({ currentTemplateId: id }),
+
+  pendingChanges: [],
+  setPendingChanges: (changes) => set({ pendingChanges: changes }),
+  acceptChange: (filePath) =>
+    set((s) => ({
+      pendingChanges: s.pendingChanges.map((c) =>
+        c.filePath === filePath ? { ...c, status: 'accepted' } : c
+      ),
+    })),
+  rejectChange: (filePath) =>
+    set((s) => ({
+      pendingChanges: s.pendingChanges.map((c) =>
+        c.filePath === filePath ? { ...c, status: 'rejected' } : c
+      ),
+    })),
+  acceptAllChanges: () =>
+    set((s) => ({
+      pendingChanges: s.pendingChanges.map((c) => ({ ...c, status: 'accepted' })),
+    })),
+  rejectAllChanges: () =>
+    set((s) => ({
+      pendingChanges: s.pendingChanges.map((c) => ({ ...c, status: 'rejected' })),
+    })),
+  clearPendingChanges: () => set({ pendingChanges: [] }),
+  applyAcceptedChanges: async () => {
+    const { pendingChanges, setFile, takeSnapshot } = useStore.getState();
+    const accepted = pendingChanges.filter((c) => c.status === 'accepted');
+
+    // Apply each accepted change
+    for (const change of accepted) {
+      setFile(change.filePath, {
+        content: change.newContent,
+        language: change.language,
+      });
+
+      // Write to WebContainer
+      const { writeFileToSandbox } = await import('./fileSystem');
+      await writeFileToSandbox(change.filePath, change.newContent);
+    }
+
+    // Take snapshot and clear pending changes
+    takeSnapshot();
+    set({ pendingChanges: [] });
+  },
+
+  showDiffPreview: typeof window !== 'undefined'
+    ? localStorage.getItem('show-diff-preview') === 'true'
+    : false,
+  setShowDiffPreview: (show) => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('show-diff-preview', String(show));
+    }
+    set({ showDiffPreview: show });
+  },
+
+  githubToken: null,
+  githubUser: null,
+  githubRepo: null,
+  setGitHubToken: (token) => set({ githubToken: token }),
+  setGitHubUser: (user) => set({ githubUser: user }),
+  setGitHubRepo: (repo) => set({ githubRepo: repo }),
+  disconnectGitHub: () => {
+    // Clear GitHub data from store
+    set({ githubToken: null, githubUser: null, githubRepo: null });
+    // Clear from localStorage via auth utility
+    import('./githubAuth').then(({ removeGitHubToken }) => {
+      removeGitHubToken();
+    });
+  },
+
+  componentEditMode: {
+    active: false,
+    filePath: null,
+    componentName: null,
+  },
+  setComponentEditMode: (mode) => set({ componentEditMode: mode }),
+
+  activeAgent: null,
+  setActiveAgent: (agent) => set({ activeAgent: agent }),
+
+  designMode: false,
+  setDesignMode: (enabled) => set({ designMode: enabled }),
+  inspectedElement: null,
+  setInspectedElement: (element) => set({ inspectedElement: element }),
 }));

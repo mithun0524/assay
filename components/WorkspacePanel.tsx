@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Code2, Monitor, Terminal, RefreshCw, Trash2, Loader2, AlertTriangle, Sparkles, X, Power, Play } from 'lucide-react';
+import { RiCodeLine, RiComputerLine, RiTerminalLine, RiRefreshLine, RiDeleteBinLine, RiLoader4Line, RiErrorWarningLine, RiSparklingLine, RiCloseLine, RiShutDownLine, RiPlayLine } from '@remixicon/react';
 import { toast } from 'sonner';
 import { useStore } from '@/lib/store';
 import { useChat } from '@/hooks/useChat';
@@ -44,8 +44,16 @@ export function WorkspacePanel() {
     // Listen for errors from preview iframe via postMessage
     useEffect(() => {
         const handler = (e: MessageEvent) => {
-            if (e.data && typeof e.data === 'object' && e.data.type === 'preview-error') {
-                addPreviewError(e.data.message || 'Unknown error');
+            if (e.data && typeof e.data === 'object') {
+                // Handle our custom preview-error events
+                if (e.data.type === 'preview-error') {
+                    addPreviewError(e.data.message || 'Unknown error');
+                }
+                // Handle Vite HMR error events
+                if (e.data.type === 'error' && e.data.err) {
+                    const msg = e.data.err.message || e.data.err.stack || 'Unknown Vite error';
+                    addPreviewError(msg);
+                }
             }
         };
         window.addEventListener('message', handler);
@@ -85,7 +93,7 @@ export function WorkspacePanel() {
                 <div className="h-full flex items-center justify-center bg-[#09090b]">
                     <div className="text-center animate-fade-in">
                         <div className="w-10 h-10 mx-auto mb-3 rounded-xl bg-red-500/10 flex items-center justify-center">
-                            <Monitor className="w-5 h-5 text-red-400" />
+                            <RiComputerLine className="w-5 h-5 text-red-400" />
                         </div>
                         <p className="text-zinc-300 text-sm font-medium">Preview error</p>
                         <p className="text-zinc-600 text-xs mt-1">Check the terminal for details</p>
@@ -105,7 +113,7 @@ export function WorkspacePanel() {
                 <div className="h-full flex items-center justify-center bg-[#09090b]">
                     <div className="text-center animate-fade-up">
                         <div className="relative mb-4">
-                            <Loader2 className="w-6 h-6 mx-auto text-violet-400 animate-spin" />
+                            <RiLoader4Line className="w-6 h-6 mx-auto text-violet-400 animate-spin" />
                             <div className="absolute inset-0 w-6 h-6 mx-auto rounded-full bg-violet-500/20 blur-lg" />
                         </div>
                         <p className="text-zinc-300 text-sm font-medium">
@@ -126,7 +134,7 @@ export function WorkspacePanel() {
                 <div className="h-full flex items-center justify-center bg-[#09090b]">
                     <div className="text-center animate-fade-in">
                         <div className="w-12 h-12 mx-auto mb-3 rounded-2xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-center">
-                            <Monitor className="w-6 h-6 text-zinc-600" />
+                            <RiComputerLine className="w-6 h-6 text-zinc-600" />
                         </div>
                         <p className="text-zinc-500 text-sm">Preview</p>
                         <p className="text-zinc-600 text-xs mt-1">Ready to start</p>
@@ -135,7 +143,7 @@ export function WorkspacePanel() {
                             disabled={isRestarting}
                             className="mt-4 flex items-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-500 text-white rounded-lg text-xs font-medium transition-all"
                         >
-                            <Play className="w-3.5 h-3.5 fill-current" />
+                            <RiPlayLine className="w-3.5 h-3.5 fill-current" />
                             Start Preview
                         </button>
                     </div>
@@ -165,14 +173,14 @@ export function WorkspacePanel() {
                         )}
                         title="Restart Dev Server"
                     >
-                        <Power className="w-3.5 h-3.5" />
+                        <RiShutDownLine className="w-3.5 h-3.5" />
                     </button>
                     <button
                         onClick={handleRefresh}
                         className="p-1.5 hover:bg-white/[0.06] rounded-lg transition-all"
                         title="Refresh Preview"
                     >
-                        <RefreshCw className={cn(
+                        <RiRefreshLine className={cn(
                             'w-3.5 h-3.5 text-zinc-500',
                             isRefreshing && 'spin-once'
                         )} />
@@ -182,7 +190,7 @@ export function WorkspacePanel() {
                 {/* Error banner */}
                 {previewErrors.length > 0 && (
                     <div className="px-3 py-2 bg-red-500/10 border-b border-red-500/20 flex items-center gap-2">
-                        <AlertTriangle className="w-3.5 h-3.5 text-red-400 shrink-0" />
+                        <RiErrorWarningLine className="w-3.5 h-3.5 text-red-400 shrink-0" />
                         <span className="text-xs text-red-300 flex-1 truncate">
                             {previewErrors.length} error{previewErrors.length > 1 ? 's' : ''} detected
                         </span>
@@ -190,14 +198,14 @@ export function WorkspacePanel() {
                             onClick={handleFixWithAI}
                             className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-lg bg-violet-600/90 text-white hover:bg-violet-500 transition-all"
                         >
-                            <Sparkles className="w-3 h-3" />
+                            <RiSparklingLine className="w-3 h-3" />
                             Fix with AI
                         </button>
                         <button
                             onClick={clearPreviewErrors}
                             className="p-1 hover:bg-white/[0.06] rounded transition-all"
                         >
-                            <X className="w-3 h-3 text-zinc-500" />
+                            <RiCloseLine className="w-3 h-3 text-zinc-500" />
                         </button>
                     </div>
                 )}
@@ -229,7 +237,7 @@ export function WorkspacePanel() {
                             : 'text-zinc-500 hover:text-zinc-300'
                     )}
                 >
-                    <Code2 className="w-3.5 h-3.5" />
+                    <RiCodeLine className="w-3.5 h-3.5" />
                     Code
                 </button>
                 <button
@@ -241,7 +249,7 @@ export function WorkspacePanel() {
                             : 'text-zinc-500 hover:text-zinc-300'
                     )}
                 >
-                    <Monitor className="w-3.5 h-3.5" />
+                    <RiComputerLine className="w-3.5 h-3.5" />
                     Preview
                 </button>
                 <button
@@ -253,7 +261,7 @@ export function WorkspacePanel() {
                             : 'text-zinc-500 hover:text-zinc-300'
                     )}
                 >
-                    <Terminal className="w-3.5 h-3.5" />
+                    <RiTerminalLine className="w-3.5 h-3.5" />
                     Terminal
                 </button>
 
@@ -285,7 +293,7 @@ export function WorkspacePanel() {
                             className="p-1.5 hover:bg-white/[0.06] rounded-lg transition-all"
                             title="Refresh preview"
                         >
-                            <RefreshCw className={cn(
+                            <RiRefreshLine className={cn(
                                 'w-3.5 h-3.5 text-zinc-500',
                                 isRefreshing && 'spin-once'
                             )} />
@@ -297,7 +305,7 @@ export function WorkspacePanel() {
                             className="p-1.5 hover:bg-white/[0.06] rounded-lg transition-all"
                             title="Clear terminal"
                         >
-                            <Trash2 className="w-3.5 h-3.5 text-zinc-600 hover:text-zinc-400 transition-colors" />
+                            <RiDeleteBinLine className="w-3.5 h-3.5 text-zinc-600 hover:text-zinc-400 transition-colors" />
                         </button>
                     )}
                 </div>

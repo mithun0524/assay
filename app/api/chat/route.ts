@@ -7,7 +7,14 @@ import { OPENROUTER_BASE_URL } from '@/lib/openrouter';
 export const runtime = 'edge';
 
 export async function POST(req: NextRequest) {
-  const { messages, model, apiKey: clientKey, fileContext } = await req.json();
+  const {
+    messages,
+    model,
+    apiKey: clientKey,
+    fileContext,
+    systemPrompt: customSystemPrompt,
+    temperature: customTemperature,
+  } = await req.json();
 
   const resolvedKey = process.env.OPENROUTER_API_KEY || clientKey;
 
@@ -18,8 +25,10 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Use custom system prompt if provided, otherwise use default
   // Append file context to system prompt so AI knows about existing project files
-  const systemPrompt = fileContext ? SYSTEM_PROMPT + fileContext : SYSTEM_PROMPT;
+  const basePrompt = customSystemPrompt || SYSTEM_PROMPT;
+  const systemPrompt = fileContext ? basePrompt + '\n\n' + fileContext : basePrompt;
 
   const openrouter = createOpenAI({
     baseURL: OPENROUTER_BASE_URL,
@@ -55,7 +64,7 @@ export async function POST(req: NextRequest) {
       model: openrouter.chat(model ?? 'stepfun/step-3.5-flash:free'),
       system: systemPrompt,
       messages: sanitizedMessages,
-      temperature: 0.2,
+      temperature: customTemperature ?? 0.2,
     });
 
     return result.toTextStreamResponse();

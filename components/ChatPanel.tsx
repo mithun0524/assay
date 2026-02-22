@@ -1,13 +1,29 @@
 'use client';
 
 import { useRef, useEffect, useState, useCallback } from 'react';
-import { Send, Square, Plus, Timer, ArrowDown, Sparkles, Bot, FileCode, Package, Rocket, CheckCircle2 } from 'lucide-react';
+import {
+  RiSendPlaneLine,
+  RiStopFill,
+  RiAddLine,
+  RiTimeLine,
+  RiArrowDownLine,
+  RiSparklingLine,
+  RiRobot2Line,
+  RiFileCodeLine,
+  RiArchiveLine,
+  RiRocketLine,
+  RiCheckboxCircleLine,
+} from '@remixicon/react';
 import { useStore } from '@/lib/store';
 import { useChat } from '@/hooks/useChat';
 import { MessageBubble } from './MessageBubble';
 import { CustomDropdown } from './CustomDropdown';
 import { FREE_MODELS } from '@/lib/openrouter';
 import { cn } from '@/lib/utils';
+import { ImageUpload } from './ImageUpload';
+import { ImagePreview } from './ImagePreview';
+import { AgentBadge } from './AgentBadge';
+import { AgentRole } from '@/lib/agents';
 
 const QUICK_PROMPTS = [
   'A task management app',
@@ -34,10 +50,12 @@ export function ChatPanel() {
     setCurrentProjectId,
     generationPhase,
     activelyWritingFile,
+    activeAgent,
   } = useStore();
 
   const { submit, stop } = useChat();
   const [input, setInput] = useState('');
+  const [images, setImages] = useState<string[]>([]);
   const [rateLimitSeconds, setRateLimitSeconds] = useState(0);
   const [showScrollFab, setShowScrollFab] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -114,9 +132,10 @@ export function ChatPanel() {
   const isRateLimited = rateLimitSeconds > 0;
 
   const handleSubmit = () => {
-    if (input.trim() && !isStreaming) {
-      submit(input);
+    if ((input.trim() || images.length > 0) && !isStreaming) {
+      submit(input, images);
       setInput('');
+      setImages([]);
       // Scroll to bottom on send
       setTimeout(scrollToBottom, 100);
     }
@@ -161,7 +180,7 @@ export function ChatPanel() {
       <div className="flex items-center justify-between px-3 py-2 border-b border-white/[0.06]">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1.5">
-            <Bot className="w-3.5 h-3.5 text-violet-400" />
+            <RiRobot2Line className="w-3.5 h-3.5 text-violet-400" />
             <span className="text-xs font-medium text-zinc-400 tracking-wide uppercase">Chat</span>
           </div>
 
@@ -192,7 +211,7 @@ export function ChatPanel() {
           className="flex items-center gap-1 px-2 py-1 text-xs text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.06] rounded-lg transition-all"
           title="New Project"
         >
-          <Plus className="w-3 h-3" />
+          <RiAddLine className="w-3 h-3" />
           New
         </button>
       </div>
@@ -206,7 +225,7 @@ export function ChatPanel() {
         {!hasMessages && (
           <div className="h-full flex flex-col items-center justify-center text-center px-4">
             <div className="w-10 h-10 rounded-xl bg-violet-500/10 flex items-center justify-center mb-4">
-              <Sparkles className="w-5 h-5 text-violet-400" />
+              <RiSparklingLine className="w-5 h-5 text-violet-400" />
             </div>
             <h3 className="text-sm font-medium text-zinc-300 mb-1">Start a conversation</h3>
             <p className="text-xs text-zinc-600 mb-5 max-w-[220px]">Describe what you want to build and I&apos;ll generate the code.</p>
@@ -243,9 +262,13 @@ export function ChatPanel() {
         {/* Generation phase indicator (below messages, above input) */}
         {isStreaming && generationPhase !== 'idle' && (
           <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-white/[0.02] border border-white/[0.04] animate-fade-in">
+            {/* Active agent badge */}
+            {activeAgent && (
+              <AgentBadge role={activeAgent as AgentRole} showName={false} />
+            )}
             {generationPhase === 'writing' && (
               <>
-                <FileCode className="w-3.5 h-3.5 text-violet-400 animate-pulse" />
+                <RiFileCodeLine className="w-3.5 h-3.5 text-violet-400 animate-pulse" />
                 <span className="text-xs text-zinc-400">
                   Writing <span className="text-zinc-300 font-medium">{activelyWritingFile?.split('/').pop() || 'files'}</span>...
                 </span>
@@ -253,19 +276,19 @@ export function ChatPanel() {
             )}
             {generationPhase === 'installing' && (
               <>
-                <Package className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
+                <RiArchiveLine className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
                 <span className="text-xs text-zinc-400">Installing dependencies...</span>
               </>
             )}
             {generationPhase === 'starting' && (
               <>
-                <Rocket className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
+                <RiRocketLine className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
                 <span className="text-xs text-zinc-400">Starting dev server...</span>
               </>
             )}
             {generationPhase === 'done' && (
               <>
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                <RiCheckboxCircleLine className="w-3.5 h-3.5 text-emerald-400" />
                 <span className="text-xs text-emerald-400">Ready</span>
               </>
             )}
@@ -280,7 +303,7 @@ export function ChatPanel() {
           className="absolute bottom-[120px] right-4 z-10 p-2 rounded-full bg-zinc-800/90 border border-white/[0.1] text-zinc-400 hover:text-zinc-200 hover:bg-zinc-700 shadow-lg backdrop-blur-sm transition-all animate-fade-up"
           style={{ animationDuration: '0.2s' }}
         >
-          <ArrowDown className="w-4 h-4" />
+          <RiArrowDownLine className="w-4 h-4" />
         </button>
       )}
 
@@ -291,6 +314,18 @@ export function ChatPanel() {
           'focus-within:border-violet-500/30 focus-within:bg-white/[0.04]',
           'transition-all duration-200'
         )}>
+          {/* Image Preview */}
+          {images.length > 0 && (
+            <div className="px-3.5 pt-3">
+              <ImagePreview
+                images={images}
+                onRemove={(index) => {
+                  setImages(images.filter((_, i) => i !== index));
+                }}
+              />
+            </div>
+          )}
+
           {/* Textarea */}
           <textarea
             ref={textareaRef}
@@ -333,10 +368,19 @@ export function ChatPanel() {
               {/* Rate limit indicator */}
               {isRateLimited && (
                 <div className="flex items-center gap-1 px-2 py-0.5 text-[10px] text-amber-400/80 bg-amber-500/10 rounded-md">
-                  <Timer className="w-3 h-3" />
+                  <RiTimeLine className="w-3 h-3" />
                   {rateLimitSeconds}s
                 </div>
               )}
+
+              {/* Image Upload */}
+              <ImageUpload
+                onImagesAdded={(newImages) => {
+                  setImages([...images, ...newImages]);
+                }}
+                currentImageCount={images.length}
+                maxImages={4}
+              />
 
               {/* Send / Stop */}
               {isStreaming ? (
@@ -345,7 +389,7 @@ export function ChatPanel() {
                   className="p-2 bg-red-500/15 hover:bg-red-500/25 rounded-lg transition-all text-red-400"
                   title="Stop generating"
                 >
-                  <Square className="w-3.5 h-3.5" />
+                  <RiStopFill className="w-3.5 h-3.5" />
                 </button>
               ) : (
                 <button
@@ -359,7 +403,7 @@ export function ChatPanel() {
                   )}
                   title="Send message"
                 >
-                  <Send className="w-3.5 h-3.5" />
+                  <RiSendPlaneLine className="w-3.5 h-3.5" />
                 </button>
               )}
             </div>

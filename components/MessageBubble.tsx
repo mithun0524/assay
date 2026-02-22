@@ -4,7 +4,7 @@ import { useMemo, useState, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import rehypeHighlight from 'rehype-highlight';
 import 'highlight.js/styles/atom-one-dark.css';
-import { Copy, Check, Bot, User, ChevronDown, ChevronUp, AlertTriangle, RefreshCw, Loader2 } from 'lucide-react';
+import { RiClipboardLine, RiCheckLine, RiRobot2Line, RiUser3Line, RiArrowDownSLine, RiArrowUpSLine, RiErrorWarningLine, RiRefreshLine, RiLoader4Line } from '@remixicon/react';
 import { cn } from '@/lib/utils';
 import type { Message } from '@/lib/store';
 import { toast } from 'sonner';
@@ -48,12 +48,12 @@ function CopyButton({ text }: { text: string }) {
     >
       {copied ? (
         <>
-          <Check className="w-3 h-3 text-emerald-400" />
+          <RiCheckLine className="w-3 h-3 text-emerald-400" />
           <span className="text-emerald-400">Copied</span>
         </>
       ) : (
         <>
-          <Copy className="w-3 h-3" />
+          <RiClipboardLine className="w-3 h-3" />
           <span>Copy</span>
         </>
       )}
@@ -95,7 +95,7 @@ export function MessageBubble({ message, isLastAssistant, isStreaming, onRetry }
           <div className="flex items-center gap-2">
             <span className="text-[10px] text-zinc-600">{timeAgo}</span>
             <div className="w-5 h-5 rounded-md bg-violet-500/20 flex items-center justify-center">
-              <User className="w-3 h-3 text-violet-400" />
+              <RiUser3Line className="w-3 h-3 text-violet-400" />
             </div>
           </div>
           <div className="px-3.5 py-2.5 rounded-2xl rounded-tr-md bg-violet-500/15 border border-violet-500/20 text-sm text-zinc-200 leading-relaxed">
@@ -111,7 +111,7 @@ export function MessageBubble({ message, isLastAssistant, isStreaming, onRetry }
     return (
       <div className="flex gap-2.5 animate-fade-up" style={{ animationDuration: '0.3s' }}>
         <div className="w-6 h-6 rounded-lg bg-red-500/15 flex items-center justify-center shrink-0 mt-0.5">
-          <AlertTriangle className="w-3.5 h-3.5 text-red-400" />
+          <RiErrorWarningLine className="w-3.5 h-3.5 text-red-400" />
         </div>
         <div className="flex-1 min-w-0">
           <div className="px-3.5 py-3 rounded-2xl rounded-tl-md bg-red-500/[0.08] border border-red-500/20">
@@ -121,7 +121,7 @@ export function MessageBubble({ message, isLastAssistant, isStreaming, onRetry }
                 onClick={onRetry}
                 className="mt-2.5 flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-300 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 rounded-lg transition-all"
               >
-                <RefreshCw className="w-3 h-3" />
+                <RiRefreshLine className="w-3 h-3" />
                 Retry
               </button>
             )}
@@ -137,7 +137,7 @@ export function MessageBubble({ message, isLastAssistant, isStreaming, onRetry }
     <div className="flex gap-2.5 animate-fade-up" style={{ animationDuration: '0.3s' }}>
       {/* Avatar */}
       <div className="w-6 h-6 rounded-lg bg-violet-500/15 flex items-center justify-center shrink-0 mt-0.5">
-        <Bot className="w-3.5 h-3.5 text-violet-400" />
+        <RiRobot2Line className="w-3.5 h-3.5 text-violet-400" />
       </div>
 
       {/* Content */}
@@ -145,7 +145,7 @@ export function MessageBubble({ message, isLastAssistant, isStreaming, onRetry }
         {/* Thinking state */}
         {isEmpty && isLastAssistant && isStreaming && (
           <div className="flex items-center gap-2 px-3 py-2.5 text-sm text-zinc-500">
-            <Loader2 className="w-3.5 h-3.5 animate-spin text-violet-400" />
+            <RiLoader4Line className="w-3.5 h-3.5 animate-spin text-violet-400" />
             Thinking...
           </div>
         )}
@@ -212,9 +212,9 @@ export function MessageBubble({ message, isLastAssistant, isStreaming, onRetry }
             className="mt-1.5 flex items-center gap-1 text-[11px] text-violet-400/70 hover:text-violet-300 transition-colors"
           >
             {isCollapsed ? (
-              <><ChevronDown className="w-3 h-3" /> Show more</>
+              <><RiArrowDownSLine className="w-3 h-3" /> Show more</>
             ) : (
-              <><ChevronUp className="w-3 h-3" /> Show less</>
+              <><RiArrowUpSLine className="w-3 h-3" /> Show less</>
             )}
           </button>
         )}

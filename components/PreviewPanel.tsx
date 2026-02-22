@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useEffect, useState } from 'react';
-import { RefreshCw, Monitor, Terminal, Trash2, Loader2 } from 'lucide-react';
+import { RiRefreshLine, RiComputerLine, RiTerminalLine, RiDeleteBinLine, RiLoader4Line } from '@remixicon/react';
 import { useStore } from '@/lib/store';
 import { cn } from '@/lib/utils';
 
@@ -33,7 +33,7 @@ export function PreviewPanel() {
         <div className="h-full flex items-center justify-center bg-[#09090b]">
           <div className="text-center animate-fade-in">
             <div className="w-10 h-10 mx-auto mb-3 rounded-xl bg-red-500/10 flex items-center justify-center">
-              <Monitor className="w-5 h-5 text-red-400" />
+              <RiComputerLine className="w-5 h-5 text-red-400" />
             </div>
             <p className="text-zinc-300 text-sm font-medium">Preview error</p>
             <p className="text-zinc-600 text-xs mt-1">Check the terminal for details</p>
@@ -53,7 +53,7 @@ export function PreviewPanel() {
         <div className="h-full flex items-center justify-center bg-[#09090b]">
           <div className="text-center animate-fade-up">
             <div className="relative mb-4">
-              <Loader2 className="w-6 h-6 mx-auto text-violet-400 animate-spin" />
+              <RiLoader4Line className="w-6 h-6 mx-auto text-violet-400 animate-spin" />
               <div className="absolute inset-0 w-6 h-6 mx-auto rounded-full bg-violet-500/20 blur-lg" />
             </div>
             <p className="text-zinc-300 text-sm font-medium">
@@ -74,7 +74,7 @@ export function PreviewPanel() {
         <div className="h-full flex items-center justify-center bg-[#09090b]">
           <div className="text-center animate-fade-in">
             <div className="w-12 h-12 mx-auto mb-3 rounded-2xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-center">
-              <Monitor className="w-6 h-6 text-zinc-600" />
+              <RiComputerLine className="w-6 h-6 text-zinc-600" />
             </div>
             <p className="text-zinc-500 text-sm">Preview</p>
             <p className="text-zinc-600 text-xs mt-1">Your app will appear here</p>
@@ -99,7 +99,7 @@ export function PreviewPanel() {
               className="p-1.5 hover:bg-white/[0.06] rounded-lg transition-all"
               title="Refresh"
             >
-              <RefreshCw className={cn(
+              <RiRefreshLine className={cn(
                 'w-3.5 h-3.5 text-zinc-500',
                 isRefreshing && 'spin-once'
               )} />
@@ -136,7 +136,7 @@ export function PreviewPanel() {
               : 'text-zinc-500 hover:text-zinc-300'
           )}
         >
-          <Monitor className="w-3.5 h-3.5" />
+          <RiComputerLine className="w-3.5 h-3.5" />
           Preview
         </button>
         <button
@@ -148,7 +148,7 @@ export function PreviewPanel() {
               : 'text-zinc-500 hover:text-zinc-300'
           )}
         >
-          <Terminal className="w-3.5 h-3.5" />
+          <RiTerminalLine className="w-3.5 h-3.5" />
           Terminal
         </button>
 
@@ -158,7 +158,7 @@ export function PreviewPanel() {
             className="ml-auto mr-2 p-1 hover:bg-white/[0.06] rounded-lg transition-all"
             title="Clear terminal"
           >
-            <Trash2 className="w-3.5 h-3.5 text-zinc-600 hover:text-zinc-400 transition-colors" />
+            <RiDeleteBinLine className="w-3.5 h-3.5 text-zinc-600 hover:text-zinc-400 transition-colors" />
           </button>
         )}
       </div>

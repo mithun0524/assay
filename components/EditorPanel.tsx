@@ -2,7 +2,7 @@
 
 import { useRef, useEffect, useCallback, useState } from 'react';
 import dynamic from 'next/dynamic';
-import { X, FileCode } from 'lucide-react';
+import { RiCloseLine, RiFileCodeLine } from '@remixicon/react';
 import { useStore } from '@/lib/store';
 import { FileTree } from './FileTree';
 import { buildFileTree } from '@/lib/utils';
@@ -96,7 +96,7 @@ export function EditorPanel() {
                   : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.03]'
               )}
             >
-              <FileCode className={cn(
+              <RiFileCodeLine className={cn(
                 'w-3.5 h-3.5 shrink-0 transition-colors',
                 tab === activeFile ? 'text-violet-400' : 'text-zinc-600'
               )} />
@@ -105,7 +105,7 @@ export function EditorPanel() {
                 onClick={(e) => handleTabClose(e, tab)}
                 className="p-0.5 hover:bg-white/[0.08] rounded shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
               >
-                <X className="w-3 h-3" />
+                <RiCloseLine className="w-3 h-3" />
               </button>
             </div>
           ))}
@@ -134,7 +134,7 @@ export function EditorPanel() {
           ) : (
             <div className="h-full flex items-center justify-center text-zinc-600 animate-fade-in">
               <div className="text-center">
-                <FileCode className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                <RiFileCodeLine className="w-8 h-8 mx-auto mb-2 opacity-30" />
                 <p className="text-xs text-zinc-600">No files open</p>
               </div>
             </div>

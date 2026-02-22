@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { ChevronRight, FolderOpen, Folder, File, FileCode, FileJson } from 'lucide-react';
+import { RiArrowRightSLine, RiFolderOpenLine, RiFolderLine, RiFileTextLine, RiFileCodeLine, RiFileSettingsLine } from '@remixicon/react';
 import { cn } from '@/lib/utils';
 import { useStore } from '@/lib/store';
 import type { TreeNode } from '@/lib/utils';
@@ -16,18 +16,18 @@ function getFileIcon(filename: string) {
   switch (ext) {
     case 'ts':
     case 'tsx':
-      return <FileCode className="w-4 h-4 text-blue-400" />;
+      return <RiFileCodeLine className="w-4 h-4 text-blue-400" />;
     case 'js':
     case 'jsx':
-      return <FileCode className="w-4 h-4 text-yellow-400" />;
+      return <RiFileCodeLine className="w-4 h-4 text-yellow-400" />;
     case 'json':
-      return <FileJson className="w-4 h-4 text-amber-400" />;
+      return <RiFileSettingsLine className="w-4 h-4 text-amber-400" />;
     case 'css':
-      return <File className="w-4 h-4 text-purple-400" />;
+      return <RiFileTextLine className="w-4 h-4 text-purple-400" />;
     case 'html':
-      return <File className="w-4 h-4 text-orange-400" />;
+      return <RiFileTextLine className="w-4 h-4 text-orange-400" />;
     default:
-      return <File className="w-4 h-4 text-zinc-500" />;
+      return <RiFileTextLine className="w-4 h-4 text-zinc-500" />;
   }
 }
 
@@ -83,14 +83,14 @@ function TreeNodeComponent({
       >
         {node.type === 'directory' ? (
           <>
-            <ChevronRight className={cn(
+            <RiArrowRightSLine className={cn(
               'w-3 h-3 text-zinc-600 transition-transform duration-200',
               isExpanded && 'rotate-90'
             )} />
             {isExpanded ? (
-              <FolderOpen className="w-4 h-4 text-zinc-400" />
+              <RiFolderOpenLine className="w-4 h-4 text-zinc-400" />
             ) : (
-              <Folder className="w-4 h-4 text-zinc-500" />
+              <RiFolderLine className="w-4 h-4 text-zinc-500" />
             )}
           </>
         ) : (

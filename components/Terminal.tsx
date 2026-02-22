@@ -42,7 +42,24 @@ export function Terminal() {
             const fitAddon = new FitAddon();
             term.loadAddon(fitAddon);
             term.open(terminalRef.current);
-            fitAddon.fit();
+
+            // Only fit when the container has actual dimensions
+            const safeFit = () => {
+                try {
+                    if (
+                        !cancelled &&
+                        terminalRef.current &&
+                        terminalRef.current.offsetWidth > 0 &&
+                        terminalRef.current.offsetHeight > 0
+                    ) {
+                        fitAddon.fit();
+                    }
+                } catch {
+                    // Ignore fit errors from renderer not being ready
+                }
+            };
+
+            safeFit();
 
             // Restore content from store buffer
             const currentOutput = useStore.getState().terminalOutput;
@@ -53,12 +70,10 @@ export function Terminal() {
             termRef.current = term;
             setTerminalInstance(term);
 
-            handleResize = () => fitAddon.fit();
+            handleResize = () => safeFit();
             window.addEventListener('resize', handleResize);
 
-            setTimeout(() => {
-                if (!cancelled) fitAddon.fit();
-            }, 100);
+            setTimeout(() => safeFit(), 100);
         };
 
         initTerminal();

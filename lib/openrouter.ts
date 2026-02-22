@@ -3,6 +3,7 @@ export type ModelOption = {
   label: string;
   contextLength: number;
   note?: string;
+  supportsVision?: boolean;
 };
 
 // All confirmed free models on OpenRouter (no cost, :free suffix)
@@ -10,33 +11,52 @@ export type ModelOption = {
 export const FREE_MODELS: ModelOption[] = [
   {
     id: 'stepfun/step-3.5-flash:free',
-    label: 'DeepSeek V3 (Best for code)',
+    label: 'StepFun Flash (Recommended)',
     contextLength: 131072,
-    note: 'Recommended — strongest free coding model',
+    note: 'Reliable default - fast and capable for all tasks',
   },
   {
-    id: 'meta-llama/llama-4-scout:free',
-    label: 'Llama 4 Scout (Fast)',
-    contextLength: 131072,
-    note: 'Fast responses, great for iteration',
+    id: 'deepseek/deepseek-r1-0528:free',
+    label: 'DeepSeek R1 (Powerful)',
+    contextLength: 65536,
+    note: 'Excellent reasoning, coding, and analysis',
   },
   {
-    id: 'meta-llama/llama-4-maverick:free',
-    label: 'Llama 4 Maverick',
-    contextLength: 131072,
-    note: 'More capable than Scout',
+    id: 'qwen/qwen3-coder:free',
+    label: 'Qwen3 Coder (Code Specialist)',
+    contextLength: 32768,
+    note: 'Specialized for code generation',
   },
   {
-    id: 'google/gemini-2.0-flash-exp:free',
-    label: 'Gemini 2.0 Flash (1M context)',
-    contextLength: 1048576,
-    note: 'Massive context — great for large projects',
+    id: 'meta-llama/llama-3.3-70b-instruct:free',
+    label: 'Llama 3.3 70B (Powerful)',
+    contextLength: 131072,
+    note: 'Large model, excellent for complex tasks',
   },
   {
-    id: 'qwen/qwq-32b:free',
-    label: 'QwQ 32B (Reasoning)',
+    id: 'google/gemma-3-27b-it:free',
+    label: 'Gemma 3 27B (Creative)',
+    contextLength: 8192,
+    note: 'Good for UI/UX and creative tasks',
+  },
+  {
+    id: 'nvidia/nemotron-nano-12b-v2-vl:free',
+    label: 'Nemotron Nano VL (Vision)',
+    contextLength: 16384,
+    note: 'Vision-language model for screenshots',
+    supportsVision: true,
+  },
+  {
+    id: 'z-ai/glm-4.5-air:free',
+    label: 'GLM 4.5 Air',
     contextLength: 131072,
-    note: 'Slower but thinks harder — good for complex apps',
+    note: 'Balanced performance',
+  },
+  {
+    id: 'liquid/lfm-2.5-1.2b-thinking:free',
+    label: 'LFM Thinking (Small)',
+    contextLength: 32768,
+    note: 'Small but thoughtful model',
   },
 ];
 

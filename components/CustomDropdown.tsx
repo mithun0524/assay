@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { ChevronDown, Check } from 'lucide-react';
+import { RiArrowDownSLine, RiCheckLine } from '@remixicon/react';
 import { cn } from '@/lib/utils';
 
 interface DropdownOption {
@@ -60,7 +60,7 @@ export function CustomDropdown({ options, value, onChange, className, dropUp = f
                 )}
             >
                 <span className="truncate">{selectedOption?.label || 'Select...'}</span>
-                <ChevronDown
+                <RiArrowDownSLine
                     className={cn(
                         'w-3 h-3 text-zinc-600 transition-transform duration-200 shrink-0',
                         isOpen && 'rotate-180'
@@ -109,7 +109,7 @@ export function CustomDropdown({ options, value, onChange, className, dropUp = f
                                     )}
                                 </div>
                                 {isSelected && (
-                                    <Check className="w-3 h-3 mt-0.5 text-violet-400 shrink-0" />
+                                    <RiCheckLine className="w-3 h-3 mt-0.5 text-violet-400 shrink-0" />
                                 )}
                             </button>
                         );

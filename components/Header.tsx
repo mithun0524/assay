@@ -1,19 +1,35 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Github, Loader2, Sparkles, Settings, Download, Folder, Undo2, Redo2 } from 'lucide-react';
+import {
+  RiGithubLine,
+  RiLoader4Line,
+  RiSparklingLine,
+  RiSettings3Line,
+  RiDownloadLine,
+  RiFolderLine,
+  RiArrowGoBackLine,
+  RiArrowGoForwardLine,
+  RiUploadLine,
+  RiPaletteLine,
+} from '@remixicon/react';
 import { useStore } from '@/lib/store';
 import { cn } from '@/lib/utils';
 import { downloadProject } from '@/lib/downloadProject';
 import { SettingsModal } from './SettingsModal';
+import { GitHubCommitDialog } from './GitHubCommitDialog';
+import { GitHubAuthButton } from './GitHubAuthButton';
+import { DeployModal } from './DeployModal';
 
 interface HeaderProps {
   onOpenProjects?: () => void;
 }
 
 export function Header({ onOpenProjects }: HeaderProps) {
-  const { sandboxStatus, files, canUndo, canRedo, undo, redo } = useStore();
+  const { sandboxStatus, files, canUndo, canRedo, undo, redo, githubUser, designMode, setDesignMode } = useStore();
   const [showSettings, setShowSettings] = useState(false);
+  const [showCommitDialog, setShowCommitDialog] = useState(false);
+  const [showDeployModal, setShowDeployModal] = useState(false);
   const hasFiles = Object.keys(files).length > 0;
 
   // Keyboard shortcuts: Ctrl+Z → undo, Ctrl+Shift+Z → redo
@@ -54,11 +70,11 @@ export function Header({ onOpenProjects }: HeaderProps) {
               className="p-1.5 -ml-1.5 text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.06] rounded-lg transition-colors"
               title="Projects"
             >
-              <Folder className="w-4 h-4" />
+              <RiFolderLine className="w-4 h-4" />
             </button>
           )}
           <div className="flex items-center gap-2">
-            <Sparkles className="w-3.5 h-3.5 text-violet-400" />
+            <RiSparklingLine className="w-3.5 h-3.5 text-violet-400" />
             <span className="text-sm font-semibold text-zinc-100 tracking-tight">
               DevForge
             </span>
@@ -67,7 +83,7 @@ export function Header({ onOpenProjects }: HeaderProps) {
 
         <div className={cn('flex items-center gap-1.5 text-xs', config.color)}>
           {config.spinner ? (
-            <Loader2 className="w-3 h-3 animate-spin" />
+            <RiLoader4Line className="w-3 h-3 animate-spin" />
           ) : (
             <span className={cn(
               'w-1.5 h-1.5 rounded-full',
@@ -87,7 +103,7 @@ export function Header({ onOpenProjects }: HeaderProps) {
                 className="p-1.5 hover:bg-white/[0.06] rounded-lg transition-all disabled:opacity-30 disabled:cursor-not-allowed"
                 title="Undo (Ctrl+Z)"
               >
-                <Undo2 className="w-4 h-4 text-zinc-500 hover:text-zinc-300 transition-colors" />
+                <RiArrowGoBackLine className="w-4 h-4 text-zinc-500 hover:text-zinc-300 transition-colors" />
               </button>
               <button
                 onClick={redo}
@@ -95,52 +111,75 @@ export function Header({ onOpenProjects }: HeaderProps) {
                 className="p-1.5 hover:bg-white/[0.06] rounded-lg transition-all disabled:opacity-30 disabled:cursor-not-allowed"
                 title="Redo (Ctrl+Shift+Z)"
               >
-                <Redo2 className="w-4 h-4 text-zinc-500 hover:text-zinc-300 transition-colors" />
+                <RiArrowGoForwardLine className="w-4 h-4 text-zinc-500 hover:text-zinc-300 transition-colors" />
+              </button>
+              <div className="w-px h-4 bg-white/[0.06]" />
+              <button
+                onClick={() => setDesignMode(!designMode)}
+                className={cn(
+                  'p-1.5 rounded-lg transition-all',
+                  designMode
+                    ? 'bg-violet-500/20 text-violet-400'
+                    : 'hover:bg-white/[0.06] text-zinc-500 hover:text-zinc-300'
+                )}
+                title="Design Mode (Visual Editing)"
+              >
+                <RiPaletteLine className="w-4 h-4" />
               </button>
               <div className="w-px h-4 bg-white/[0.06]" />
             </>
           )}
+          {hasFiles && githubUser && (
+            <>
+              <button
+                onClick={() => setShowCommitDialog(true)}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 hover:bg-white/[0.06] rounded-lg transition-all"
+                title="Push to GitHub"
+              >
+                <RiUploadLine className="w-3.5 h-3.5 text-zinc-500 hover:text-zinc-300 transition-colors" />
+                <span className="text-xs text-zinc-500 hover:text-zinc-300">Push</span>
+              </button>
+              <div className="w-px h-4 bg-white/[0.06]" />
+            </>
+          )}
+          <GitHubAuthButton />
           <button
             onClick={() => setShowSettings(true)}
             className="p-1.5 hover:bg-white/[0.06] rounded-lg transition-all"
             title="Settings"
           >
-            <Settings className="w-4 h-4 text-zinc-500 hover:text-zinc-300 transition-colors" />
+            <RiSettings3Line className="w-4 h-4 text-zinc-500 hover:text-zinc-300 transition-colors" />
           </button>
-          <a
-            href="https://github.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="p-1.5 hover:bg-white/[0.06] rounded-lg transition-all"
-          >
-            <Github className="w-4 h-4 text-zinc-500 hover:text-zinc-300 transition-colors" />
-          </a>
           {hasFiles && (
             <button
               onClick={() => downloadProject(files)}
               className="p-1.5 hover:bg-white/[0.06] rounded-lg transition-all"
               title="Download project as ZIP"
             >
-              <Download className="w-4 h-4 text-zinc-500 hover:text-zinc-300 transition-colors" />
+              <RiDownloadLine className="w-4 h-4 text-zinc-500 hover:text-zinc-300 transition-colors" />
             </button>
           )}
-          <a
-            href="https://vercel.com/new"
-            target="_blank"
-            rel="noopener noreferrer"
+          <button
+            onClick={() => setShowDeployModal(true)}
+            disabled={!hasFiles}
             className={cn(
               'px-3.5 py-1.5 text-xs font-medium rounded-lg transition-all',
-              'bg-violet-600/90 text-white',
-              'hover:bg-violet-500 hover:shadow-[0_0_20px_-5px_rgba(124,58,237,0.4)]',
-              'active:scale-[0.97]',
-              'border border-violet-500/30'
+              hasFiles
+                ? 'bg-violet-600/90 text-white hover:bg-violet-500 hover:shadow-[0_0_20px_-5px_rgba(124,58,237,0.4)] active:scale-[0.97] border border-violet-500/30'
+                : 'bg-zinc-800 text-zinc-600 cursor-not-allowed'
             )}
+            title={hasFiles ? 'Deploy your project' : 'Create a project first'}
           >
             Deploy
-          </a>
+          </button>
         </div>
       </header>
       <SettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} />
+      <GitHubCommitDialog
+        isOpen={showCommitDialog}
+        onClose={() => setShowCommitDialog(false)}
+      />
+      <DeployModal isOpen={showDeployModal} onClose={() => setShowDeployModal(false)} />
     </>
   );
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { Component, ErrorInfo, ReactNode } from 'react';
-import { AlertTriangle, RefreshCw } from 'lucide-react';
+import { RiErrorWarningLine, RiRefreshLine } from '@remixicon/react';
 
 interface Props {
     children: ReactNode;
@@ -37,7 +37,7 @@ export class ErrorBoundary extends Component<Props, State> {
                 <div className="h-full w-full flex items-center justify-center bg-[#0a0a0b]">
                     <div className="max-w-md mx-auto text-center space-y-4 px-6">
                         <div className="w-12 h-12 rounded-2xl bg-red-500/10 flex items-center justify-center mx-auto">
-                            <AlertTriangle className="w-6 h-6 text-red-400" />
+                            <RiErrorWarningLine className="w-6 h-6 text-red-400" />
                         </div>
                         <h2 className="text-lg font-semibold text-zinc-100">
                             Something went wrong
@@ -61,7 +61,7 @@ export class ErrorBoundary extends Component<Props, State> {
                                 onClick={this.handleReload}
                                 className="flex items-center gap-1.5 px-4 py-2 text-xs font-medium rounded-lg bg-violet-600/90 text-white hover:bg-violet-500 transition-all"
                             >
-                                <RefreshCw className="w-3 h-3" />
+                                <RiRefreshLine className="w-3 h-3" />
                                 Reload Page
                             </button>
                         </div>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { Loader2, AlertTriangle } from 'lucide-react';
+import { RiLoader4Line, RiErrorWarningLine } from '@remixicon/react';
 import { useWebContainer } from '@/hooks/useWebContainer';
 import { useStore } from '@/lib/store';
 import { loadProject, saveProject, getAllProjects, getActiveProjectId, setActiveProjectId, createNewProject } from '@/lib/db';
@@ -12,6 +12,7 @@ import { ChatPanel } from './ChatPanel';
 import { WorkspacePanel } from './WorkspacePanel';
 import { WelcomeScreen } from './WelcomeScreen';
 import { ProjectSidebar } from './ProjectSidebar';
+import { DiffViewer } from './DiffViewer';
 
 export function WorkspaceLayout() {
   const {
@@ -28,7 +29,8 @@ export function WorkspaceLayout() {
     clearMessages,
     clearTerminal,
     setPreviewUrl,
-    setSandboxStatus
+    setSandboxStatus,
+    pendingChanges
   } = useStore();
 
   const [isMobile, setIsMobile] = useState(false);
@@ -215,7 +217,7 @@ export function WorkspaceLayout() {
         <div className="gradient-mesh" />
         <div className="relative z-10 text-center animate-fade-up">
           <div className="relative mb-6">
-            <Loader2 className="w-8 h-8 text-violet-400 animate-spin mx-auto" />
+            <RiLoader4Line className="w-8 h-8 text-violet-400 animate-spin mx-auto" />
             <div className="absolute inset-0 w-8 h-8 mx-auto rounded-full bg-violet-500/20 blur-xl" />
           </div>
           <p className="text-zinc-300 text-sm font-medium">
@@ -268,7 +270,7 @@ export function WorkspaceLayout() {
       {/* Offline Warning */}
       {!isOnline && (
         <div className="px-4 py-1.5 bg-red-500/10 border-b border-red-500/20 text-red-300 text-xs font-medium flex items-center justify-center gap-2">
-          <AlertTriangle className="w-3.5 h-3.5" />
+          <RiErrorWarningLine className="w-3.5 h-3.5" />
           <span>You are offline. Some features may be unavailable.</span>
         </div>
       )}
@@ -276,7 +278,7 @@ export function WorkspaceLayout() {
       {/* Browser warning */}
       {browserWarning && (
         <div className="px-4 py-2 glass border-b border-white/[0.06] text-zinc-400 text-xs flex items-center gap-2">
-          <AlertTriangle className="w-3.5 h-3.5 text-amber-400/70" />
+          <RiErrorWarningLine className="w-3.5 h-3.5 text-amber-400/70" />
           <span>Best experienced in Chrome or Edge — WebContainer requires a Chromium browser.</span>
         </div>
       )}
@@ -321,6 +323,9 @@ export function WorkspaceLayout() {
           <WorkspacePanel />
         </div>
       </div>
+
+      {/* Diff Viewer Modal */}
+      {pendingChanges.length > 0 && <DiffViewer />}
     </div>
   );
 }
