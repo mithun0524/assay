@@ -2,9 +2,10 @@
 
 import { useState } from 'react';
 import { RiCloseLine, RiDownloadLine, RiErrorWarningLine } from '@remixicon/react';
+import { toast } from 'sonner';
 import { useStore } from '@/lib/store';
 import { cn } from '@/lib/utils';
-import { cloneRepository, parseGitHubUrl } from '@/lib/github';
+import { cloneRepo, parseGitHubUrl } from '@/lib/github-client';
 import { writeFileToSandbox } from '@/lib/fileSystem';
 
 interface GitHubCloneDialogProps {
@@ -37,7 +38,7 @@ export function GitHubCloneDialog({ isOpen, onClose }: GitHubCloneDialogProps) {
 
     try {
       // Clone repository
-      const files = await cloneRepository(parsed.owner, parsed.repo, branch);
+      const files = await cloneRepo(parsed.owner, parsed.repo, branch);
 
       // Clear existing project
       clearFiles();
@@ -69,7 +70,7 @@ export function GitHubCloneDialog({ isOpen, onClose }: GitHubCloneDialogProps) {
 
       // Success!
       onClose();
-      alert(`Successfully cloned ${parsed.owner}/${parsed.repo}!`);
+      toast.success(`Cloned ${parsed.owner}/${parsed.repo}`);
     } catch (err) {
       console.error('Clone error:', err);
       setError(

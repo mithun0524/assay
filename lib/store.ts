@@ -130,10 +130,8 @@ type AppStore = {
   showDiffPreview: boolean;
   setShowDiffPreview: (show: boolean) => void;
 
-  githubToken: string | null;
   githubUser: { login: string; name: string | null; avatar_url: string } | null;
   githubRepo: { owner: string; name: string; url: string } | null;
-  setGitHubToken: (token: string | null) => void;
   setGitHubUser: (user: { login: string; name: string | null; avatar_url: string } | null) => void;
   setGitHubRepo: (repo: { owner: string; name: string; url: string } | null) => void;
   disconnectGitHub: () => void;
@@ -450,19 +448,12 @@ export const useStore = create<AppStore>((set) => ({
     set({ showDiffPreview: show });
   },
 
-  githubToken: null,
   githubUser: null,
   githubRepo: null,
-  setGitHubToken: (token) => set({ githubToken: token }),
   setGitHubUser: (user) => set({ githubUser: user }),
   setGitHubRepo: (repo) => set({ githubRepo: repo }),
   disconnectGitHub: () => {
-    // Clear GitHub data from store
-    set({ githubToken: null, githubUser: null, githubRepo: null });
-    // Clear from localStorage via auth utility
-    import('./githubAuth').then(({ removeGitHubToken }) => {
-      removeGitHubToken();
-    });
+    set({ githubUser: null, githubRepo: null });
   },
 
   componentEditMode: {

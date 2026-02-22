@@ -5,6 +5,7 @@ import { X, Key, ExternalLink } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useStore } from '@/lib/store';
 import { cn } from '@/lib/utils';
+import { useAuthContext } from './Providers';
 
 interface SettingsModalProps {
     isOpen: boolean;
@@ -13,6 +14,7 @@ interface SettingsModalProps {
 
 export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     const { apiKey, setApiKey, showDiffPreview, setShowDiffPreview } = useStore();
+    const { user } = useAuthContext();
     const [inputValue, setInputValue] = useState(apiKey ?? '');
     const [saved, setSaved] = useState(false);
     const inputRef = useRef<HTMLInputElement>(null);
@@ -34,9 +36,23 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         return () => window.removeEventListener('keydown', handler);
     }, [isOpen, onClose]);
 
-    const handleSave = () => {
+    const handleSave = async () => {
         const trimmed = inputValue.trim();
         setApiKey(trimmed || null);
+
+        // If authenticated, also save to DB
+        if (user) {
+            try {
+                await fetch('/api/user/secrets', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ openrouterKey: trimmed || null }),
+                });
+            } catch {
+                // Silently fall back to localStorage-only
+            }
+        }
+
         setSaved(true);
         setTimeout(() => onClose(), 600);
     };
@@ -102,7 +118,9 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                                     )}
                                 />
                                 <p className="mt-2 text-[11px] text-zinc-600">
-                                    Your key is stored locally in your browser and never sent to our servers.
+                                    {user
+                                        ? 'Your key is stored securely in the database and synced across sessions.'
+                                        : 'Your key is stored locally in your browser. Sign in to sync across devices.'}
                                 </p>
                             </div>
 

@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { RiCloseLine, RiUploadLine, RiErrorWarningLine } from '@remixicon/react';
+import { toast } from 'sonner';
 import { useStore } from '@/lib/store';
 import { cn } from '@/lib/utils';
-import { pushToRepository, createRepository, listRepositories } from '@/lib/github';
+import { pushToRepo, createRepo, fetchRepositories } from '@/lib/github-client';
 
 interface GitHubCommitDialogProps {
   isOpen: boolean;
@@ -35,7 +36,7 @@ export function GitHubCommitDialog({ isOpen, onClose }: GitHubCommitDialogProps)
     setLoadingRepos(true);
     setError(null);
     try {
-      const repoList = await listRepositories({ per_page: 50 });
+      const repoList = await fetchRepositories({ per_page: 50 });
       setRepos(repoList);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load repositories');
@@ -66,7 +67,7 @@ export function GitHubCommitDialog({ isOpen, onClose }: GitHubCommitDialogProps)
         }
 
         // Create new repository
-        const newRepo = await createRepository(
+        const newRepo = await createRepo(
           newRepoName,
           newRepoDescription,
           isPrivate
@@ -96,11 +97,11 @@ export function GitHubCommitDialog({ isOpen, onClose }: GitHubCommitDialogProps)
       }
 
       // Push files
-      await pushToRepository(owner, repoName, files, commitMessage);
+      await pushToRepo(owner, repoName, files, commitMessage);
 
       // Success!
       onClose();
-      alert(`Successfully pushed to ${owner}/${repoName}!`);
+      toast.success(`Pushed to ${owner}/${repoName}`);
     } catch (err) {
       console.error('Push error:', err);
       setError(err instanceof Error ? err.message : 'Failed to push to GitHub');

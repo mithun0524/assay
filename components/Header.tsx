@@ -23,6 +23,7 @@ import { GitHubCommitDialog } from './GitHubCommitDialog';
 import { GitHubAuthButton } from './GitHubAuthButton';
 import { DeployModal } from './DeployModal';
 import { Tooltip } from './Tooltip';
+import { useAuthContext } from './Providers';
 
 interface HeaderProps {
   onOpenProjects?: () => void;
@@ -30,7 +31,8 @@ interface HeaderProps {
 }
 
 export function Header({ onOpenProjects, onOpenShortcuts }: HeaderProps) {
-  const { sandboxStatus, files, canUndo, canRedo, undo, redo, githubUser, designMode, setDesignMode } = useStore();
+  const { sandboxStatus, files, canUndo, canRedo, undo, redo, designMode, setDesignMode } = useStore();
+  const { user, isGitHubLinked } = useAuthContext();
   const [showSettings, setShowSettings] = useState(false);
   const [showCommitDialog, setShowCommitDialog] = useState(false);
   const [showDeployModal, setShowDeployModal] = useState(false);
@@ -172,7 +174,7 @@ export function Header({ onOpenProjects, onOpenShortcuts }: HeaderProps) {
               <div className="w-px h-4 bg-white/[0.06]" />
             </>
           )}
-          {hasFiles && githubUser && (
+          {hasFiles && user && isGitHubLinked && (
             <>
               <Tooltip content="Push to GitHub">
                 <button

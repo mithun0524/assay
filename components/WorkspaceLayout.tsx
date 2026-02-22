@@ -19,6 +19,7 @@ import { QuickFilePicker } from './QuickFilePicker';
 import { FindInFiles } from './FindInFiles';
 import { KeyboardShortcutsModal } from './KeyboardShortcutsModal';
 import { Tooltip } from './Tooltip';
+import { useAuthContext } from './Providers';
 
 export function WorkspaceLayout() {
   const {
@@ -38,6 +39,8 @@ export function WorkspaceLayout() {
     setSandboxStatus,
     pendingChanges
   } = useStore();
+
+  const { user, isGitHubLinked } = useAuthContext();
 
   const [isMobile, setIsMobile] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
@@ -114,6 +117,35 @@ export function WorkspaceLayout() {
       }
     }
   }, []);
+
+  // Fetch GitHub user and stored API key when authenticated
+  useEffect(() => {
+    if (!user) return;
+
+    if (isGitHubLinked) {
+      fetch('/api/github/user')
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (data) {
+            useStore.getState().setGitHubUser({
+              login: data.login,
+              name: data.name,
+              avatar_url: data.avatar_url,
+            });
+          }
+        })
+        .catch(console.error);
+    }
+
+    fetch('/api/user/secrets')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.openrouterKey) {
+          useStore.getState().setApiKey(data.openrouterKey);
+        }
+      })
+      .catch(console.error);
+  }, [user, isGitHubLinked]);
 
   // Track whether user has a project (files or messages)
   useEffect(() => {

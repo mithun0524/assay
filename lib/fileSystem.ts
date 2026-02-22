@@ -21,9 +21,6 @@ export async function writeFileToSandbox(filePath: string, content: string) {
     content,
     language: getLanguageFromPath(filePath),
   });
-
-  // Open the file in the editor so it's visible
-  store.openTab(filePath);
 }
 
 export async function runShellInSandbox(command: string, timeoutMs = 180000): Promise<number> {

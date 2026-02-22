@@ -3,8 +3,7 @@ import { streamText } from 'ai';
 import { NextRequest } from 'next/server';
 import { SYSTEM_PROMPT } from '@/lib/systemPrompt';
 import { OPENROUTER_BASE_URL } from '@/lib/openrouter';
-
-export const runtime = 'edge';
+import { createClient } from '@/lib/supabase/server';
 
 export async function POST(req: NextRequest) {
   const {
@@ -16,7 +15,31 @@ export async function POST(req: NextRequest) {
     temperature: customTemperature,
   } = await req.json();
 
-  const resolvedKey = process.env.OPENROUTER_API_KEY || clientKey;
+  // Key resolution: env var → user's DB-stored key → client-provided key
+  let resolvedKey = process.env.OPENROUTER_API_KEY || '';
+
+  if (!resolvedKey) {
+    try {
+      const supabase = await createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: secrets } = await supabase
+          .from('user_secrets')
+          .select('openrouter_key')
+          .eq('user_id', user.id)
+          .single();
+        if (secrets?.openrouter_key) {
+          resolvedKey = secrets.openrouter_key;
+        }
+      }
+    } catch {
+      // Not authenticated or DB error — fall through to client key
+    }
+  }
+
+  if (!resolvedKey) {
+    resolvedKey = clientKey || '';
+  }
 
   if (!resolvedKey) {
     return new Response(

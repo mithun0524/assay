@@ -2,37 +2,86 @@ import { createOpenAI } from '@ai-sdk/openai';
 import { generateText } from 'ai';
 import { NextRequest } from 'next/server';
 import { OPENROUTER_BASE_URL } from '@/lib/openrouter';
-
-export const runtime = 'edge';
+import { createClient } from '@/lib/supabase/server';
 
 const VALID_ROLES = ['architect', 'coder', 'debugger', 'designer', 'tester'] as const;
+type Role = (typeof VALID_ROLES)[number];
 
-const FALLBACK_MODELS = [
+const CLASSIFIER_MODELS = [
+  'arcee-ai/trinity-large-preview:free',
   'stepfun/step-3.5-flash:free',
-  'liquid/lfm-2.5-1.2b-thinking:free',
 ];
 
-const CLASSIFY_SYSTEM_PROMPT = `Classify intent. Reply ONLY with JSON: {"role":"…","model":"…","reasoning":"…"}
+const CLASSIFY_SYSTEM_PROMPT = `You are an intent classifier. Given a user message and context, classify the intent and pick the best model.
+
+Respond with ONLY a JSON object, no other text: {"role":"<role>","model":"<model>","reasoning":"<short reason>"}
+
+Roles and recommended models:
+- "debugger" (fix bugs, errors, crashes) → stepfun/step-3.5-flash:free
+- "designer" (UI, styling, visuals, images) → arcee-ai/trinity-large-preview:free
+- "tester" (tests, specs, coverage) → stepfun/step-3.5-flash:free
+- "architect" (planning, new project, architecture) → arcee-ai/trinity-large-preview:free
+- "coder" (generate/write code, default) → arcee-ai/trinity-large-preview:free
 
 Rules (first match wins):
-hasErrors=true OR fix/debug/bug/crash → debugger, stepfun/step-3.5-flash:free
-hasImages=true → designer, nvidia/nemotron-nano-12b-v2-vl:free
-style/visual/animation/UI look → designer, google/gemma-3-27b-it:free
-test/spec/coverage → tester, stepfun/step-3.5-flash:free
-architecture/plan OR hasProject=false → architect, stepfun/step-3.5-flash:free
-build/generate code → coder, qwen/qwen3-coder:free
-default → coder, stepfun/step-3.5-flash:free`;
+1. hasErrors=true OR message about fix/debug/bug/error/crash → debugger
+2. hasImages=true → designer
+3. Message about style/CSS/colors/animation/layout/UI → designer
+4. Message about tests/specs/coverage → tester
+5. hasProject=false OR message about architecture/planning → architect
+6. Otherwise → coder`;
+
+function classifyLocally(message: string, context: { hasProject: boolean; hasErrors: boolean; hasImages: boolean }): { role: Role; model: string; reasoning: string } {
+  const msg = message.toLowerCase();
+
+  if (context.hasErrors || /\b(fix|debug|bug|error|crash|broken|fail|issue|wrong|not working)\b/.test(msg)) {
+    return { role: 'debugger', model: 'stepfun/step-3.5-flash:free', reasoning: 'Error-related keywords detected' };
+  }
+  if (context.hasImages) {
+    return { role: 'designer', model: 'arcee-ai/trinity-large-preview:free', reasoning: 'Images attached' };
+  }
+  if (/\b(style|css|color|theme|animation|layout|ui|design|font|padding|margin|border|responsive|dark mode|light mode|icon|image|visual)\b/.test(msg)) {
+    return { role: 'designer', model: 'arcee-ai/trinity-large-preview:free', reasoning: 'Style/UI keywords detected' };
+  }
+  if (/\b(test|spec|coverage|jest|vitest|assert|expect|unit test|e2e)\b/.test(msg)) {
+    return { role: 'tester', model: 'stepfun/step-3.5-flash:free', reasoning: 'Testing keywords detected' };
+  }
+  if (!context.hasProject || /\b(architect|plan|scaffold|setup|init|create.*app|new.*project|from scratch)\b/.test(msg)) {
+    return { role: 'architect', model: 'arcee-ai/trinity-large-preview:free', reasoning: 'Architecture/planning or no project' };
+  }
+  return { role: 'coder', model: 'arcee-ai/trinity-large-preview:free', reasoning: 'Default to code generation' };
+}
 
 export async function POST(req: NextRequest) {
   const { message, context, apiKey: clientKey } = await req.json();
 
-  const resolvedKey = process.env.OPENROUTER_API_KEY || clientKey;
+  let resolvedKey = process.env.OPENROUTER_API_KEY || '';
 
   if (!resolvedKey) {
-    return new Response(
-      JSON.stringify({ error: 'No API key configured' }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
-    );
+    try {
+      const supabase = await createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: secrets } = await supabase
+          .from('user_secrets')
+          .select('openrouter_key')
+          .eq('user_id', user.id)
+          .single();
+        if (secrets?.openrouter_key) {
+          resolvedKey = secrets.openrouter_key;
+        }
+      }
+    } catch {
+      // fall through
+    }
+  }
+
+  if (!resolvedKey) resolvedKey = clientKey || '';
+
+  if (!resolvedKey) {
+    // No key — use local classifier, still works
+    const local = classifyLocally(message, context);
+    return Response.json(local);
   }
 
   const openrouter = createOpenAI({
@@ -44,54 +93,48 @@ export async function POST(req: NextRequest) {
     },
   });
 
-  const userPrompt = `Context: hasProject=${context.hasProject}, fileCount=${context.fileCount}, hasErrors=${context.hasErrors}, hasImages=${context.hasImages}\nMessage: "${String(message).slice(0, 300)}"`;
+  const userPrompt = `Context: hasProject=${context.hasProject}, fileCount=${context.fileCount}, hasErrors=${context.hasErrors}, hasImages=${context.hasImages}
+Message: "${String(message).slice(0, 300)}"`;
 
-  // Try each model in the fallback chain
-  for (const modelId of FALLBACK_MODELS) {
+  for (const classifierModel of CLASSIFIER_MODELS) {
     try {
       const result = await generateText({
-        model: openrouter.chat(modelId),
+        model: openrouter.chat(classifierModel),
         system: CLASSIFY_SYSTEM_PROMPT,
         prompt: userPrompt,
-        maxOutputTokens: 80,
+        maxOutputTokens: 150,
         temperature: 0,
-        abortSignal: AbortSignal.timeout(8000),
+        abortSignal: AbortSignal.timeout(6000),
       });
 
       const text = result.text.trim();
+      if (!text) continue;
 
-      // Extract JSON from response (may be wrapped in markdown or extra text)
-      const jsonMatch = text.match(/\{[^}]*"role"\s*:\s*"[^"]*"[^}]*\}/);
+      const jsonMatch = text.match(/\{[\s\S]*?"role"\s*:\s*"([^"]*)"[\s\S]*?\}/);
       if (!jsonMatch) {
-        console.warn(`[classify] No JSON found in response from ${modelId}:`, text);
+        console.warn(`[classify] No JSON from ${classifierModel}:`, text);
         continue;
       }
 
       const parsed = JSON.parse(jsonMatch[0]);
-
-      // Validate role
       if (!VALID_ROLES.includes(parsed.role)) {
-        console.warn(`[classify] Invalid role "${parsed.role}" from ${modelId}`);
+        console.warn(`[classify] Invalid role "${parsed.role}" from ${classifierModel}`);
         continue;
       }
 
-      return new Response(
-        JSON.stringify({
-          role: parsed.role,
-          model: parsed.model || 'stepfun/step-3.5-flash:free',
-          reasoning: parsed.reasoning || '',
-        }),
-        { status: 200, headers: { 'Content-Type': 'application/json' } }
-      );
+      return Response.json({
+        role: parsed.role,
+        model: parsed.model || 'arcee-ai/trinity-large-preview:free',
+        reasoning: parsed.reasoning || '',
+      });
     } catch (err) {
-      console.warn(`[classify] Model ${modelId} failed:`, err instanceof Error ? err.message : err);
+      console.warn(`[classify] ${classifierModel} failed:`, err instanceof Error ? err.message : err);
       continue;
     }
   }
 
-  // All models failed
-  return new Response(
-    JSON.stringify({ error: 'Classification failed for all models' }),
-    { status: 502, headers: { 'Content-Type': 'application/json' } }
-  );
+  // All LLM attempts failed — deterministic fallback
+  console.warn('[classify] All models failed, using local fallback');
+  const local = classifyLocally(message, context);
+  return Response.json(local);
 }
