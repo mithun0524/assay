@@ -8,11 +8,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useStore } from '@/lib/store';
 import { FileTree } from './FileTree';
 import { InlineEditPopup } from './InlineEditPopup';
-import { buildFileTree } from '@/lib/utils';
+import { buildFileTree, cn } from '@/lib/utils';
 import { writeFileToSandbox } from '@/lib/fileSystem';
 import { checkAndNotifyMissingDependencies } from '@/lib/dependencyHelper';
 import { registerAutocompleteProvider } from '@/lib/autocomplete';
-import { cn } from '@/lib/utils';
 import { useChat } from '@/hooks/useChat';
 import type * as Monaco from 'monaco-editor';
 
