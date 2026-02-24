@@ -2,6 +2,32 @@
 
 import { Template } from '@/lib/templates';
 import { cn } from '@/lib/utils';
+import {
+  RiRocketLine,
+  RiCalculatorLine,
+  RiTaskLine,
+  RiEditLine,
+  RiShoppingCartLine,
+  RiBriefcaseLine,
+  RiSunCloudyLine,
+  RiBarChartBoxLine,
+  RiChat3Line,
+  RiArticleLine,
+} from '@remixicon/react';
+import type { RemixiconComponentType } from '@remixicon/react';
+
+const ICON_MAP: Record<string, { icon: RemixiconComponentType; color: string }> = {
+  'saas-landing':       { icon: RiRocketLine,       color: 'text-violet-400 bg-violet-500/15' },
+  'calculator':         { icon: RiCalculatorLine,    color: 'text-amber-400 bg-amber-500/15' },
+  'task-manager':       { icon: RiTaskLine,          color: 'text-blue-400 bg-blue-500/15' },
+  'markdown-editor':    { icon: RiEditLine,          color: 'text-emerald-400 bg-emerald-500/15' },
+  'ecommerce-store':    { icon: RiShoppingCartLine,  color: 'text-orange-400 bg-orange-500/15' },
+  'portfolio':          { icon: RiBriefcaseLine,     color: 'text-cyan-400 bg-cyan-500/15' },
+  'weather-dashboard':  { icon: RiSunCloudyLine,     color: 'text-sky-400 bg-sky-500/15' },
+  'admin-dashboard':    { icon: RiBarChartBoxLine,   color: 'text-pink-400 bg-pink-500/15' },
+  'chat-app':           { icon: RiChat3Line,         color: 'text-indigo-400 bg-indigo-500/15' },
+  'blog-platform':      { icon: RiArticleLine,       color: 'text-teal-400 bg-teal-500/15' },
+};
 
 interface TemplateCardProps {
   template: Template;
@@ -9,6 +35,9 @@ interface TemplateCardProps {
 }
 
 export function TemplateCard({ template, onClick }: TemplateCardProps) {
+  const iconEntry = ICON_MAP[template.id];
+  const Icon = iconEntry?.icon;
+
   return (
     <button
       onClick={() => onClick(template)}
@@ -20,8 +49,14 @@ export function TemplateCard({ template, onClick }: TemplateCardProps) {
       )}
     >
       {/* Thumbnail */}
-      <div className="mb-3 flex items-center justify-center text-4xl">
-        {template.thumbnail}
+      <div className="mb-3 flex items-center justify-center">
+        {Icon ? (
+          <div className={cn('w-10 h-10 rounded-xl flex items-center justify-center', iconEntry.color)}>
+            <Icon className="w-5 h-5" />
+          </div>
+        ) : (
+          <div className="text-4xl">{template.thumbnail}</div>
+        )}
       </div>
 
       {/* Content */}

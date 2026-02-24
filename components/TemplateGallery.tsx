@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Template, ALL_TEMPLATES, getAllCategories, searchTemplates } from '@/lib/templates';
+import { ALL_TEMPLATES, getAllCategories, searchTemplates, type Template } from '@/lib/templates';
 import { TemplateCard } from './TemplateCard';
 import { RiSearchLine, RiCloseLine } from '@remixicon/react';
 import { cn } from '@/lib/utils';
@@ -16,6 +16,11 @@ export function TemplateGallery({ onSelectTemplate, onClose }: TemplateGalleryPr
   const [selectedCategory, setSelectedCategory] = useState<Template['category'] | 'all'>('all');
 
   const categories = useMemo(() => getAllCategories(), []);
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    ALL_TEMPLATES.forEach(t => { counts[t.category] = (counts[t.category] || 0) + 1; });
+    return counts;
+  }, []);
 
   const filteredTemplates = useMemo(() => {
     let templates = searchQuery ? searchTemplates(searchQuery) : ALL_TEMPLATES;
@@ -69,7 +74,7 @@ export function TemplateGallery({ onSelectTemplate, onClose }: TemplateGalleryPr
                   : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
               )}
             >
-              All
+              All <span className="ml-1 opacity-60">{ALL_TEMPLATES.length}</span>
             </button>
             {categories.map((category) => (
               <button
@@ -82,7 +87,7 @@ export function TemplateGallery({ onSelectTemplate, onClose }: TemplateGalleryPr
                     : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
                 )}
               >
-                {category}
+                {category} <span className="ml-1 opacity-60">{categoryCounts[category] || 0}</span>
               </button>
             ))}
           </div>

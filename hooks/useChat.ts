@@ -39,15 +39,18 @@ function extractTerminalErrors(output: string): string | null {
 }
 
 export function useChat() {
-  const store = useStore();
   const abortRef = useRef<AbortController | null>(null);
   const retryCountRef = useRef(0);
   const searchRetryRef = useRef(0);
+  const submitRef = useRef<((text: string, images?: string[]) => Promise<void>) | null>(null);
   const MAX_AUTO_RETRIES = 2;
   const MAX_SEARCH_RETRIES = 2;
 
+  // Read store actions/state on demand — no reactive subscription
+  const gs = useStore.getState;
+
   const submit = useCallback(async (userText: string, images: string[] = []) => {
-    if ((!userText.trim() && images.length === 0) || store.isStreaming) return;
+    if ((!userText.trim() && images.length === 0) || gs().isStreaming) return;
 
     const userMsg: Message = {
       id: crypto.randomUUID(),
@@ -57,8 +60,8 @@ export function useChat() {
       displayContent: userText,
       timestamp: Date.now(),
     };
-    store.addMessage(userMsg);
-    store.clearTerminalErrors();
+    gs().addMessage(userMsg);
+    gs().clearTerminalErrors();
 
     const assistantMsg: Message = {
       id: crypto.randomUUID(),
@@ -67,10 +70,10 @@ export function useChat() {
       displayContent: '',
       timestamp: Date.now(),
     };
-    store.addMessage(assistantMsg);
-    store.setIsStreaming(true);
-    store.setGenerationPhase('writing');
-    store.clearPreviewErrors();
+    gs().addMessage(assistantMsg);
+    gs().setIsStreaming(true);
+    gs().setGenerationPhase('writing');
+    gs().clearPreviewErrors();
     abortRef.current = new AbortController();
 
     // Reset retry counter on real user messages (not auto-retries)
@@ -84,7 +87,7 @@ export function useChat() {
     }
 
     // Snapshot current files before AI writes — enables undo
-    store.takeSnapshot();
+    gs().takeSnapshot();
 
     let fullContent = '';
     const pendingShells: string[] = [];
@@ -95,22 +98,22 @@ export function useChat() {
 
     const parser = createStreamParser(async (action) => {
       if (action.type === 'file') {
-        store.setActivelyWritingFile(action.filePath);
-        store.setGenerationPhase('writing');
+        gs().setActivelyWritingFile(action.filePath);
+        gs().setGenerationPhase('writing');
 
         // If diff preview is enabled, collect changes instead of writing immediately
-        if (store.showDiffPreview) {
+        if (gs().showDiffPreview) {
           collectedFileActions.push({ filePath: action.filePath, content: action.content });
         } else {
           await writeFileToSandbox(action.filePath, action.content);
         }
 
-        store.setActivelyWritingFile(null);
+        gs().setActivelyWritingFile(null);
 
         // On first file, signal that we have a project
         if (!firstFileWritten) {
           firstFileWritten = true;
-          store.setHasProject(true);
+          gs().setHasProject(true);
         }
       } else if (action.type === 'shell') {
         pendingShells.push(action.command);
@@ -124,24 +127,24 @@ export function useChat() {
     try {
       // User-triggered web search: prepend results to the user message
       let searchPrefix = '';
-      if (store.webSearchEnabled && userText.trim() && !userText.startsWith('Here are the web search results you requested')) {
+      if (gs().webSearchEnabled && userText.trim() && !userText.startsWith('Here are the web search results you requested')) {
         try {
-          store.setIsSearching(true);
-          store.setGenerationPhase('searching');
+          gs().setIsSearching(true);
+          gs().setGenerationPhase('searching');
           const { executeSearch, formatSearchResults } = await import('@/lib/searchClient');
           const searchData = await executeSearch(userText);
           searchPrefix = formatSearchResults(searchData) + '\n\n';
-          store.setLastSearchResults(searchPrefix);
+          gs().setLastSearchResults(searchPrefix);
         } catch (e) {
           console.warn('User-triggered search failed, continuing without results:', e);
         } finally {
-          store.setIsSearching(false);
-          store.setGenerationPhase('writing');
+          gs().setIsSearching(false);
+          gs().setGenerationPhase('writing');
         }
       }
 
       // Build conversation history (omit empty assistant placeholders)
-      const history = [...store.messages, userMsg]
+      const history = [...gs().messages, userMsg]
         .filter((m) => m.content.trim() !== '' || (m.images && m.images.length > 0))
         .map((m) => {
           // Prepend search results to the last user message
@@ -161,13 +164,13 @@ export function useChat() {
         });
 
       // Build file context for AI awareness of existing project files
-      const fileContext = buildFileContext(store.files);
+      const fileContext = buildFileContext(gs().files);
 
       // Route to appropriate agent based on message and context
       const agentContext: AgentContext = {
-        hasProject: store.hasProject,
-        fileCount: Object.keys(store.files).length,
-        hasErrors: store.previewErrors.length > 0,
+        hasProject: gs().hasProject,
+        fileCount: Object.keys(gs().files).length,
+        hasErrors: gs().previewErrors.length > 0,
         lastMessage: userText,
         hasImages: images.length > 0,
       };
@@ -175,7 +178,7 @@ export function useChat() {
       // LLM-based classification with regex fallback
       let agentRole: AgentRole;
       let agentModel: string | undefined;
-      const classification = await classifyWithLLM(userText, agentContext, store.apiKey);
+      const classification = await classifyWithLLM(userText, agentContext, gs().apiKey);
       if (classification) {
         agentRole = classification.role;
         agentModel = classification.model;
@@ -187,11 +190,11 @@ export function useChat() {
       const agentReasoning = classification?.reasoning || getAgentReasoning(agentRole, agentContext);
 
       // Set active agent in store
-      store.setActiveAgent(agentRole);
+      gs().setActiveAgent(agentRole);
 
       // Use agent's system prompt combined with base prompt
       // If there's a project loaded, emphasize we're editing existing code
-      const projectContext = store.hasProject
+      const projectContext = gs().hasProject
         ? '\n\nIMPORTANT: The user has a project loaded. They are asking you to MODIFY the existing code shown in <current_files>. Output the modified files immediately.\n\n'
         : '';
       const systemPrompt = SYSTEM_PROMPT + projectContext + '\n\n' + agent.systemPrompt;
@@ -212,7 +215,7 @@ export function useChat() {
         return acc + contentTokens;
       }, 0);
       let baseUsage = systemTokens + historyTokens;
-      store.setTokenUsage(baseUsage);
+      gs().setTokenUsage(baseUsage);
 
       const res = await fetch('/api/chat', {
         method: 'POST',
@@ -220,7 +223,7 @@ export function useChat() {
         body: JSON.stringify({
           messages: history,
           model: agentModel || agent.model, // LLM-picked model or agent default
-          apiKey: store.apiKey,
+          apiKey: gs().apiKey,
           fileContext,
           systemPrompt, // Pass custom system prompt
           temperature: agent.temperature, // Use agent's temperature
@@ -231,7 +234,7 @@ export function useChat() {
       if (!res.ok) {
         if (res.status === 429) {
           const retryAfter = parseInt(res.headers.get('retry-after') || '60', 10);
-          store.setRateLimitUntil(Date.now() + retryAfter * 1000);
+          gs().setRateLimitUntil(Date.now() + retryAfter * 1000);
           throw new Error(`Rate limited. Please wait ${retryAfter} seconds before trying again.`);
         }
         const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
@@ -242,6 +245,11 @@ export function useChat() {
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
 
+      // ── Throttled streaming update loop ──
+      // formatForDisplay runs 6+ regex passes — throttle to once per animation frame
+      let displayRafId: number | null = null;
+      let tokenTimer: ReturnType<typeof setTimeout> | null = null;
+
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -249,19 +257,38 @@ export function useChat() {
         const chunk = decoder.decode(value, { stream: true });
         fullContent += chunk;
         parser.feed(chunk);
-        store.updateLastAssistantMessage(fullContent, formatForDisplay(fullContent));
 
-        // Update token usage with new content
-        store.setTokenUsage(baseUsage + estimateTokens(fullContent));
+        // Throttle display updates to ~1 per animation frame (~16ms)
+        if (displayRafId === null) {
+          displayRafId = requestAnimationFrame(() => {
+            displayRafId = null;
+            gs().updateLastAssistantMessage(fullContent, formatForDisplay(fullContent));
+          });
+        }
+
+        // Throttle token usage updates to every 500ms
+        if (!tokenTimer) {
+          tokenTimer = setTimeout(() => {
+            tokenTimer = null;
+            gs().setTokenUsage(baseUsage + estimateTokens(fullContent));
+          }, 500);
+        }
       }
+
+      // Flush any pending throttled updates
+      if (displayRafId !== null) cancelAnimationFrame(displayRafId);
+      if (tokenTimer) clearTimeout(tokenTimer);
+      // Final update with complete content
+      gs().updateLastAssistantMessage(fullContent, formatForDisplay(fullContent));
+      gs().setTokenUsage(baseUsage + estimateTokens(fullContent));
 
       parser.flush();
 
       // AI-requested search: execute pending searches and auto-continue
       if (pendingSearches.length > 0 && searchRetryRef.current < MAX_SEARCH_RETRIES) {
         searchRetryRef.current++;
-        store.setGenerationPhase('searching');
-        store.setIsSearching(true);
+        gs().setGenerationPhase('searching');
+        gs().setIsSearching(true);
         try {
           const { executeSearch, formatSearchResults } = await import('@/lib/searchClient');
           const queries = pendingSearches.slice(0, 2); // Cap at 2 searches
@@ -276,22 +303,23 @@ export function useChat() {
           }
           if (results.length > 0) {
             const searchResultsMsg = `Here are the web search results you requested:\n\n${results.join('\n\n')}\n\nPlease continue with the task using this information.`;
-            store.setIsSearching(false);
-            store.setIsStreaming(false);
-            submit(searchResultsMsg);
+            gs().setIsSearching(false);
+            gs().setIsStreaming(false);
+            submitRef.current?.(searchResultsMsg);
             return;
           }
         } catch (e) {
           console.warn('AI-requested search failed:', e);
         } finally {
-          store.setIsSearching(false);
+          gs().setIsSearching(false);
         }
       }
 
       // If diff preview is enabled, convert collected actions to pending changes
-      if (store.showDiffPreview && collectedFileActions.length > 0) {
+      if (gs().showDiffPreview && collectedFileActions.length > 0) {
+        const currentFiles = gs().files;
         const pendingChanges = collectedFileActions.map((action) => {
-          const oldContent = store.files[action.filePath]?.content || null;
+          const oldContent = currentFiles[action.filePath]?.content || null;
           const language = getLanguageFromPath(action.filePath);
           return {
             filePath: action.filePath,
@@ -301,9 +329,9 @@ export function useChat() {
             status: 'pending' as const,
           };
         });
-        store.setPendingChanges(pendingChanges);
+        gs().setPendingChanges(pendingChanges);
         // Don't continue with shell commands and dev server - let user review first
-        store.setIsStreaming(false);
+        gs().setIsStreaming(false);
         return;
       }
 
@@ -317,11 +345,18 @@ export function useChat() {
 
       if (pendingShells.length > 0) {
         const hasInstallCmd = pendingShells.some((cmd) => INSTALL_CMD_RE.test(cmd.trim()));
-        const prevSandboxStatus = useStore.getState().sandboxStatus;
+        const prevSandboxStatus = gs().sandboxStatus;
+        const wasServerRunning = prevSandboxStatus === 'ready' || !!gs().previewUrl;
 
-        store.setGenerationPhase('installing');
+        // Stop dev server before running shell commands (like Ctrl+C)
+        if (wasServerRunning) {
+          const { stopDevServer } = await import('@/lib/fileSystem');
+          await stopDevServer();
+        }
+
+        gs().setGenerationPhase('installing');
         if (hasInstallCmd) {
-          store.setSandboxStatus('installing');
+          gs().setSandboxStatus('installing');
         }
         for (const cmd of pendingShells) {
           if (DEV_SERVER_RE.test(cmd.trim())) {
@@ -335,21 +370,24 @@ export function useChat() {
         // If an install command ran but no dev server start follows,
         // automatically restart the dev server if one was previously running.
         if (hasInstallCmd && !shellTriggeredServer && pendingStart === null) {
-          const hadServerRunning = prevSandboxStatus === 'ready' || !!useStore.getState().previewUrl;
-          if (hadServerRunning) {
+          if (wasServerRunning) {
             shellTriggeredServer = true;
           } else {
-            const currentStatus = useStore.getState().sandboxStatus;
+            const currentStatus = gs().sandboxStatus;
             if (currentStatus === 'installing' || currentStatus === 'starting') {
-              store.setSandboxStatus('idle');
+              gs().setSandboxStatus('idle');
             }
           }
         } else if (!shellTriggeredServer && pendingStart === null) {
-          // Restore sandboxStatus if no dev server start follows and status is still transitional
-          const currentStatus = useStore.getState().sandboxStatus;
-          if (currentStatus === 'installing' || currentStatus === 'starting') {
-            const hasPreview = !!useStore.getState().previewUrl;
-            store.setSandboxStatus(hasPreview ? 'ready' : prevSandboxStatus === 'ready' ? 'ready' : 'idle');
+          // If server was running before shell commands, restart it
+          if (wasServerRunning) {
+            shellTriggeredServer = true;
+          } else {
+            // Restore sandboxStatus if no dev server start follows and status is still transitional
+            const currentStatus = gs().sandboxStatus;
+            if (currentStatus === 'installing' || currentStatus === 'starting') {
+              gs().setSandboxStatus('idle');
+            }
           }
         }
       }
@@ -361,37 +399,37 @@ export function useChat() {
           (cmd) => /npm\s+install|npm\s+i\b|yarn\s+install|pnpm\s+install/.test(cmd)
         );
         if (!alreadyInstalled && firstFileWritten) {
-          store.setGenerationPhase('installing');
+          gs().setGenerationPhase('installing');
           const { installDependencies } = await import('@/lib/fileSystem');
           await installDependencies();
         }
-        store.setGenerationPhase('starting');
+        gs().setGenerationPhase('starting');
         await startDevServerInSandbox();
       }
 
-      store.setGenerationPhase('done');
+      gs().setGenerationPhase('done');
 
       // After a brief moment, reset to idle
-      setTimeout(() => store.setGenerationPhase('idle'), 3000);
+      setTimeout(() => gs().setGenerationPhase('idle'), 3000);
 
       // Persist to IndexedDB
-      let projectId = store.currentProjectId;
+      let projectId = gs().currentProjectId;
       if (!projectId) {
         const { createNewProject } = await import('@/lib/db');
         projectId = await createNewProject(userText.slice(0, 30) || 'Untitled Project');
-        store.setCurrentProjectId(projectId);
-        store.setHasProject(true);
+        gs().setCurrentProjectId(projectId);
+        gs().setHasProject(true);
       }
 
       if (projectId) {
         const { saveProject } = await import('@/lib/db');
-        await saveProject(projectId, useStore.getState().files, useStore.getState().messages).catch(console.error);
+        await saveProject(projectId, gs().files, gs().messages).catch(console.error);
       }
 
       // Auto-forward errors to AI (terminal + preview) with retry limit
       // Wait for terminal output to settle, then check for errors
       setTimeout(() => {
-        const currentState = useStore.getState();
+        const currentState = gs();
         const { terminalOutput, sandboxStatus, previewErrors, isStreaming: stillStreaming } = currentState;
         if (stillStreaming) return;
         if (retryCountRef.current >= MAX_AUTO_RETRIES) return;
@@ -402,7 +440,7 @@ export function useChat() {
           if (errors) {
             retryCountRef.current++;
             const errorMsg = `The dev server encountered errors (auto-retry ${retryCountRef.current}/${MAX_AUTO_RETRIES}). Please fix them:\n\n\`\`\`\n${errors}\n\`\`\``;
-            submit(errorMsg);
+            submitRef.current?.(errorMsg);
             return;
           }
         }
@@ -411,47 +449,50 @@ export function useChat() {
         if (previewErrors.length > 0) {
           retryCountRef.current++;
           const errorText = previewErrors.join('\n');
-          useStore.getState().clearPreviewErrors();
+          gs().clearPreviewErrors();
           const errorMsg = `I'm getting the following error(s) in my app preview (auto-retry ${retryCountRef.current}/${MAX_AUTO_RETRIES}). Please fix them:\n\n\`\`\`\n${errorText}\n\`\`\``;
-          submit(errorMsg);
+          submitRef.current?.(errorMsg);
         }
       }, 3000);
 
     } catch (err: unknown) {
       if ((err as Error).name !== 'AbortError') {
         const msg = (err as Error).message;
-        store.updateLastAssistantMessage(
+        gs().updateLastAssistantMessage(
           `Error: ${msg}`,
           `❌ **Error:** ${msg}\n\nPlease check your OpenRouter API key and try again.`
         );
-        store.setSandboxStatus('error');
+        gs().setSandboxStatus('error');
       }
-      store.setGenerationPhase('idle');
+      gs().setGenerationPhase('idle');
     } finally {
-      store.setIsStreaming(false);
-      store.setActivelyWritingFile(null);
+      gs().setIsStreaming(false);
+      gs().setActivelyWritingFile(null);
 
       // Safety net: reset sandboxStatus if still in a transitional state
       // (excludes 'error' so the catch block's setSandboxStatus('error') is preserved)
-      const { sandboxStatus: finalStatus, previewUrl: finalPreviewUrl } = useStore.getState();
+      const { sandboxStatus: finalStatus, previewUrl: finalPreviewUrl } = gs();
       if (finalStatus === 'installing' || finalStatus === 'starting' || finalStatus === 'booting') {
-        store.setSandboxStatus(finalPreviewUrl ? 'ready' : 'idle');
+        gs().setSandboxStatus(finalPreviewUrl ? 'ready' : 'idle');
       }
     }
-  }, [store]);
+  }, []); // No reactive dependencies — reads state via getState()
+
+  // Keep submitRef in sync for recursive calls (auto-retry, search continuation)
+  submitRef.current = submit;
 
   const stop = useCallback(() => {
     abortRef.current?.abort();
-    store.setIsStreaming(false);
-    store.setGenerationPhase('idle');
-    store.setActivelyWritingFile(null);
+    gs().setIsStreaming(false);
+    gs().setGenerationPhase('idle');
+    gs().setActivelyWritingFile(null);
 
     // Reset sandboxStatus if stuck in a transitional state
-    const { sandboxStatus, previewUrl } = useStore.getState();
+    const { sandboxStatus, previewUrl } = gs();
     if (sandboxStatus === 'installing' || sandboxStatus === 'starting' || sandboxStatus === 'booting') {
-      store.setSandboxStatus(previewUrl ? 'ready' : 'idle');
+      gs().setSandboxStatus(previewUrl ? 'ready' : 'idle');
     }
-  }, [store]);
+  }, []);
 
   const submitComponentEdit = useCallback(
     async (
@@ -460,7 +501,7 @@ export function useChat() {
       instruction: string
     ) => {
       // Get file content
-      const fileContent = store.files[filePath]?.content;
+      const fileContent = gs().files[filePath]?.content;
       if (!fileContent) {
         console.error('File not found:', filePath);
         return;
@@ -482,7 +523,7 @@ export function useChat() {
       );
 
       // Set component edit mode
-      store.setComponentEditMode({
+      gs().setComponentEditMode({
         active: true,
         filePath,
         componentName: context.componentName,
@@ -493,10 +534,10 @@ export function useChat() {
 
       // Clear component edit mode after submission
       setTimeout(() => {
-        store.setComponentEditMode({ active: false, filePath: null, componentName: null });
+        gs().setComponentEditMode({ active: false, filePath: null, componentName: null });
       }, 100);
     },
-    [store, submit]
+    [submit]
   );
 
   return { submit, stop, submitComponentEdit };

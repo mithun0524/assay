@@ -2,7 +2,7 @@
  * Multi-agent architecture types
  */
 
-export type AgentRole = 'architect' | 'coder' | 'debugger' | 'designer' | 'tester';
+export type AgentRole = 'architect' | 'assistant' | 'coder' | 'debugger' | 'designer' | 'tester';
 
 export interface Agent {
   role: AgentRole;

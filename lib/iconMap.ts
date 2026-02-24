@@ -6,6 +6,7 @@
 export const ICON_MAP = {
   // Agent icons
   architect: 'RiBuilding2Line',
+  assistant: 'RiQuestionAnswerLine',
   coder: 'RiCodeSSlashLine',
   debugger: 'RiToolsLine',
   designer: 'RiPaletteLine',
@@ -57,7 +58,7 @@ export const ICON_MAP = {
   plus: 'RiAddLine',
   timer: 'RiTimeLine',
   arrowDown: 'RiArrowDownLine',
-  paperclip: 'RiAttachmentLine',
+  paperclip: 'RiAttachment2',
   externalLink: 'RiExternalLinkLine',
   key: 'RiKeyLine',
   building: 'RiBuilding2Line',

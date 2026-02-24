@@ -5,7 +5,7 @@ import { OPENROUTER_BASE_URL } from '@/lib/openrouter';
 import { createClient } from '@/lib/supabase/server';
 import { requireAuth, checkCsrf, rateLimit } from '@/lib/api-auth';
 
-const VALID_ROLES = ['architect', 'coder', 'debugger', 'designer', 'tester'] as const;
+const VALID_ROLES = ['architect', 'assistant', 'coder', 'debugger', 'designer', 'tester'] as const;
 type Role = (typeof VALID_ROLES)[number];
 
 const CLASSIFIER_MODELS = [
@@ -22,6 +22,7 @@ Roles and recommended models:
 - "designer" (UI, styling, visuals, images) → arcee-ai/trinity-large-preview:free
 - "tester" (tests, specs, coverage) → stepfun/step-3.5-flash:free
 - "architect" (planning, new project, architecture) → arcee-ai/trinity-large-preview:free
+- "assistant" (questions, explanations, search, informational) → stepfun/step-3.5-flash:free
 - "coder" (generate/write code, default) → arcee-ai/trinity-large-preview:free
 
 Rules (first match wins):
@@ -30,7 +31,8 @@ Rules (first match wins):
 3. Message about style/CSS/colors/animation/layout/UI → designer
 4. Message about tests/specs/coverage → tester
 5. hasProject=false OR message about architecture/planning → architect
-6. Otherwise → coder`;
+6. Message is a question, search request, or asks to explain/describe something → assistant
+7. Otherwise → coder`;
 
 function classifyLocally(message: string, context: { hasProject: boolean; hasErrors: boolean; hasImages: boolean }): { role: Role; model: string; reasoning: string } {
   const msg = message.toLowerCase();
@@ -49,6 +51,13 @@ function classifyLocally(message: string, context: { hasProject: boolean; hasErr
   }
   if (!context.hasProject || /\b(architect|plan|scaffold|setup|init|create.*app|new.*project|from scratch)\b/.test(msg)) {
     return { role: 'architect', model: 'arcee-ai/trinity-large-preview:free', reasoning: 'Architecture/planning or no project' };
+  }
+  // Informational questions, search requests, explanations
+  if (/\b(search|look up|find out|tell me about|explain|describe|define|what is|what does|what are|who is|why does|how does|difference between)\b/.test(msg)) {
+    return { role: 'assistant', model: 'stepfun/step-3.5-flash:free', reasoning: 'Informational question detected' };
+  }
+  if (/^(what|who|where|when|why|how)\s+(is|are|was|were|do|does|did|can|could|would|should)\b/.test(msg)) {
+    return { role: 'assistant', model: 'stepfun/step-3.5-flash:free', reasoning: 'Question detected' };
   }
   return { role: 'coder', model: 'arcee-ai/trinity-large-preview:free', reasoning: 'Default to code generation' };
 }

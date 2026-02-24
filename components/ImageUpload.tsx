@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useState, DragEvent } from 'react';
-import { RiAttachmentLine, RiUploadLine } from '@remixicon/react';
+import { RiAttachment2, RiUploadLine } from '@remixicon/react';
 import { cn } from '@/lib/utils';
 import { validateImage, processImage } from '@/lib/imageUtils';
 
@@ -127,10 +127,10 @@ export function ImageUpload({
         onDragOver={handleDragOver}
         onDrop={handleDrop}
         className={cn(
-          'p-2 rounded-lg transition-colors',
+          'p-1.5 rounded-lg transition-all',
           uploading || currentImageCount >= maxImages
             ? 'text-zinc-600 cursor-not-allowed'
-            : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800'
+            : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.06]'
         )}
         title={
           currentImageCount >= maxImages
@@ -138,7 +138,7 @@ export function ImageUpload({
             : 'Add image'
         }
       >
-        <RiAttachmentLine size={18} />
+        <RiAttachment2 className="w-4.5 h-4.5" />
       </button>
 
       {/* Hidden file input */}

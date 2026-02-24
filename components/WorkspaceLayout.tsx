@@ -160,10 +160,49 @@ export function WorkspaceLayout() {
     return () => clearTimeout(timer);
   }, [files, messages, currentProjectId]);
 
-  // Restore project on mount
+  // Restore project on mount (or load forked project from share)
   useEffect(() => {
     const init = async () => {
       try {
+        // Check for forked project from share page
+        const forkData = sessionStorage.getItem('devforge-fork');
+        if (forkData) {
+          sessionStorage.removeItem('devforge-fork');
+          try {
+            const parsed = JSON.parse(forkData);
+            const forkName: string = parsed.name || 'Forked Project';
+            const forkFiles: Record<string, { content: string; language: string }> = parsed.files || {};
+            if (Object.keys(forkFiles).length === 0) throw new Error('No files in fork');
+
+            const newId = await createNewProject(forkName);
+            setCurrentProjectId(newId);
+            for (const [path, entry] of Object.entries(forkFiles)) {
+              setFile(path, { content: entry.content, language: entry.language || 'plaintext' });
+            }
+            setHasProject(true);
+            // Write to sandbox in background
+            (async () => {
+              try {
+                await Promise.all(
+                  Object.entries(forkFiles).map(([path, entry]) =>
+                    writeFileToSandbox(path, entry.content).catch(console.error)
+                  )
+                );
+                if (forkFiles['package.json']) {
+                  const { installDependencies } = await import('@/lib/fileSystem');
+                  await installDependencies();
+                }
+              } catch (err) {
+                console.error('Fork sandbox setup failed:', err);
+              }
+            })();
+            setIsLoading(false);
+            return;
+          } catch (e) {
+            console.error('Failed to load forked project:', e);
+          }
+        }
+
         let activeId = await getActiveProjectId();
 
         // If no active project, try to find the most recent one
@@ -319,28 +358,7 @@ export function WorkspaceLayout() {
           onSelectProject={handleSelectProject}
           onNewProject={handleNewProject}
         />
-        <WelcomeScreen />
-        <div className="fixed top-4 left-4 z-50">
-          <button
-            onClick={() => setIsProjectsOpen(true)}
-            className="p-2 bg-black/40 hover:bg-black/60 backdrop-blur-md rounded-lg text-zinc-400 hover:text-zinc-100 transition-all border border-white/[0.06]"
-            title="Projects"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 2H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z" />
-            </svg>
-          </button>
-        </div>
+        <WelcomeScreen onOpenProjects={() => setIsProjectsOpen(true)} />
       </>
     );
   }

@@ -7,6 +7,7 @@ interface Project {
   lastModified: number;
   files: Record<string, FileEntry>;
   messages: Message[];
+  isFavorite?: boolean;
 }
 
 interface AIDB extends DBSchema {
@@ -107,10 +108,16 @@ export async function loadProject(id: string): Promise<Project | null> {
   return (await db.get('projects', id)) ?? null;
 }
 
-export async function getAllProjects(): Promise<{ id: string; name: string; lastModified: number }[]> {
+export async function getAllProjects(): Promise<{ id: string; name: string; lastModified: number; isFavorite: boolean }[]> {
   const db = await getDb();
   const projects = await db.getAll('projects');
-  return projects.map((p) => ({ id: p.id, name: p.name, lastModified: p.lastModified })).sort((a, b) => b.lastModified - a.lastModified);
+  return projects
+    .map((p) => ({ id: p.id, name: p.name, lastModified: p.lastModified, isFavorite: p.isFavorite ?? false }))
+    .sort((a, b) => {
+      // Favorites first, then by last modified
+      if (a.isFavorite !== b.isFavorite) return a.isFavorite ? -1 : 1;
+      return b.lastModified - a.lastModified;
+    });
 }
 
 export async function deleteProject(id: string) {
@@ -119,6 +126,26 @@ export async function deleteProject(id: string) {
   const activeId = await getActiveProjectId();
   if (activeId === id) {
     await db.delete('meta', 'activeProjectId');
+  }
+}
+
+export async function toggleProjectFavorite(id: string): Promise<boolean> {
+  const db = await getDb();
+  const project = await db.get('projects', id);
+  if (!project) return false;
+  project.isFavorite = !project.isFavorite;
+  await db.put('projects', project);
+  return project.isFavorite;
+}
+
+export async function renameProject(id: string, name: string): Promise<void> {
+  const trimmed = name.trim();
+  if (!trimmed) return;
+  const db = await getDb();
+  const project = await db.get('projects', id);
+  if (project) {
+    project.name = trimmed;
+    await db.put('projects', project);
   }
 }
 

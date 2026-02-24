@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useCallback } from 'react';
+import { useMemo, useState, useCallback, memo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import rehypeHighlight from 'rehype-highlight';
 import 'highlight.js/styles/atom-one-dark.css';
@@ -26,6 +26,11 @@ type ActionCardData = {
 
 const ACTION_CARD_REGEX = /<!--ACTION_CARD:([\s\S]*?)-->/;
 const CODE_PREVIEW_LINES = 6;
+const USER_MESSAGE_MAX_LINES = 3;
+const USER_MESSAGE_MAX_CHARS = 300;
+
+// Hoisted to module level — prevents new array allocation on every render
+const REHYPE_PLUGINS = [rehypeHighlight] as any;
 
 function getLanguageFromExtension(filePath: string): string {
   const ext = filePath.split('.').pop()?.toLowerCase() || '';
@@ -109,7 +114,7 @@ function StreamingDots() {
   );
 }
 
-function FileCard({ filePath, rawContent, isFileGenerating }: {
+const FileCard = memo(function FileCard({ filePath, rawContent, isFileGenerating }: {
   filePath: string;
   rawContent: string;
   isFileGenerating: boolean;
@@ -162,7 +167,7 @@ function FileCard({ filePath, rawContent, isFileGenerating }: {
         <div className="relative overflow-hidden">
           <div className="overflow-x-auto p-3 text-[13px] leading-relaxed">
             <ReactMarkdown
-              rehypePlugins={[rehypeHighlight]}
+              rehypePlugins={REHYPE_PLUGINS}
               components={{
                 pre: ({ node, ...props }) => (
                   <pre {...props} className="!m-0 !p-0 !bg-transparent" />
@@ -200,7 +205,7 @@ function FileCard({ filePath, rawContent, isFileGenerating }: {
       )}
     </div>
   );
-}
+});
 
 function CommandCard({ command, icon }: { command: string; icon: React.ReactNode }) {
   return (
@@ -211,10 +216,71 @@ function CommandCard({ command, icon }: { command: string; icon: React.ReactNode
   );
 }
 
-function MarkdownBlock({ content }: { content: string }) {
+function UserMessageBubble({ message, timeAgo }: { message: Message; timeAgo: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const text = message.displayContent;
+  const lines = text.split('\n');
+  const isTooLong = lines.length > USER_MESSAGE_MAX_LINES || text.length > USER_MESSAGE_MAX_CHARS;
+
+  const truncatedText = useMemo(() => {
+    if (!isTooLong) return text;
+    // Take first N lines, then cap at max chars
+    let preview = lines.slice(0, USER_MESSAGE_MAX_LINES).join('\n');
+    if (preview.length > USER_MESSAGE_MAX_CHARS) {
+      preview = preview.slice(0, USER_MESSAGE_MAX_CHARS);
+    }
+    return preview;
+  }, [text, lines, isTooLong]);
+
+  return (
+    <div className="group flex justify-end animate-fade-up min-w-0" style={{ animationDuration: '0.3s' }}>
+      <div className="max-w-[85%] min-w-0 flex flex-col items-end gap-1">
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] text-zinc-600">{timeAgo}</span>
+          <div className="w-5 h-5 rounded-md bg-violet-500/20 flex items-center justify-center shrink-0">
+            <RiUser3Line className="w-3 h-3 text-violet-400" />
+          </div>
+        </div>
+        <div className="w-full rounded-2xl rounded-tr-md bg-violet-500/15 border border-violet-500/20 text-sm text-zinc-200 leading-relaxed overflow-hidden">
+          <div
+            className={cn(
+              "px-3.5 py-2.5 whitespace-pre-wrap break-words overflow-wrap-anywhere",
+              expanded && "max-h-[30vh] overflow-y-auto"
+            )}
+            style={{ overflowWrap: 'anywhere', wordBreak: 'break-word' }}
+          >
+            {expanded || !isTooLong ? text : (
+              <>
+                {truncatedText}
+                <span className="text-zinc-500">...</span>
+              </>
+            )}
+          </div>
+          {isTooLong && (
+            <button
+              onClick={() => setExpanded(!expanded)}
+              className="w-full flex items-center justify-center gap-1 py-1.5 text-[11px] text-violet-400/70 hover:text-violet-300 transition-colors border-t border-violet-500/10 bg-violet-500/5"
+            >
+              {expanded ? (
+                <><RiArrowUpSLine className="w-3.5 h-3.5" />Show less</>
+              ) : (
+                <><RiArrowDownSLine className="w-3.5 h-3.5" />Show more</>
+              )}
+            </button>
+          )}
+        </div>
+        <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+          <CopyButton text={text} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const MarkdownBlock = memo(function MarkdownBlock({ content }: { content: string }) {
   return (
     <ReactMarkdown
-      rehypePlugins={[rehypeHighlight]}
+      rehypePlugins={REHYPE_PLUGINS}
       components={{
         code({ node, className, children, ...props }) {
           const match = /language-(\w+)/.exec(className || '');
@@ -259,9 +325,9 @@ function MarkdownBlock({ content }: { content: string }) {
       {content}
     </ReactMarkdown>
   );
-}
+});
 
-export function MessageBubble({ message, isLastAssistant, isStreaming, onRetry }: MessageBubbleProps) {
+export const MessageBubble = memo(function MessageBubble({ message, isLastAssistant, isStreaming, onRetry }: MessageBubbleProps) {
   const isUser = message.role === 'user';
   const isError = message.displayContent.startsWith('\u274C') || message.content.startsWith('Error:');
   const isEmpty = !message.displayContent.trim();
@@ -301,24 +367,7 @@ export function MessageBubble({ message, isLastAssistant, isStreaming, onRetry }
 
   // -- USER MESSAGE --
   if (isUser) {
-    return (
-      <div className="group flex justify-end animate-fade-up" style={{ animationDuration: '0.3s' }}>
-        <div className="max-w-[85%] flex flex-col items-end gap-1">
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] text-zinc-600">{timeAgo}</span>
-            <div className="w-5 h-5 rounded-md bg-violet-500/20 flex items-center justify-center">
-              <RiUser3Line className="w-3 h-3 text-violet-400" />
-            </div>
-          </div>
-          <div className="px-3.5 py-2.5 rounded-2xl rounded-tr-md bg-violet-500/15 border border-violet-500/20 text-sm text-zinc-200 leading-relaxed whitespace-pre-wrap break-words overflow-hidden">
-            {message.displayContent}
-          </div>
-          <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-            <CopyButton text={message.displayContent} />
-          </div>
-        </div>
-      </div>
-    );
+    return <UserMessageBubble message={message} timeAgo={timeAgo} />;
   }
 
   // -- ERROR MESSAGE --
@@ -425,4 +474,4 @@ export function MessageBubble({ message, isLastAssistant, isStreaming, onRetry }
       </div>
     </div>
   );
-}
+});

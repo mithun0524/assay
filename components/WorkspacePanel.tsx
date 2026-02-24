@@ -9,6 +9,7 @@ import { useChat } from '@/hooks/useChat';
 import { EditorPanel } from './EditorPanel';
 import { cn } from '@/lib/utils';
 import { Terminal as TerminalComponent } from './Terminal';
+import { TerminalToolbar } from './TerminalToolbar';
 import { restartDevServer } from '@/lib/fileSystem';
 
 type WorkspaceTab = 'code' | 'preview' | 'terminal';
@@ -450,27 +451,6 @@ export function WorkspacePanel() {
                         </div>
                     )}
 
-                    {activeTab === 'preview' && previewUrl && (
-                        <button
-                            onClick={handleRefresh}
-                            className="p-1.5 hover:bg-white/[0.06] rounded-lg transition-all"
-                            title="Refresh preview"
-                        >
-                            <RiRefreshLine className={cn(
-                                'w-3.5 h-3.5 text-zinc-500',
-                                isRefreshing && 'spin-once'
-                            )} />
-                        </button>
-                    )}
-                    {activeTab === 'terminal' && (
-                        <button
-                            onClick={clearTerminal}
-                            className="p-1.5 hover:bg-white/[0.06] rounded-lg transition-all"
-                            title="Clear terminal"
-                        >
-                            <RiDeleteBinLine className="w-3.5 h-3.5 text-zinc-600 hover:text-zinc-400 transition-colors" />
-                        </button>
-                    )}
                 </div>
             </div>
 
@@ -509,6 +489,10 @@ export function WorkspacePanel() {
                             </button>
                         </div>
                     )}
+
+                    {/* Terminal toolbar */}
+                    <TerminalToolbar />
+
                     <div className="flex-1 min-h-0">
                         <TerminalComponent />
                     </div>
