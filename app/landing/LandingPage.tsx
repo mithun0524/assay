@@ -1,11 +1,16 @@
 'use client';
 
-import { useState, useEffect, useRef, type ReactNode } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback, type ReactNode, memo } from 'react';
 import dynamic from 'next/dynamic';
 import Image from 'next/image';
 import Link from 'next/link';
+import Lenis from 'lenis';
+import 'lenis/dist/lenis.css';
 
 const Aurora = dynamic(() => import('@/components/Aurora'), { ssr: false });
+const LoaderScreen = dynamic(() => import('./LoaderScreen').then(mod => ({ default: mod.LoaderScreen })), { ssr: false });
+import BlurText from '@/components/BlurText';
+import ClickSpark from '@/components/ClickSpark';
 import {
   RiCodeSSlashLine,
   RiEyeLine,
@@ -52,7 +57,7 @@ function useReveal(threshold = 0.15) {
   return { ref, visible };
 }
 
-function Reveal({
+const Reveal = memo(({
   children,
   className = '',
   delay = 0,
@@ -62,16 +67,18 @@ function Reveal({
   className?: string;
   delay?: number;
   direction?: 'up' | 'down' | 'left' | 'right' | 'none';
-}) {
+}) => {
   const { ref, visible } = useReveal(0.1);
 
-  const dirMap = {
+  const dirMap = useMemo(() => ({
     up: 'translate-y-8',
     down: '-translate-y-8',
     left: 'translate-x-8',
     right: '-translate-x-8',
     none: '',
-  };
+  }), []);
+
+  const style = useMemo(() => ({ transitionDelay: `${delay}ms` }), [delay]);
 
   return (
     <div
@@ -79,12 +86,13 @@ function Reveal({
       className={`transition-all duration-700 ease-out ${
         visible ? 'opacity-100 translate-x-0 translate-y-0' : `opacity-0 ${dirMap[direction]}`
       } ${className}`}
-      style={{ transitionDelay: `${delay}ms` }}
+      style={style}
     >
       {children}
     </div>
   );
-}
+});
+Reveal.displayName = 'Reveal';
 
 /* ────────────────────────────────────────────── */
 /*  Constants                                      */
@@ -256,7 +264,7 @@ const FOOTER_LINKS = {
 /*  Mockup sub-components                         */
 /* ────────────────────────────────────────────── */
 
-function WindowChrome({ title }: { title: string }) {
+const WindowChrome = memo(({ title }: { title: string }) => {
   return (
     <div className="flex items-center gap-2 px-4 py-2.5 border-b border-[var(--border-subtle)] bg-black/20">
       <div className="flex gap-1.5">
@@ -267,9 +275,10 @@ function WindowChrome({ title }: { title: string }) {
       <span className="text-[11px] text-zinc-500 ml-2">{title}</span>
     </div>
   );
-}
+});
+WindowChrome.displayName = 'WindowChrome';
 
-function MockupCard({ type, title }: { type: string; title: string }) {
+const MockupCard = memo(({ type, title }: { type: string; title: string }) => {
   return (
     <div className="relative glass rounded-xl overflow-hidden border border-[var(--border-subtle)]">
       <WindowChrome title={title} />
@@ -349,7 +358,8 @@ function MockupCard({ type, title }: { type: string; title: string }) {
       </div>
     </div>
   );
-}
+});
+MockupCard.displayName = 'MockupCard';
 
 /* ────────────────────────────────────────────── */
 /*  Main component                                 */
@@ -357,10 +367,58 @@ function MockupCard({ type, title }: { type: string; title: string }) {
 
 export function LandingPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [showLoader, setShowLoader] = useState(true);
+  const [heroMorphing, setHeroMorphing] = useState(false);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  const handleLoaderComplete = useCallback(() => {
+    setHeroMorphing(true);
+    setTimeout(() => {
+      setShowLoader(false);
+    }, 100);
+  }, []);
+
+  useEffect(() => {
+    if (!scrollContainerRef.current || showLoader) return;
+
+    const lenis = new Lenis({
+      wrapper: scrollContainerRef.current,
+      content: scrollContainerRef.current,
+      duration: 1.2,
+      easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+      orientation: 'vertical',
+      smoothWheel: true,
+      wheelMultiplier: 1,
+      touchMultiplier: 2,
+    });
+
+    let rafId: number;
+    function raf(time: number) {
+      lenis.raf(time);
+      rafId = requestAnimationFrame(raf);
+    }
+
+    rafId = requestAnimationFrame(raf);
+
+    return () => {
+      cancelAnimationFrame(rafId);
+      lenis.destroy();
+    };
+  }, [showLoader]);
 
   return (
-    <div className="h-screen overflow-y-auto bg-[var(--bg-primary)] text-[var(--text-primary)]">
-      <div className="gradient-mesh" />
+    <>
+      {showLoader && <LoaderScreen onComplete={handleLoaderComplete} />}
+
+      <ClickSpark
+        sparkColor='#fff'
+        sparkSize={10}
+        sparkRadius={15}
+        sparkCount={8}
+        duration={400}
+      >
+        <div ref={scrollContainerRef} className="h-screen overflow-y-auto bg-[var(--bg-primary)] text-[var(--text-primary)]">
+          <div className="gradient-mesh" />
 
       {/* Aurora region — wraps navbar + hero */}
       <div className="relative">
@@ -426,19 +484,50 @@ export function LandingPage() {
             Build apps in minutes
           </div>
 
-          <h1 className="text-4xl sm:text-5xl lg:text-7xl font-bold tracking-tight leading-[1.08] mb-6 animate-fade-up delay-100">
-            Build Ambitious Apps
-            <br />
-            <span className="gradient-text">With AI</span>
-          </h1>
+          {heroMorphing ? (
+            <div className="mb-6 text-center">
+              <BlurText
+                text="Build Ambitious Apps"
+                delay={50}
+                animateBy="words"
+                direction="bottom"
+                className="text-4xl sm:text-5xl lg:text-7xl font-bold tracking-tight leading-[1.08] justify-center"
+              />
+              <div className="mt-2 pointer-events-none" style={{ color: '#a78bfa' }}>
+                <BlurText
+                  text="With AI"
+                  delay={50}
+                  animateBy="words"
+                  direction="bottom"
+                  className="text-4xl sm:text-5xl lg:text-7xl font-bold tracking-tight leading-[1.08] justify-center"
+                />
+              </div>
+            </div>
+          ) : showLoader ? (
+            <h1 className="text-4xl sm:text-5xl lg:text-7xl font-bold tracking-tight leading-[1.08] mb-6 opacity-0">
+              Build Ambitious Apps
+              <br />
+              <span className="gradient-text">With AI</span>
+            </h1>
+          ) : (
+            <h1 className="text-4xl sm:text-5xl lg:text-7xl font-bold tracking-tight leading-[1.08] mb-6 animate-fade-up delay-100">
+              Build Ambitious Apps
+              <br />
+              <span className="gradient-text">With AI</span>
+            </h1>
+          )}
 
-          <p className="text-base sm:text-lg text-[var(--text-secondary)] max-w-2xl mx-auto mb-10 animate-fade-up delay-200">
+          <p className={`text-base sm:text-lg text-[var(--text-secondary)] max-w-2xl mx-auto mb-10 ${
+            showLoader ? 'opacity-0' : 'animate-fade-up delay-200'
+          }`}>
             DevForge turns your ideas into production-ready web applications.
             Describe what you want, and AI handles the code, dependencies, and deployment.
           </p>
 
           {/* Prompt input mockup (Ribbit-style) */}
-          <div className="max-w-xl mx-auto mb-6 animate-fade-up delay-300">
+          <div className={`max-w-xl mx-auto mb-6 ${
+            showLoader ? 'opacity-0' : 'animate-fade-up delay-300'
+          }`}>
             <div className="glass rounded-xl p-1.5 border border-[var(--border-subtle)] flex items-center gap-2">
               <input
                 type="text"
@@ -456,7 +545,9 @@ export function LandingPage() {
           </div>
 
           {/* Category pills */}
-          <div className="flex flex-wrap items-center justify-center gap-2 mb-16 animate-fade-up delay-400">
+          <div className={`flex flex-wrap items-center justify-center gap-2 mb-16 ${
+            showLoader ? 'opacity-0' : 'animate-fade-up delay-400'
+          }`}>
             {['Dashboard', 'Landing Page', 'SaaS App', 'Portfolio', 'E-Commerce', 'Blog'].map((cat) => (
               <span key={cat} className="px-3 py-1 rounded-full text-xs text-zinc-500 border border-[var(--border-subtle)] hover:border-zinc-600 hover:text-zinc-300 transition-all cursor-pointer">
                 {cat}
@@ -466,7 +557,9 @@ export function LandingPage() {
         </div>
 
         {/* Hero image */}
-        <div className="relative max-w-6xl mx-auto animate-fade-up delay-500" style={{ bottom: '-28px' }}>
+        <div className={`relative max-w-6xl mx-auto ${
+          showLoader ? 'opacity-0' : 'animate-fade-up delay-500'
+        }`} style={{ bottom: '-28px' }}>
           <div
             className="relative rounded-t-[38px] rounded-b-none overflow-hidden"
             style={{ background: 'linear-gradient(160deg, #1a103d 0%, #130d2b 30%, #0d0b1a 60%, #09090b 100%)' }}
@@ -620,7 +713,7 @@ export function LandingPage() {
           <Reveal>
             <div className="text-center mb-4">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full glass text-xs text-[var(--text-secondary)] mb-4">
-                <Image src="/logo.png" alt="" width={14} height={14} className="w-3.5 h-3.5 rounded-sm" />
+                <Image src="/logo.png" alt="" width={14} height={14} className="w-3.5 h-3.5 rounded-sm" loading="lazy" />
                 Why DevForge
               </div>
             </div>
@@ -645,7 +738,7 @@ export function LandingPage() {
                 {/* Text */}
                 <Reveal direction={idx % 2 === 0 ? 'left' : 'right'} className="flex-1 min-w-0">
                   <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full glass text-xs text-[var(--text-secondary)] mb-5">
-                    <Image src="/logo.png" alt="" width={12} height={12} className="w-3 h-3 rounded-sm" />
+                    <Image src="/logo.png" alt="" width={12} height={12} className="w-3 h-3 rounded-sm" loading="lazy" />
                     {item.badge}
                   </div>
                   <h3 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight mb-5 leading-tight">
@@ -860,7 +953,7 @@ export function LandingPage() {
 
         <Reveal className="max-w-2xl mx-auto text-center relative z-10">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full glass text-xs text-[var(--text-secondary)] mb-6">
-            <Image src="/logo.png" alt="" width={14} height={14} className="w-3.5 h-3.5 rounded-sm" />
+            <Image src="/logo.png" alt="" width={14} height={14} className="w-3.5 h-3.5 rounded-sm" loading="lazy" />
             Get Started
           </div>
           <h2 className="text-3xl sm:text-5xl lg:text-6xl font-bold tracking-tight mb-5 leading-tight">
@@ -936,5 +1029,7 @@ export function LandingPage() {
         </div>
       </footer>
     </div>
+      </ClickSpark>
+    </>
   );
 }
