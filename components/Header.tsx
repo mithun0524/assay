@@ -10,19 +10,29 @@ import {
   RiArrowGoForwardLine,
   RiUploadLine,
   RiPaletteLine,
+  RiKeyLine,
+  RiShareLine,
+  RiFileZipLine,
+  RiStackLine,
+  RiClipboardLine,
+  RiArrowDownSLine,
+  RiLayoutLine,
 } from '@remixicon/react';
-import { Keyboard } from 'lucide-react';
 import Image from 'next/image';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useStore } from '@/lib/store';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 import { downloadProject } from '@/lib/downloadProject';
+import { generateStackBlitzUrl, copyProjectAsJson } from '@/lib/exportFormats';
 import { SettingsModal } from './SettingsModal';
 import { GitHubCommitDialog } from './GitHubCommitDialog';
 import { GitHubAuthButton } from './GitHubAuthButton';
 import { DeployModal } from './DeployModal';
+import { ShareModal } from './ShareModal';
 import { Tooltip } from './Tooltip';
 import { useAuthContext } from './Providers';
+import { ComponentLibrary } from './ComponentLibrary';
 
 interface HeaderProps {
   onOpenProjects?: () => void;
@@ -33,8 +43,12 @@ export function Header({ onOpenProjects, onOpenShortcuts }: HeaderProps) {
   const { sandboxStatus, files, canUndo, canRedo, undo, redo, designMode, setDesignMode } = useStore();
   const { user, isGitHubLinked } = useAuthContext();
   const [showSettings, setShowSettings] = useState(false);
+  const [showExportMenu, setShowExportMenu] = useState(false);
+  const [settingsTab, setSettingsTab] = useState<'api-keys' | 'environment' | 'snippets'>('api-keys');
   const [showCommitDialog, setShowCommitDialog] = useState(false);
   const [showDeployModal, setShowDeployModal] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [showComponentLibrary, setShowComponentLibrary] = useState(false);
   const [showRing, setShowRing] = useState(false);
   const prevStatusRef = useRef(sandboxStatus);
   const hasFiles = Object.keys(files).length > 0;
@@ -167,6 +181,17 @@ export function Header({ onOpenProjects, onOpenShortcuts }: HeaderProps) {
                   <RiPaletteLine className="w-4 h-4" />
                 </button>
               </Tooltip>
+              <Tooltip content="UI Components">
+                <button
+                  onClick={() => setShowComponentLibrary(true)}
+                  className={cn(
+                    'p-1.5 rounded-lg transition-all',
+                    'hover:bg-white/[0.06] text-zinc-500 hover:text-zinc-300'
+                  )}
+                >
+                  <RiLayoutLine className="w-4 h-4" />
+                </button>
+              </Tooltip>
               <div className="w-px h-4 bg-white/[0.06]" />
             </>
           )}
@@ -185,31 +210,86 @@ export function Header({ onOpenProjects, onOpenShortcuts }: HeaderProps) {
             </>
           )}
           <GitHubAuthButton />
-          <Tooltip content="Shortcuts" shortcut={`${mod}/`}>
-            <button
-              onClick={onOpenShortcuts}
-              className="p-1.5 hover:bg-white/[0.06] rounded-lg transition-all"
-            >
-              <Keyboard className="w-4 h-4 text-zinc-500 hover:text-zinc-300 transition-colors" />
-            </button>
-          </Tooltip>
+          {hasFiles && (
+            <Tooltip content="Environment Variables">
+              <button
+                onClick={() => { setSettingsTab('environment'); setShowSettings(true); }}
+                className="px-2 py-1 hover:bg-white/[0.06] rounded-lg transition-all flex items-center gap-1"
+              >
+                <RiKeyLine className="w-3.5 h-3.5 text-zinc-500" />
+                <span className="text-[11px] text-zinc-500 font-mono">.env</span>
+              </button>
+            </Tooltip>
+          )}
           <Tooltip content="Settings" shortcut={`${mod},`}>
             <button
-              onClick={() => setShowSettings(true)}
+              onClick={() => { setSettingsTab('api-keys'); setShowSettings(true); }}
               className="p-1.5 hover:bg-white/[0.06] rounded-lg transition-all"
             >
               <RiSettings3Line className="w-4 h-4 text-zinc-500 hover:text-zinc-300 transition-colors" />
             </button>
           </Tooltip>
           {hasFiles && (
-            <Tooltip content="Download ZIP">
-              <button
-                onClick={() => downloadProject(files)}
-                className="p-1.5 hover:bg-white/[0.06] rounded-lg transition-all"
-              >
-                <RiDownloadLine className="w-4 h-4 text-zinc-500 hover:text-zinc-300 transition-colors" />
-              </button>
-            </Tooltip>
+            <div className="relative">
+              <Tooltip content="Export">
+                <button
+                  onClick={() => setShowExportMenu(!showExportMenu)}
+                  className="flex items-center gap-0.5 p-1.5 hover:bg-white/[0.06] rounded-lg transition-all"
+                >
+                  <RiShareLine className="w-4 h-4 text-zinc-500 hover:text-zinc-300 transition-colors" />
+                  <RiArrowDownSLine className="w-3 h-3 text-zinc-600" />
+                </button>
+              </Tooltip>
+              {showExportMenu && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setShowExportMenu(false)} />
+                  <div className="absolute right-0 top-full mt-1.5 w-48 py-1.5 rounded-xl border border-white/[0.08] bg-zinc-900/95 backdrop-blur-lg shadow-xl z-50">
+                    <button
+                      onClick={() => { downloadProject(files); setShowExportMenu(false); }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-zinc-300 hover:bg-white/[0.06] transition-colors"
+                    >
+                      <RiFileZipLine className="w-3.5 h-3.5 text-zinc-400" />
+                      Download ZIP
+                    </button>
+                    <button
+                      onClick={() => { generateStackBlitzUrl(files); setShowExportMenu(false); }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-zinc-300 hover:bg-white/[0.06] transition-colors"
+                    >
+                      <RiStackLine className="w-3.5 h-3.5 text-zinc-400" />
+                      Open in StackBlitz
+                    </button>
+                    <div className="mx-2 my-1 border-t border-white/[0.06]" />
+                    <button
+                      onClick={async () => {
+                        try {
+                          await copyProjectAsJson(files);
+                          toast.success('Project copied to clipboard');
+                        } catch {
+                          toast.error('Failed to copy');
+                        }
+                        setShowExportMenu(false);
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-zinc-300 hover:bg-white/[0.06] transition-colors"
+                    >
+                      <RiClipboardLine className="w-3.5 h-3.5 text-zinc-400" />
+                      Copy as JSON
+                    </button>
+                    {user && (
+                      <>
+                        <div className="mx-2 my-1 border-t border-white/[0.06]" />
+                        <button
+                          onClick={() => { setShowShareModal(true); setShowExportMenu(false); }}
+                          className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-zinc-300 hover:bg-white/[0.06] transition-colors"
+                        >
+                          <RiShareLine className="w-3.5 h-3.5 text-violet-400" />
+                          Share Project
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
           )}
           <Tooltip content="Deploy">
             <button
@@ -227,12 +307,14 @@ export function Header({ onOpenProjects, onOpenShortcuts }: HeaderProps) {
           </Tooltip>
         </div>
       </header>
-      <SettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} />
+      <SettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} defaultTab={settingsTab} onOpenShortcuts={onOpenShortcuts} />
       <GitHubCommitDialog
         isOpen={showCommitDialog}
         onClose={() => setShowCommitDialog(false)}
       />
       <DeployModal isOpen={showDeployModal} onClose={() => setShowDeployModal(false)} />
+      <ShareModal isOpen={showShareModal} onClose={() => setShowShareModal(false)} />
+      <ComponentLibrary isOpen={showComponentLibrary} onClose={() => setShowComponentLibrary(false)} />
     </>
   );
 }

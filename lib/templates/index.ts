@@ -10,15 +10,25 @@ import { weatherDashboardTemplate } from './definitions/weatherDashboard';
 import { markdownEditorTemplate } from './definitions/markdownEditor';
 import { calculatorTemplate } from './definitions/calculator';
 import { portfolioTemplate } from './definitions/portfolio';
+import { saasLandingTemplate } from './definitions/saasLanding';
+import { blogPlatformTemplate } from './definitions/blogPlatform';
+import { ecommerceStoreTemplate } from './definitions/ecommerceStore';
+import { chatAppTemplate } from './definitions/chatApp';
+import { adminDashboardTemplate } from './definitions/adminDashboard';
 
 /**
  * All available templates
  */
 export const ALL_TEMPLATES: Template[] = [
+  saasLandingTemplate,
+  adminDashboardTemplate,
+  ecommerceStoreTemplate,
+  blogPlatformTemplate,
+  chatAppTemplate,
+  portfolioTemplate,
   taskManagerTemplate,
   weatherDashboardTemplate,
   markdownEditorTemplate,
-  portfolioTemplate,
   calculatorTemplate,
 ];
 

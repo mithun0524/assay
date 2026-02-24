@@ -124,15 +124,21 @@ export async function startDevServerInSandbox(): Promise<string> {
   appendTerminal('\n🚀 Starting dev server...\n');
 
   return new Promise((resolve, reject) => {
+    let settled = false;
+
     const timeout = setTimeout(
       () => {
+        if (settled) return;
+        settled = true;
         setSandboxStatus('error');
         reject(new Error('Dev server timed out after 30s'));
       },
       30000
     );
 
-    wc.on('server-ready', (port, url) => {
+    wc.on('server-ready', function onReady(_port: number, url: string) {
+      if (settled) return;
+      settled = true;
       clearTimeout(timeout);
       appendTerminal(`\n✅ Server ready at ${url}\n`);
       setSandboxStatus('ready');
@@ -140,7 +146,9 @@ export async function startDevServerInSandbox(): Promise<string> {
       resolve(url);
     });
 
-    wc.on('error', (err) => {
+    wc.on('error', function onError(err: { message: string }) {
+      if (settled) return;
+      settled = true;
       clearTimeout(timeout);
       appendTerminal(`\n❌ Error: ${err.message}\n`);
       setSandboxStatus('error');
@@ -153,7 +161,9 @@ export async function startDevServerInSandbox(): Promise<string> {
         new WritableStream({ write: (data) => appendTerminal(data) })
       );
       proc.exit.then((code) => {
-        if (code !== 0 && devServerProcess === proc) {
+        // Only update status if this is still the active server process
+        // and the promise hasn't already been settled by server-ready/error/timeout
+        if (code !== 0 && devServerProcess === proc && useStore.getState().sandboxStatus !== 'ready') {
           appendTerminal(`\n⚠️ Dev server exited with code ${code}\n`);
           setSandboxStatus('error');
         }

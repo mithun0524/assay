@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useEffect, useState, useCallback } from 'react';
+import { useRef, useEffect, useState, useCallback, useMemo } from 'react';
 import {
   RiSendPlaneLine,
   RiStopFill,
@@ -12,8 +12,9 @@ import {
   RiArchiveLine,
   RiRocketLine,
   RiCheckboxCircleLine,
+  RiSideBarLine,
+  RiGlobalLine,
 } from '@remixicon/react';
-import { PanelLeftClose, Package, Rocket, Plus, Globe } from 'lucide-react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useStore } from '@/lib/store';
@@ -49,28 +50,19 @@ const PLACEHOLDERS = [
 ];
 
 export function ChatPanel({ onCollapse }: ChatPanelProps) {
-  const {
-    messages,
-    isStreaming,
-    selectedModel,
-    setSelectedModel,
-    clearMessages,
-    clearFiles,
-    clearTerminal,
-    setPreviewUrl,
-    setSandboxStatus,
-    setHasProject,
-    rateLimitUntil,
-    setRateLimitUntil,
-    tokenUsage,
-    setCurrentProjectId,
-    generationPhase,
-    activelyWritingFile,
-    activeAgent,
-    webSearchEnabled,
-    setWebSearchEnabled,
-    isSearching,
-  } = useStore();
+  // ── Fine-grained Zustand selectors — only re-render when these specific values change ──
+  const messages = useStore(s => s.messages);
+  const isStreaming = useStore(s => s.isStreaming);
+  const selectedModel = useStore(s => s.selectedModel);
+  const setSelectedModel = useStore(s => s.setSelectedModel);
+  const rateLimitUntil = useStore(s => s.rateLimitUntil);
+  const setRateLimitUntil = useStore(s => s.setRateLimitUntil);
+  const tokenUsage = useStore(s => s.tokenUsage);
+  const generationPhase = useStore(s => s.generationPhase);
+  const activelyWritingFile = useStore(s => s.activelyWritingFile);
+  const activeAgent = useStore(s => s.activeAgent);
+  const webSearchEnabled = useStore(s => s.webSearchEnabled);
+  const setWebSearchEnabled = useStore(s => s.setWebSearchEnabled);
 
   const { submit, stop } = useChat();
   const [input, setInput] = useState('');
@@ -80,6 +72,8 @@ export function ChatPanel({ onCollapse }: ChatPanelProps) {
   const [placeholderIdx, setPlaceholderIdx] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const isStreamingRef = useRef(isStreaming);
+  isStreamingRef.current = isStreaming;
 
   const modelLimit = FREE_MODELS.find(m => m.id === selectedModel)?.contextLength || 131072;
   const usagePercent = Math.min(100, (tokenUsage / modelLimit) * 100);
@@ -97,29 +91,44 @@ export function ChatPanel({ onCollapse }: ChatPanelProps) {
     return () => clearInterval(interval);
   }, [hasMessages, input]);
 
-  // Auto-scroll to bottom when messages change
+  // Scroll to bottom on initial mount / page refresh
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, []);
+
+  // Auto-scroll to bottom when messages change — use instant scroll during streaming
+  // to avoid smooth-scroll fighting with rapid updates
   useEffect(() => {
     if (scrollRef.current) {
       const el = scrollRef.current;
-      // Only auto-scroll if user is near the bottom (within 150px)
       const isNearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 150;
       if (isNearBottom) {
-        el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+        // Instant scroll during streaming, smooth otherwise
+        if (isStreamingRef.current) {
+          el.scrollTop = el.scrollHeight;
+        } else {
+          el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+        }
       }
     }
   }, [messages]);
 
   // Track scroll position for FAB
+  const messagesLengthRef = useRef(messages.length);
+  messagesLengthRef.current = messages.length;
+
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
     const handleScroll = () => {
       const isNearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 150;
-      setShowScrollFab(!isNearBottom && messages.length > 3);
+      setShowScrollFab(!isNearBottom && messagesLengthRef.current > 3);
     };
     el.addEventListener('scroll', handleScroll);
     return () => el.removeEventListener('scroll', handleScroll);
-  }, [messages.length]);
+  }, []); // Register once, use ref for dynamic value
 
   const scrollToBottom = useCallback(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
@@ -162,7 +171,7 @@ export function ChatPanel({ onCollapse }: ChatPanelProps) {
 
   const isRateLimited = rateLimitSeconds > 0;
 
-  const handleSubmit = () => {
+  const handleSubmit = useCallback(() => {
     if ((input.trim() || images.length > 0) && !isStreaming) {
       submit(input, images);
       setInput('');
@@ -170,52 +179,47 @@ export function ChatPanel({ onCollapse }: ChatPanelProps) {
       // Scroll to bottom on send
       setTimeout(scrollToBottom, 100);
     }
-  };
+  }, [input, images, isStreaming, submit, scrollToBottom]);
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSubmit();
     }
-  };
+  }, [handleSubmit]);
 
   const handleRetry = useCallback(() => {
     // Find the last user message and resubmit
-    const lastUserMsg = [...messages].reverse().find(m => m.role === 'user');
-    if (lastUserMsg && !isStreaming) {
+    const msgs = useStore.getState().messages;
+    const lastUserMsg = [...msgs].reverse().find(m => m.role === 'user');
+    if (lastUserMsg && !useStore.getState().isStreaming) {
       submit(lastUserMsg.content);
     }
-  }, [messages, isStreaming, submit]);
+  }, [submit]);
 
-  const handleNewProject = async () => {
-    clearMessages();
-    clearFiles();
-    clearTerminal();
-    setPreviewUrl(null);
-    setSandboxStatus('idle');
-    setHasProject(false);
-    setCurrentProjectId(null);
-  };
+  const handleNewProject = useCallback(async () => {
+    const s = useStore.getState();
+    s.clearMessages();
+    s.clearFiles();
+    s.clearTerminal();
+    s.setPreviewUrl(null);
+    s.setSandboxStatus('idle');
+    s.setHasProject(false);
+    s.setCurrentProjectId(null);
+  }, []);
 
-  const handleQuickPrompt = (text: string) => {
+  const handleQuickPrompt = useCallback((text: string) => {
     submit(text);
     setTimeout(scrollToBottom, 100);
-  };
+  }, [submit, scrollToBottom]);
 
-  const lastAssistantIndex = messages.map(m => m.role).lastIndexOf('assistant');
-
-  const getPhaseLabel = (phase: string, writingFile: string | null) => {
-    switch (phase) {
-      case 'writing':
-        return writingFile ? writingFile.split('/').pop() : null;
-      case 'installing':
-        return null;
-      case 'starting':
-        return null;
-      default:
-        return null;
+  // Memoize lastAssistantIndex — efficient reverse loop
+  const lastAssistantIndex = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === 'assistant') return i;
     }
-  };
+    return -1;
+  }, [messages]);
 
   return (
     <div className="flex flex-col h-full bg-[#09090b] relative">
@@ -264,7 +268,7 @@ export function ChatPanel({ onCollapse }: ChatPanelProps) {
                 onClick={onCollapse}
                 className="p-1.5 text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.06] rounded-lg transition-all"
               >
-                <PanelLeftClose className="w-3.5 h-3.5" />
+                <RiSideBarLine className="w-3.5 h-3.5" />
               </button>
             </Tooltip>
           )}
@@ -274,7 +278,7 @@ export function ChatPanel({ onCollapse }: ChatPanelProps) {
       {/* Messages area */}
       <div
         ref={scrollRef}
-        className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-3 py-3 scroll-smooth relative"
+        className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-3 py-3 relative"
       >
         {/* Empty state */}
         {!hasMessages && (
@@ -340,7 +344,7 @@ export function ChatPanel({ onCollapse }: ChatPanelProps) {
             )}
             {generationPhase === 'searching' && (
               <>
-                <Globe className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
+                <RiGlobalLine className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
                 <span className="text-xs text-zinc-400">Searching the web...</span>
               </>
             )}
@@ -453,11 +457,11 @@ export function ChatPanel({ onCollapse }: ChatPanelProps) {
                     'p-1.5 rounded-lg transition-all',
                     webSearchEnabled
                       ? 'bg-cyan-500/15 text-cyan-400'
-                      : 'text-zinc-600 hover:text-zinc-400 hover:bg-white/[0.06]'
+                      : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.06]'
                   )}
                   title="Toggle web search"
                 >
-                  <Globe className="w-3.5 h-3.5" />
+                  <RiGlobalLine className="w-4.5 h-4.5" />
                 </button>
               </Tooltip>
 
@@ -485,24 +489,24 @@ export function ChatPanel({ onCollapse }: ChatPanelProps) {
               {isStreaming ? (
                 <button
                   onClick={stop}
-                  className="p-2 bg-red-500/15 hover:bg-red-500/25 rounded-lg transition-all text-red-400"
+                  className="p-2 bg-red-500/15 hover:bg-red-500/25 rounded-xl transition-all text-red-400"
                   title="Stop generating"
                 >
-                  <RiStopFill className="w-3.5 h-3.5" />
+                  <RiStopFill className="w-4.5 h-4.5" />
                 </button>
               ) : (
                 <button
                   onClick={handleSubmit}
                   disabled={!input.trim() || isRateLimited}
                   className={cn(
-                    'p-2 rounded-lg transition-all',
+                    'p-2 rounded-xl transition-all',
                     input.trim() && !isRateLimited
                       ? 'bg-violet-500 hover:bg-violet-400 text-white shadow-lg shadow-violet-500/20 pulse-glow'
                       : 'bg-white/[0.04] text-zinc-600 cursor-not-allowed'
                   )}
                   title="Send message"
                 >
-                  <RiSendPlaneLine className="w-3.5 h-3.5" />
+                  <RiSendPlaneLine className="w-4.5 h-4.5" />
                 </button>
               )}
             </div>

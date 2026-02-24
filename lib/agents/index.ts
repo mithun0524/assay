@@ -4,6 +4,7 @@
 
 import { Agent, AgentRole } from './types';
 import { ARCHITECT_PROMPT } from './prompts/architect';
+import { ASSISTANT_PROMPT } from './prompts/assistant';
 import { CODER_PROMPT } from './prompts/coder';
 import { DEBUGGER_PROMPT } from './prompts/debugger';
 import { DESIGNER_PROMPT } from './prompts/designer';
@@ -18,10 +19,20 @@ export const AGENTS: Record<AgentRole, Agent> = {
     name: 'Architect',
     description: 'Plans structure and design patterns',
     systemPrompt: ARCHITECT_PROMPT,
-    model: 'stepfun/step-3.5-flash:free', // Reliable fallback model
+    model: 'stepfun/step-3.5-flash:free',
     temperature: 0.1,
     icon: 'architect',
     color: 'text-blue-400',
+  },
+  assistant: {
+    role: 'assistant',
+    name: 'Assistant',
+    description: 'Answers questions and provides information',
+    systemPrompt: ASSISTANT_PROMPT,
+    model: 'stepfun/step-3.5-flash:free',
+    temperature: 0.4,
+    icon: 'assistant',
+    color: 'text-cyan-400',
   },
   coder: {
     role: 'coder',

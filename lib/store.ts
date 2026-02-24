@@ -168,10 +168,19 @@ export const useStore = create<AppStore>((set) => ({
   addMessage: (msg) => set((s) => ({ messages: [...s.messages, msg] })),
   updateLastAssistantMessage: (content, displayContent) =>
     set((s) => {
-      const msgs = [...s.messages];
-      const lastIdx = msgs.map((m) => m.role).lastIndexOf('assistant');
-      if (lastIdx >= 0) msgs[lastIdx] = { ...msgs[lastIdx], content, displayContent };
-      return { messages: msgs };
+      const msgs = s.messages;
+      // Reverse loop is O(1) in practice (last msg is almost always the target)
+      let lastIdx = -1;
+      for (let i = msgs.length - 1; i >= 0; i--) {
+        if (msgs[i].role === 'assistant') { lastIdx = i; break; }
+      }
+      if (lastIdx < 0) return s;
+      // Skip update if content hasn't actually changed
+      const existing = msgs[lastIdx];
+      if (existing.content === content && existing.displayContent === displayContent) return s;
+      const next = msgs.slice();
+      next[lastIdx] = { ...existing, content, displayContent };
+      return { messages: next };
     }),
   clearMessages: () => set({ messages: [] }),
   setMessages: (msgs) => set({ messages: msgs }),

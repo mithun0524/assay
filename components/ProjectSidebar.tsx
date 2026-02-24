@@ -1,17 +1,21 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { RiCloseLine, RiFolderLine, RiAddLine, RiDeleteBinLine, RiTimeLine, RiCheckLine } from '@remixicon/react';
+import { useEffect, useState, useMemo } from 'react';
+import {
+    RiCloseLine, RiFolderLine, RiAddLine, RiDeleteBinLine,
+    RiTimeLine, RiCheckLine, RiStarLine, RiStarFill,
+    RiSearchLine, RiPencilLine,
+} from '@remixicon/react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { getAllProjects, deleteProject, createNewProject } from '@/lib/db';
+import { getAllProjects, deleteProject, toggleProjectFavorite, renameProject } from '@/lib/db';
 import { useStore } from '@/lib/store';
-import { useChat } from '@/hooks/useChat';
 
 interface Project {
     id: string;
     name: string;
     lastModified: number;
+    isFavorite: boolean;
 }
 
 interface ProjectSidebarProps {
@@ -25,6 +29,9 @@ export function ProjectSidebar({ isOpen, onClose, onSelectProject, onNewProject 
     const [projects, setProjects] = useState<Project[]>([]);
     const { currentProjectId } = useStore();
     const [isDeleting, setIsDeleting] = useState<string | null>(null);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [renamingId, setRenamingId] = useState<string | null>(null);
+    const [renameValue, setRenameValue] = useState('');
 
     const refreshProjects = async () => {
         try {
@@ -38,8 +45,16 @@ export function ProjectSidebar({ isOpen, onClose, onSelectProject, onNewProject 
     useEffect(() => {
         if (isOpen) {
             refreshProjects();
+            setSearchQuery('');
+            setRenamingId(null);
         }
     }, [isOpen]);
+
+    const filteredProjects = useMemo(() => {
+        if (!searchQuery.trim()) return projects;
+        const q = searchQuery.toLowerCase();
+        return projects.filter(p => p.name.toLowerCase().includes(q));
+    }, [projects, searchQuery]);
 
     const handleDelete = async (e: React.MouseEvent, id: string) => {
         e.stopPropagation();
@@ -51,13 +66,43 @@ export function ProjectSidebar({ isOpen, onClose, onSelectProject, onNewProject 
                 setIsDeleting(null);
                 await refreshProjects();
                 if (currentProjectId === id) {
-                    onNewProject(); // If deleted current, start new
+                    onNewProject();
                 }
             } catch (error) {
                 console.error('Failed to delete project:', error);
                 toast.error('Failed to delete project');
                 setIsDeleting(null);
             }
+        }
+    };
+
+    const handleToggleFavorite = async (e: React.MouseEvent, id: string) => {
+        e.stopPropagation();
+        try {
+            const isFav = await toggleProjectFavorite(id);
+            toast.success(isFav ? 'Added to favorites' : 'Removed from favorites');
+            await refreshProjects();
+        } catch {
+            toast.error('Failed to update favorite');
+        }
+    };
+
+    const handleStartRename = (e: React.MouseEvent, project: Project) => {
+        e.stopPropagation();
+        setRenamingId(project.id);
+        setRenameValue(project.name);
+    };
+
+    const handleRenameSubmit = async (id: string) => {
+        if (renamingId !== id) return; // Guard against double-fire
+        setRenamingId(null);
+        const trimmed = renameValue.trim();
+        if (!trimmed) return;
+        try {
+            await renameProject(id, trimmed);
+            await refreshProjects();
+        } catch {
+            toast.error('Failed to rename project');
         }
     };
 
@@ -79,8 +124,14 @@ export function ProjectSidebar({ isOpen, onClose, onSelectProject, onNewProject 
                     isOpen ? "translate-x-0" : "-translate-x-full"
                 )}
             >
+                {/* Header */}
                 <div className="flex items-center justify-between p-4 border-b border-white/[0.06]">
-                    <span className="text-sm font-semibold text-zinc-100">Projects</span>
+                    <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold text-zinc-100">Projects</span>
+                        <span className="text-[10px] text-zinc-500 bg-white/[0.06] px-1.5 py-0.5 rounded-md">
+                            {projects.length}
+                        </span>
+                    </div>
                     <button
                         onClick={onClose}
                         className="p-1.5 text-zinc-400 hover:text-white hover:bg-white/[0.06] rounded-lg transition-colors"
@@ -89,57 +140,123 @@ export function ProjectSidebar({ isOpen, onClose, onSelectProject, onNewProject 
                     </button>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-3 space-y-2">
-                    {projects.map((project) => (
+                {/* Search */}
+                {projects.length > 3 && (
+                    <div className="px-3 pt-3">
+                        <div className="relative">
+                            <RiSearchLine className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-500" />
+                            <input
+                                type="text"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                placeholder="Search projects..."
+                                className="w-full pl-8 pr-3 py-1.5 text-xs text-zinc-300 bg-white/[0.04] border border-white/[0.06] rounded-lg placeholder:text-zinc-600 focus:outline-none focus:border-violet-500/30"
+                            />
+                        </div>
+                    </div>
+                )}
+
+                {/* Project List */}
+                <div className="flex-1 overflow-y-auto p-3 space-y-1.5">
+                    {filteredProjects.map((project) => (
                         <div
                             key={project.id}
                             onClick={() => {
+                                if (renamingId === project.id) return;
                                 onSelectProject(project.id);
                                 onClose();
                             }}
                             className={cn(
-                                "group flex items-center justify-between p-3 rounded-xl cursor-pointer transition-all border",
+                                "group flex items-center gap-2 p-2.5 rounded-xl cursor-pointer transition-all border",
                                 currentProjectId === project.id
                                     ? "bg-violet-500/10 border-violet-500/20"
                                     : "bg-transparent border-transparent hover:bg-white/[0.04] hover:border-white/[0.04]"
                             )}
                         >
-                            <div className="flex items-center gap-3 min-w-0">
-                                <div className={cn(
-                                    "p-2 rounded-lg",
-                                    currentProjectId === project.id ? "bg-violet-500/20 text-violet-300" : "bg-white/[0.06] text-zinc-400 group-hover:text-zinc-200"
-                                )}>
-                                    <RiFolderLine className="w-4 h-4" />
-                                </div>
-                                <div className="flex flex-col min-w-0">
+                            {/* Favorite star */}
+                            <button
+                                onClick={(e) => handleToggleFavorite(e, project.id)}
+                                className={cn(
+                                    "p-1 rounded-md transition-all shrink-0",
+                                    project.isFavorite
+                                        ? "text-amber-400 hover:text-amber-300"
+                                        : "text-zinc-600 hover:text-amber-400 opacity-0 group-hover:opacity-100"
+                                )}
+                            >
+                                {project.isFavorite
+                                    ? <RiStarFill className="w-3.5 h-3.5" />
+                                    : <RiStarLine className="w-3.5 h-3.5" />
+                                }
+                            </button>
+
+                            {/* Folder icon */}
+                            <div className={cn(
+                                "p-1.5 rounded-lg shrink-0",
+                                currentProjectId === project.id ? "bg-violet-500/20 text-violet-300" : "bg-white/[0.06] text-zinc-400 group-hover:text-zinc-200"
+                            )}>
+                                <RiFolderLine className="w-3.5 h-3.5" />
+                            </div>
+
+                            {/* Name + date */}
+                            <div className="flex flex-col min-w-0 flex-1">
+                                {renamingId === project.id ? (
+                                    <input
+                                        autoFocus
+                                        value={renameValue}
+                                        onChange={(e) => setRenameValue(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') handleRenameSubmit(project.id);
+                                            if (e.key === 'Escape') setRenamingId(null);
+                                        }}
+                                        onBlur={() => handleRenameSubmit(project.id)}
+                                        className="text-sm font-medium text-zinc-200 bg-white/[0.06] border border-violet-500/30 rounded px-1.5 py-0.5 outline-none"
+                                    />
+                                ) : (
                                     <span className={cn(
                                         "text-sm font-medium truncate",
                                         currentProjectId === project.id ? "text-violet-200" : "text-zinc-300"
                                     )}>
                                         {project.name}
                                     </span>
-                                    <div className="flex items-center gap-1.5 text-[10px] text-zinc-500">
-                                        <RiTimeLine className="w-3 h-3" />
-                                        <span>{new Date(project.lastModified).toLocaleDateString()}</span>
-                                    </div>
+                                )}
+                                <div className="flex items-center gap-1.5 text-[10px] text-zinc-500">
+                                    <RiTimeLine className="w-3 h-3" />
+                                    <span>{new Date(project.lastModified).toLocaleDateString()}</span>
                                 </div>
                             </div>
 
+                            {/* Active indicator */}
                             {currentProjectId === project.id && (
-                                <div className="text-violet-400">
-                                    <RiCheckLine className="w-4 h-4" />
+                                <div className="text-violet-400 shrink-0">
+                                    <RiCheckLine className="w-3.5 h-3.5" />
                                 </div>
                             )}
 
-                            <button
-                                onClick={(e) => handleDelete(e, project.id)}
-                                className="opacity-0 group-hover:opacity-100 p-1.5 text-zinc-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all"
-                                title="Delete project"
-                            >
-                                <RiDeleteBinLine className="w-4 h-4" />
-                            </button>
+                            {/* Actions */}
+                            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 shrink-0">
+                                <button
+                                    onClick={(e) => handleStartRename(e, project)}
+                                    className="p-1 text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.06] rounded-md transition-all"
+                                    title="Rename"
+                                >
+                                    <RiPencilLine className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                    onClick={(e) => handleDelete(e, project.id)}
+                                    className="p-1 text-zinc-500 hover:text-red-400 hover:bg-red-500/10 rounded-md transition-all"
+                                    title="Delete project"
+                                >
+                                    <RiDeleteBinLine className="w-3.5 h-3.5" />
+                                </button>
+                            </div>
                         </div>
                     ))}
+
+                    {filteredProjects.length === 0 && projects.length > 0 && (
+                        <div className="flex flex-col items-center justify-center py-8 text-center">
+                            <p className="text-xs text-zinc-500">No projects match "{searchQuery}"</p>
+                        </div>
+                    )}
 
                     {projects.length === 0 && (
                         <div className="flex flex-col items-center justify-center py-10 text-center animate-fade-in">
@@ -152,6 +269,7 @@ export function ProjectSidebar({ isOpen, onClose, onSelectProject, onNewProject 
                     )}
                 </div>
 
+                {/* Footer */}
                 <div className="p-4 border-t border-white/[0.06]">
                     <button
                         onClick={() => {

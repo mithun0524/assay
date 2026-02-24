@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useEffect, useState, useCallback } from 'react';
-import { RiArrowRightLine, RiGridLine, RiDownloadLine } from '@remixicon/react';
+import { RiArrowRightLine, RiGridLine, RiDownloadLine, RiFolderLine } from '@remixicon/react';
 import Image from 'next/image';
 import { useStore } from '@/lib/store';
 import { useChat } from '@/hooks/useChat';
@@ -12,6 +12,9 @@ import { TemplateGallery } from './TemplateGallery';
 import { Template } from '@/lib/templates';
 import { applyTemplate } from '@/lib/templateApplicator';
 import { GitHubCloneDialog } from './GitHubCloneDialog';
+import dynamic from 'next/dynamic';
+
+const Aurora = dynamic(() => import('@/components/Aurora'), { ssr: false });
 
 const SUGGESTIONS = [
     'A task management app with drag-and-drop',
@@ -27,7 +30,11 @@ const TYPEWRITER_PROMPTS = [
     'Make a recipe app with search and filtering...',
 ];
 
-export function WelcomeScreen() {
+interface WelcomeScreenProps {
+    onOpenProjects?: () => void;
+}
+
+export function WelcomeScreen({ onOpenProjects }: WelcomeScreenProps) {
     const { selectedModel, setSelectedModel } = useStore();
     const { submit } = useChat();
     const [input, setInput] = useState('');
@@ -106,14 +113,30 @@ export function WelcomeScreen() {
     };
 
     return (
-        <div className="h-screen w-screen flex flex-col relative overflow-hidden">
-            {/* Animated gradient mesh background */}
-            <div className="gradient-mesh" />
+        <div className="h-screen w-screen flex flex-col relative overflow-hidden bg-[#09090b]">
+            {/* Aurora background */}
+            <div className="absolute inset-0 z-[1] overflow-hidden pointer-events-none opacity-40">
+                <Aurora
+                    colorStops={['#7c3aed', '#06b6d4', '#7c3aed']}
+                    amplitude={1.2}
+                    blend={0.6}
+                    speed={0.3}
+                />
+            </div>
 
             {/* Minimal top bar */}
-            <div className="relative z-10 h-12 px-5 flex items-center border-b border-white/[0.06]">
-                <div className="flex items-center gap-2">
+            <div className="relative z-10 h-12 px-5 flex items-center border-b border-white/[0.06] bg-transparent">
+                <div className="flex items-center gap-3">
                     <Image src="/logo-with-typo.png" alt="DevForge" width={100} height={24} className="h-6 w-auto" />
+                    {onOpenProjects && (
+                        <button
+                            onClick={onOpenProjects}
+                            className="p-1.5 text-zinc-500 hover:text-zinc-200 hover:bg-white/[0.06] rounded-lg transition-colors"
+                            title="Projects"
+                        >
+                            <RiFolderLine className="w-4 h-4" />
+                        </button>
+                    )}
                 </div>
             </div>
 

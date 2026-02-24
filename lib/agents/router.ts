@@ -13,7 +13,7 @@ export interface ClassificationResult {
   reasoning: string;
 }
 
-const VALID_ROLES: AgentRole[] = ['architect', 'coder', 'debugger', 'designer', 'tester'];
+const VALID_ROLES: AgentRole[] = ['architect', 'assistant', 'coder', 'debugger', 'designer', 'tester'];
 
 /**
  * Classify user intent via LLM. Returns null on any failure (triggers regex fallback).
@@ -156,6 +156,21 @@ export function routeToAgent(userMessage: string, context: AgentContext): AgentR
     return 'architect';
   }
 
+  // Informational / question patterns → assistant
+  // Catches questions that aren't about code generation
+  const questionPatterns = [
+    /^(what|who|where|when|why|how)\s+(is|are|was|were|do|does|did|can|could|would|should)\b/i,
+    /\b(search|look up|find out|tell me about|explain|describe|define)\b/i,
+    /\bwhat is\b/i,
+    /\bwhat does\b/i,
+    /\bcan you (search|tell|explain|describe)\b/i,
+    /\b(difference between|compared? to|vs\.?)\b/i,
+  ];
+
+  if (questionPatterns.some((pattern) => pattern.test(lower))) {
+    return 'assistant';
+  }
+
   // Default → coder (for most implementation tasks)
   return 'coder';
 }
@@ -170,6 +185,9 @@ export function getAgentReasoning(role: AgentRole, context: AgentContext): strin
         return 'Planning new project structure';
       }
       return 'Analyzing architecture and design patterns';
+
+    case 'assistant':
+      return 'Answering question and providing information';
 
     case 'coder':
       return 'Implementing features and writing code';

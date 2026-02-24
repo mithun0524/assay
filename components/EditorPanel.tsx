@@ -7,9 +7,14 @@ import { X, FileCode, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useStore } from '@/lib/store';
 import { FileTree } from './FileTree';
+import { InlineEditPopup } from './InlineEditPopup';
 import { buildFileTree } from '@/lib/utils';
 import { writeFileToSandbox } from '@/lib/fileSystem';
+import { checkAndNotifyMissingDependencies } from '@/lib/dependencyHelper';
+import { registerAutocompleteProvider } from '@/lib/autocomplete';
 import { cn } from '@/lib/utils';
+import { useChat } from '@/hooks/useChat';
+import type * as Monaco from 'monaco-editor';
 
 const MonacoEditor = dynamic(
   () => import('@monaco-editor/react').then((mod) => mod.Editor),
@@ -17,21 +22,51 @@ const MonacoEditor = dynamic(
 );
 
 export function EditorPanel() {
-  const { files, activeFile, openTabs, closeTab, closeOtherTabs, closeAllTabs, setFile, setActiveFile, dirtyFiles, markDirty, markClean } = useStore();
+  const { files, activeFile, openTabs, closeTab, closeOtherTabs, closeAllTabs, setFile, setActiveFile, dirtyFiles, markDirty, markClean, isStreaming } = useStore();
   const [editorContent, setEditorContent] = useState('');
   const updateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; path: string } | null>(null);
+  const { submit } = useChat();
 
+  // Inline edit popup state
+  const [inlineEditPopup, setInlineEditPopup] = useState<{
+    isOpen: boolean;
+    position: { x: number; y: number } | null;
+    selectedText: string;
+    selection: Monaco.IRange | null;
+  }>({
+    isOpen: false,
+    position: null,
+    selectedText: '',
+    selection: null,
+  });
+
+  const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
   const fileTree = buildFileTree(files);
 
-  // Update editor content when active file changes
+  // Update editor content when active file changes or content is updated externally (e.g. AI streaming)
+  // Skip if the store content matches what the editor already has (our own save) to preserve cursor position
+  const prevActiveFileRef = useRef<string | null>(null);
   useEffect(() => {
     if (activeFile && files[activeFile]) {
-      setEditorContent(files[activeFile].content);
+      const storeContent = files[activeFile].content;
+      if (activeFile !== prevActiveFileRef.current) {
+        // Switched files — always sync
+        setEditorContent(storeContent);
+        prevActiveFileRef.current = activeFile;
+      } else if (storeContent !== editorContent) {
+        // Same file but content changed externally (AI edit, undo/redo from store)
+        // Only update if the editor didn't originate this change
+        const editorValue = editorRef.current?.getValue();
+        if (editorValue !== undefined && storeContent !== editorValue) {
+          setEditorContent(storeContent);
+        }
+      }
     } else {
       setEditorContent('');
+      prevActiveFileRef.current = activeFile;
     }
-  }, [activeFile, files]);
+  }, [activeFile, files]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleEditorChange = useCallback((value: string | undefined) => {
     if (!activeFile || !value) return;
@@ -51,7 +86,11 @@ export function EditorPanel() {
       });
       // Sync to WebContainer so Vite HMR picks up the change
       writeFileToSandbox(activeFile, value)
-        .then(() => markClean(activeFile))
+        .then(() => {
+          markClean(activeFile);
+          // Check for missing dependencies after file is saved
+          checkAndNotifyMissingDependencies(activeFile, value).catch(console.error);
+        })
         .catch(console.error);
     }, 500);
   }, [activeFile, files, setFile, markDirty, markClean]);
@@ -63,7 +102,11 @@ export function EditorPanel() {
         e.preventDefault();
         if (activeFile && files[activeFile]) {
           writeFileToSandbox(activeFile, files[activeFile].content)
-            .then(() => markClean(activeFile))
+            .then(() => {
+              markClean(activeFile);
+              // Check for missing dependencies after manual save
+              checkAndNotifyMissingDependencies(activeFile, files[activeFile].content).catch(console.error);
+            })
             .catch(console.error);
         }
       }
@@ -97,6 +140,81 @@ export function EditorPanel() {
     };
   }, [contextMenu]);
 
+  // Handle Monaco editor mount
+  const handleEditorMount = useCallback((editor: Monaco.editor.IStandaloneCodeEditor, monaco: typeof Monaco) => {
+    editorRef.current = editor;
+
+    // Register AI autocomplete provider (ghost text)
+    const autocompleteDisposable = registerAutocompleteProvider(monaco);
+    // Clean up on editor dispose
+    editor.onDidDispose(() => autocompleteDisposable.dispose());
+
+    // Register CMD+K keyboard action for inline editing
+    editor.addAction({
+      id: 'inline-edit',
+      label: 'AI Inline Edit',
+      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyK],
+      run: (ed) => {
+        const selection = ed.getSelection();
+        if (!selection || selection.isEmpty()) {
+          return;
+        }
+
+        const selectedText = ed.getModel()?.getValueInRange(selection) || '';
+        if (!selectedText.trim()) {
+          return;
+        }
+
+        // Get cursor position in screen coordinates
+        const position = ed.getScrolledVisiblePosition(selection.getStartPosition());
+        if (!position) {
+          return;
+        }
+
+        const editorDomNode = ed.getDomNode();
+        if (!editorDomNode) {
+          return;
+        }
+
+        const rect = editorDomNode.getBoundingClientRect();
+
+        setInlineEditPopup({
+          isOpen: true,
+          position: {
+            x: rect.left + position.left,
+            y: rect.top + position.top + 20, // Offset below cursor
+          },
+          selectedText,
+          selection,
+        });
+      },
+    });
+  }, []);
+
+  // Handle inline edit submission
+  const handleInlineEditSubmit = useCallback(async (instruction: string) => {
+    if (!activeFile || !inlineEditPopup.selectedText || !inlineEditPopup.selection) {
+      return;
+    }
+
+    // Format prompt for inline editing
+    const prompt = `I want to edit the following code in ${activeFile}:
+
+\`\`\`
+${inlineEditPopup.selectedText}
+\`\`\`
+
+Instruction: ${instruction}
+
+Please modify ONLY the selected code above based on the instruction. Return the complete modified code that should replace the selection.`;
+
+    // Close popup and submit
+    setInlineEditPopup({ isOpen: false, position: null, selectedText: '', selection: null });
+
+    // Submit to chat
+    await submit(prompt);
+  }, [activeFile, inlineEditPopup, submit]);
+
   // Breadcrumb segments
   const breadcrumbSegments = activeFile ? activeFile.split('/') : [];
 
@@ -107,7 +225,7 @@ export function EditorPanel() {
         <div className="panel-header px-3 py-2 text-[11px] font-medium text-zinc-500 uppercase tracking-wider">
           Files
         </div>
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 min-h-0">
           <FileTree tree={fileTree} />
         </div>
       </div>
@@ -177,6 +295,7 @@ export function EditorPanel() {
               language={files[activeFile].language}
               value={editorContent}
               onChange={handleEditorChange}
+              onMount={handleEditorMount}
               theme="vs-dark"
               options={{
                 fontSize: 13,
@@ -188,6 +307,7 @@ export function EditorPanel() {
                 automaticLayout: true,
                 padding: { top: 8 },
                 fontFamily: "'Geist Mono', 'Fira Code', 'Cascadia Code', monospace",
+                inlineSuggest: { enabled: true },
               }}
             />
           ) : (
@@ -227,6 +347,16 @@ export function EditorPanel() {
           </button>
         </div>
       )}
+
+      {/* Inline Edit Popup */}
+      <InlineEditPopup
+        isOpen={inlineEditPopup.isOpen}
+        position={inlineEditPopup.position}
+        selectedText={inlineEditPopup.selectedText}
+        onSubmit={handleInlineEditSubmit}
+        onClose={() => setInlineEditPopup({ isOpen: false, position: null, selectedText: '', selection: null })}
+        isLoading={isStreaming}
+      />
     </div>
   );
 }
