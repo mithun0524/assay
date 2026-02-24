@@ -75,7 +75,7 @@ DevForge is a powerful browser-based AI code editor built with Next.js, React 19
    ```
 
 5. **Open [http://localhost:3000](http://localhost:3000)**
-
+.
 ---
 
 ## 📖 Usage Guide
