@@ -1,4 +1,4 @@
-# DevForge 🚀
+# DevForge 
 
 **The Open-Source AI Code Editor That Runs Entirely in Your Browser**
 
