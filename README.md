@@ -310,7 +310,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [WebContainers](https://webcontainers.io/) by StackBlitz
 - [OpenRouter](https://openrouter.ai/) for multi-model AI access
 - [Monaco Editor](https://microsoft.github.io/monaco-editor/) by Microsoft
-- [Bolt.new](https://bolt.new/), [Lovable](https://lovable.dev/), and [v0.dev](https://v0.dev/) for inspiration
+- [Bolt.new](https://bolt.new/), [Lovable](https://lovable.dev/), and [v0.dev](https://v0.dev/) for inspiration.
 
 ---
 
