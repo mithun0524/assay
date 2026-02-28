@@ -16,23 +16,39 @@ export function useAuth() {
   const isGitHubLinked = user?.app_metadata?.providers?.includes('github') ?? false;
 
   useEffect(() => {
-    // Get initial session
-    getSupabase().auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
+    let initialResolved = false;
 
-    // Subscribe to auth state changes
+    // Subscribe first — this fires INITIAL_SESSION immediately with cached data
+    // before any network request, making it faster than getSession()
     const { data: { subscription } } = getSupabase().auth.onAuthStateChange(
-      (_event, session) => {
+      (event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
-        setLoading(false);
+        if (!initialResolved) {
+          initialResolved = true;
+          setLoading(false);
+        }
+        // INITIAL_SESSION fires synchronously with cached session
+        // SIGNED_IN / TOKEN_REFRESHED fire after network validation
+        if (event === 'SIGNED_OUT') {
+          setLoading(false);
+        }
       }
     );
 
-    return () => subscription.unsubscribe();
+    // Fallback: if onAuthStateChange hasn't resolved after a short time,
+    // resolve loading to avoid indefinite spinner
+    const timeout = setTimeout(() => {
+      if (!initialResolved) {
+        initialResolved = true;
+        setLoading(false);
+      }
+    }, 2000);
+
+    return () => {
+      clearTimeout(timeout);
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signInWithGitHub = useCallback(async () => {

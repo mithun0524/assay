@@ -33,22 +33,21 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${origin}/?auth_error=exchange_failed`);
   }
 
-  // If the user signed in with GitHub, capture the provider_token
+  // If the user signed in with GitHub, store the provider_token in the background
+  // (non-blocking — don't delay the redirect)
   const session = data.session;
   if (session.provider_token) {
-    try {
-      const admin = createAdminClient();
-      await admin.from('user_secrets').upsert(
-        {
-          user_id: session.user.id,
-          github_token: session.provider_token,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'user_id' }
-      );
-    } catch (err) {
-      console.error('[auth/callback] Failed to store provider_token:', err);
-    }
+    const admin = createAdminClient();
+    admin.from('user_secrets').upsert(
+      {
+        user_id: session.user.id,
+        github_token: session.provider_token,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'user_id' }
+    ).then(({ error }) => {
+      if (error) console.error('[auth/callback] Failed to store provider_token:', error.message);
+    });
   }
 
   return NextResponse.redirect(`${origin}${next}`);

@@ -27,6 +27,11 @@ export function LoginForm() {
   const [submitting, setSubmitting] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
 
+  // Prefetch /app so it's ready instantly after login
+  useEffect(() => {
+    router.prefetch('/app');
+  }, [router]);
+
   useEffect(() => {
     if (user) router.replace('/app');
   }, [user, router]);
@@ -51,13 +56,14 @@ export function LoginForm() {
     try {
       if (mode === 'signin') {
         await signInWithEmail(email, password);
+        // Navigate immediately — don't wait for onAuthStateChange to propagate
+        router.replace('/app');
       } else {
         await signUpWithEmail(email, password);
         setEmailSent(true);
       }
     } catch (err: any) {
       setError(err.message || 'Authentication failed');
-    } finally {
       setSubmitting(false);
     }
   };

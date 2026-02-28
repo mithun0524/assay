@@ -8,7 +8,7 @@ import Lenis from 'lenis';
 import 'lenis/dist/lenis.css';
 
 const Aurora = dynamic(() => import('@/components/Aurora'), { ssr: false });
-const LoaderScreen = dynamic(() => import('./LoaderScreen').then(mod => ({ default: mod.LoaderScreen })), { ssr: false });
+import { LoaderScreen } from './LoaderScreen';
 import BlurText from '@/components/BlurText';
 import ClickSpark from '@/components/ClickSpark';
 import {

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { X, Mail } from 'lucide-react';
 import { RiGithubLine, RiGoogleLine } from '@remixicon/react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -15,11 +16,17 @@ interface AuthModalProps {
 export function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const { signInWithGitHub, signInWithGoogle, signInWithEmail, signUpWithEmail } =
     useAuthContext();
+  const router = useRouter();
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // Prefetch /app so navigation after login is instant
+  useEffect(() => {
+    router.prefetch('/app');
+  }, [router]);
 
   useEffect(() => {
     if (isOpen) {
@@ -47,13 +54,14 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
     try {
       if (mode === 'signin') {
         await signInWithEmail(email, password);
+        onClose();
+        router.push('/app');
       } else {
         await signUpWithEmail(email, password);
+        onClose();
       }
-      onClose();
     } catch (err: any) {
       setError(err.message || 'Authentication failed');
-    } finally {
       setLoading(false);
     }
   };

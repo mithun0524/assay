@@ -45,14 +45,14 @@ export async function middleware(request: NextRequest) {
   // Public routes — accessible without auth
   const isPublicRoute = pathname === '/' || pathname === '/login' || pathname === '/landing' || pathname.startsWith('/api/auth');
 
-  // Unauthenticated users can only access public routes
+  // Unauthenticated users can only access public routes — redirect to landing
   if (!user && !isPublicRoute) {
-    const loginUrl = request.nextUrl.clone();
-    loginUrl.pathname = '/login';
-    return NextResponse.redirect(loginUrl);
+    const landingUrl = request.nextUrl.clone();
+    landingUrl.pathname = '/';
+    return NextResponse.redirect(landingUrl);
   }
 
-  // Authenticated users shouldn't see the login page — send to app
+  // Authenticated users on login page — send to app
   if (user && pathname === '/login') {
     const appUrl = request.nextUrl.clone();
     appUrl.pathname = '/app';
