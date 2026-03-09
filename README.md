@@ -318,7 +318,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - **Issues**: [GitHub Issues](https://github.com/yourusername/devforge/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/yourusername/devforge/discussions)
-.
+..
 ---
 
 **Built with ❤️ by the open-source community**
