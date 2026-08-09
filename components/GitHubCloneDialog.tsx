@@ -68,6 +68,12 @@ export function GitHubCloneDialog({ isOpen, onClose }: GitHubCloneDialogProps) {
 
       setHasProject(true);
 
+      // Persist the clone so a refresh doesn't discard it.
+      const { persistCurrentProject } = await import('@/lib/db');
+      await persistCurrentProject(`${parsed.owner}/${parsed.repo}`).catch((err) =>
+        console.error('[clone] failed to persist project:', err)
+      );
+
       // Success!
       onClose();
       toast.success(`Cloned ${parsed.owner}/${parsed.repo}`);
@@ -99,7 +105,7 @@ export function GitHubCloneDialog({ isOpen, onClose }: GitHubCloneDialogProps) {
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06]">
           <div className="flex items-center gap-2">
-            <RiDownloadLine className="w-4 h-4 text-violet-400" />
+            <RiDownloadLine className="w-4 h-4 text-zinc-400" />
             <h2 className="text-sm font-semibold text-zinc-100">Clone from GitHub</h2>
           </div>
           <button
@@ -128,7 +134,7 @@ export function GitHubCloneDialog({ isOpen, onClose }: GitHubCloneDialogProps) {
               className={cn(
                 'w-full px-3 py-2 rounded-lg text-sm text-zinc-200',
                 'bg-zinc-800 border border-white/[0.06]',
-                'focus:outline-none focus:border-violet-500/40',
+                'focus:outline-none focus:border-white/45',
                 'placeholder:text-zinc-600'
               )}
             />
@@ -147,7 +153,7 @@ export function GitHubCloneDialog({ isOpen, onClose }: GitHubCloneDialogProps) {
               className={cn(
                 'w-full px-3 py-2 rounded-lg text-sm text-zinc-200',
                 'bg-zinc-800 border border-white/[0.06]',
-                'focus:outline-none focus:border-violet-500/40',
+                'focus:outline-none focus:border-white/45',
                 'placeholder:text-zinc-600'
               )}
             />

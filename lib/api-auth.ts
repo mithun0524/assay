@@ -147,8 +147,16 @@ export function rateLimit(
   request: NextRequest,
   { windowMs = 60_000, max = 30 }: { windowMs?: number; max?: number } = {},
 ): NextResponse | null {
+  // x-forwarded-for is client-supplied; an attacker can prepend arbitrary
+  // entries. Prefer the platform-set header, and otherwise take the LAST hop —
+  // the value the closest trusted proxy appended.
   const forwarded = request.headers.get('x-forwarded-for');
-  const ip = forwarded?.split(',')[0]?.trim() || 'unknown';
+  const hops = forwarded?.split(',').map((v) => v.trim()).filter(Boolean) ?? [];
+  const ip =
+    request.headers.get('x-real-ip')?.trim() ||
+    request.headers.get('cf-connecting-ip')?.trim() ||
+    hops[hops.length - 1] ||
+    'unknown';
   const route = new URL(request.url).pathname;
   const key = `${ip}:${route}`;
 

@@ -42,6 +42,8 @@ export function WorkspaceLayout() {
 
   const { user, isGitHubLinked } = useAuthContext();
 
+  const hasFiles = Object.keys(files).length > 0;
+
   const [isMobile, setIsMobile] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
   const [leftWidth, setLeftWidth] = useState(340);
@@ -105,6 +107,14 @@ export function WorkspaceLayout() {
     return () => window.removeEventListener('keydown', handler);
   }, []);
 
+  // The workspace is a fixed-height IDE — lock the document so panels scroll
+  // internally instead of the page growing a second scrollbar. Scoped here so
+  // the landing page keeps native document scrolling.
+  useEffect(() => {
+    document.documentElement.classList.add('viewport-locked');
+    return () => document.documentElement.classList.remove('viewport-locked');
+  }, []);
+
   // Boot WebContainer
   useWebContainer();
 
@@ -165,9 +175,9 @@ export function WorkspaceLayout() {
     const init = async () => {
       try {
         // Check for forked project from share page
-        const forkData = sessionStorage.getItem('devforge-fork');
+        const forkData = sessionStorage.getItem('assay-fork');
         if (forkData) {
-          sessionStorage.removeItem('devforge-fork');
+          sessionStorage.removeItem('assay-fork');
           try {
             const parsed = JSON.parse(forkData);
             const forkName: string = parsed.name || 'Forked Project';
@@ -336,8 +346,8 @@ export function WorkspaceLayout() {
         <div className="gradient-mesh" />
         <div className="relative z-10 text-center animate-fade-up">
           <div className="relative mb-6">
-            <RiLoader4Line className="w-8 h-8 text-violet-400 animate-spin mx-auto" />
-            <div className="absolute inset-0 w-8 h-8 mx-auto rounded-full bg-violet-500/20 blur-xl" />
+            <RiLoader4Line className="w-8 h-8 text-zinc-300 animate-spin mx-auto" />
+            <div className="absolute inset-0 w-8 h-8 mx-auto rounded-full bg-white/10 blur-xl" />
           </div>
           <p className="text-zinc-300 text-sm font-medium">
             {isLoading ? 'Loading project...' : 'Initializing environment'}
@@ -397,7 +407,11 @@ export function WorkspaceLayout() {
         "flex-1 min-h-0 flex",
         isMobile ? "flex-col" : "flex-row"
       )}>
-        {/* Chat panel */}
+        {/* A solo centred chat used to render here until the first file
+            existed. It left the column floating in two black voids and made
+            the layout jump when files arrived. Now that the chat lists file
+            activity rather than rendering code, it is comfortable at its normal
+            width and the panels can simply stay put. */}
         {isMobile ? (
           <div className="w-full h-[45%] shrink-0 border-b border-white/[0.06]">
             <ChatPanel />
@@ -426,7 +440,7 @@ export function WorkspaceLayout() {
                       >
                         <MessageSquare className="w-5 h-5" />
                         {messages.length > 0 && (
-                          <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 flex items-center justify-center rounded-full bg-violet-500 text-[10px] font-medium text-white">
+                          <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 flex items-center justify-center rounded-full bg-zinc-100 text-[10px] font-medium text-zinc-950">
                             {messages.length > 99 ? '99+' : messages.length}
                           </span>
                         )}
@@ -456,7 +470,7 @@ export function WorkspaceLayout() {
                   animate={{ opacity: 1, width: 4 }}
                   exit={{ opacity: 0, width: 0 }}
                   transition={{ duration: 0.2 }}
-                  className="resize-handle cursor-col-resize hover:bg-violet-500/30 transition-colors"
+                  className="resize-handle cursor-col-resize hover:bg-white/20 transition-colors"
                   onMouseDown={() => setIsDragging(true)}
                 />
               )}

@@ -167,7 +167,7 @@ export function FindInFiles({ isOpen, onClose }: FindInFilesProps) {
                         onClick={() => handleResultClick(filePath)}
                         className="w-full flex items-center gap-2 px-3 py-1.5 text-left hover:bg-white/[0.04] transition-colors"
                       >
-                        <FileCode className="w-3.5 h-3.5 text-violet-400 shrink-0" />
+                        <FileCode className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
                         <span className="text-xs font-medium text-zinc-300 truncate">{filePath}</span>
                         <span className="text-[10px] text-zinc-600 ml-auto shrink-0">
                           {matches.length} match{matches.length > 1 ? 'es' : ''}
@@ -179,7 +179,7 @@ export function FindInFiles({ isOpen, onClose }: FindInFilesProps) {
                         <button
                           key={`${filePath}-${match.lineNumber}-${i}`}
                           onClick={() => handleResultClick(filePath)}
-                          className="w-full flex items-start gap-2 pl-8 pr-3 py-1 text-left hover:bg-violet-500/10 transition-colors group"
+                          className="w-full flex items-start gap-2 pl-8 pr-3 py-1 text-left hover:bg-white/[0.06] transition-colors group"
                         >
                           <span className="text-[10px] text-zinc-600 font-mono w-8 text-right shrink-0 pt-0.5">
                             {match.lineNumber}

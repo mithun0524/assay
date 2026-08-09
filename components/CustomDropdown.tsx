@@ -54,9 +54,9 @@ export function CustomDropdown({ options, value, onChange, className, dropUp = f
                     'bg-white/[0.04] border border-white/[0.06] rounded-lg',
                     'px-2.5 py-1.5 text-xs text-zinc-400',
                     'hover:bg-white/[0.06] hover:border-white/[0.12]',
-                    'focus:outline-none focus-visible:ring-1 focus-visible:ring-violet-500/30',
+                    'focus:outline-none focus-visible:ring-1 focus-visible:ring-white/[0.08]',
                     'transition-all duration-200 cursor-pointer',
-                    isOpen && 'border-violet-500/30 bg-white/[0.06]'
+                    isOpen && 'border-white/[0.12] bg-white/[0.06]'
                 )}
             >
                 <span className="truncate">{selectedOption?.label || 'Select...'}</span>
@@ -98,7 +98,7 @@ export function CustomDropdown({ options, value, onChange, className, dropUp = f
                                 className={cn(
                                     'w-full flex items-start gap-2 px-3 py-2 text-left text-xs transition-all duration-150',
                                     isSelected
-                                        ? 'text-zinc-200 bg-violet-500/10'
+                                        ? 'text-zinc-200 bg-white/[0.06]'
                                         : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.06]'
                                 )}
                             >
@@ -109,7 +109,7 @@ export function CustomDropdown({ options, value, onChange, className, dropUp = f
                                     )}
                                 </div>
                                 {isSelected && (
-                                    <RiCheckLine className="w-3 h-3 mt-0.5 text-violet-400 shrink-0" />
+                                    <RiCheckLine className="w-3 h-3 mt-0.5 text-zinc-300 shrink-0" />
                                 )}
                             </button>
                         );

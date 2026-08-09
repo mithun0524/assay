@@ -33,21 +33,29 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${origin}/?auth_error=exchange_failed`);
   }
 
-  // If the user signed in with GitHub, store the provider_token in the background
-  // (non-blocking — don't delay the redirect)
+  // Persist the GitHub provider token. This MUST be awaited — a serverless
+  // function can be frozen the moment the redirect response is returned, which
+  // silently dropped the write and left users "signed in but not linked".
   const session = data.session;
   if (session.provider_token) {
-    const admin = createAdminClient();
-    admin.from('user_secrets').upsert(
-      {
-        user_id: session.user.id,
-        github_token: session.provider_token,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: 'user_id' }
-    ).then(({ error }) => {
-      if (error) console.error('[auth/callback] Failed to store provider_token:', error.message);
-    });
+    try {
+      const admin = createAdminClient();
+      const { error: upsertErr } = await admin.from('user_secrets').upsert(
+        {
+          user_id: session.user.id,
+          github_token: session.provider_token,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'user_id' }
+      );
+      if (upsertErr) {
+        console.error('[auth/callback] Failed to store provider_token:', upsertErr.message);
+        return NextResponse.redirect(`${origin}${next}?github=link_failed`);
+      }
+    } catch (err) {
+      console.error('[auth/callback] provider_token upsert threw:', err);
+      return NextResponse.redirect(`${origin}${next}?github=link_failed`);
+    }
   }
 
   return NextResponse.redirect(`${origin}${next}`);

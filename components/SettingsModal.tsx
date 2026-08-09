@@ -20,7 +20,7 @@ interface SettingsModalProps {
 }
 
 export function SettingsModal({ isOpen, onClose, defaultTab = 'api-keys', onOpenShortcuts }: SettingsModalProps) {
-    const { apiKey, setApiKey, showDiffPreview, setShowDiffPreview, hasProject } = useStore();
+    const { showDiffPreview, setShowDiffPreview, hasProject, viewTier, setViewTier } = useStore();
     const { user } = useAuthContext();
     const [activeTab, setActiveTab] = useState<Tab>(defaultTab);
 
@@ -30,7 +30,9 @@ export function SettingsModal({ isOpen, onClose, defaultTab = 'api-keys', onOpen
             setActiveTab(defaultTab);
         }
     }, [isOpen, defaultTab]);
-    const [inputValue, setInputValue] = useState(apiKey ?? '');
+    const [inputValue, setInputValue] = useState('');
+    // The key itself never comes back to the browser — only a masked hint.
+    const [keyHint, setKeyHint] = useState<string | null>(null);
     const [apiSaved, setApiSaved] = useState(false);
     const [envSaved, setEnvSaved] = useState(false);
     const [autocompleteOn, setAutocompleteOn] = useState(() => isAutocompleteEnabled());
@@ -42,8 +44,9 @@ export function SettingsModal({ isOpen, onClose, defaultTab = 'api-keys', onOpen
 
     useEffect(() => {
         if (isOpen) {
-            setInputValue(apiKey ?? '');
+            setInputValue('');
             setApiSaved(false);
+            loadKeyHint();
             setEnvSaved(false);
             if (activeTab === 'api-keys') {
                 setTimeout(() => inputRef.current?.focus(), 100);
@@ -55,7 +58,7 @@ export function SettingsModal({ isOpen, onClose, defaultTab = 'api-keys', onOpen
                 setEnvVars([{ key: '', value: '' }]);
             }
         }
-    }, [isOpen, apiKey, hasProject]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [isOpen, hasProject]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Close on Escape
     useEffect(() => {
@@ -79,21 +82,35 @@ export function SettingsModal({ isOpen, onClose, defaultTab = 'api-keys', onOpen
         }
     };
 
+    const loadKeyHint = async () => {
+        try {
+            const res = await fetch('/api/user/secrets');
+            if (!res.ok) return setKeyHint(null);
+            const d = await res.json();
+            setKeyHint(d.hasOpenrouterKey ? (d.openrouterKeyHint ?? 'configured') : null);
+        } catch {
+            setKeyHint(null);
+        }
+    };
+
+    // The key is written straight to the user_secrets table and never touches
+    // the browser again. It used to also live in localStorage, where any XSS
+    // on the page could read it.
     const handleSave = async () => {
         const trimmed = inputValue.trim();
-        setApiKey(trimmed || null);
+        if (!user) return;
 
-        // If authenticated, also save to DB
-        if (user) {
-            try {
-                await fetch('/api/user/secrets', {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ openrouterKey: trimmed || null }),
-                });
-            } catch {
-                // Silently fall back to localStorage-only
-            }
+        try {
+            const res = await fetch('/api/user/secrets', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ openrouterKey: trimmed || null }),
+            });
+            if (!res.ok) return;
+            setInputValue('');
+            await loadKeyHint();
+        } catch {
+            return;
         }
 
         setApiSaved(true);
@@ -156,7 +173,7 @@ export function SettingsModal({ isOpen, onClose, defaultTab = 'api-keys', onOpen
                         <div className="border-b border-white/[0.06]">
                             <div className="flex items-center justify-between px-5 py-4">
                                 <div className="flex items-center gap-2">
-                                    <Settings2 className="w-4 h-4 text-violet-400" />
+                                    <Settings2 className="w-4 h-4 text-zinc-400" />
                                     <h2 className="text-sm font-semibold text-zinc-100">Settings</h2>
                                 </div>
                                 <button
@@ -174,8 +191,8 @@ export function SettingsModal({ isOpen, onClose, defaultTab = 'api-keys', onOpen
                                     className={cn(
                                         'px-3 py-2 text-xs font-medium rounded-t-lg transition-all',
                                         activeTab === 'api-keys'
-                                            ? 'text-violet-400 bg-white/[0.04] border-b-2 border-violet-400'
-                                            : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.02]'
+                                            ? 'text-zinc-50 bg-white/[0.06] border-b-2 border-zinc-100'
+                                            : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.02]'
                                     )}
                                 >
                                     <div className="flex items-center gap-1.5">
@@ -188,8 +205,8 @@ export function SettingsModal({ isOpen, onClose, defaultTab = 'api-keys', onOpen
                                     className={cn(
                                         'px-3 py-2 text-xs font-medium rounded-t-lg transition-all',
                                         activeTab === 'environment'
-                                            ? 'text-violet-400 bg-white/[0.04] border-b-2 border-violet-400'
-                                            : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.02]'
+                                            ? 'text-zinc-50 bg-white/[0.06] border-b-2 border-zinc-100'
+                                            : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.02]'
                                     )}
                                 >
                                     Environment
@@ -199,8 +216,8 @@ export function SettingsModal({ isOpen, onClose, defaultTab = 'api-keys', onOpen
                                     className={cn(
                                         'px-3 py-2 text-xs font-medium rounded-t-lg transition-all',
                                         activeTab === 'snippets'
-                                            ? 'text-violet-400 bg-white/[0.04] border-b-2 border-violet-400'
-                                            : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.02]'
+                                            ? 'text-zinc-50 bg-white/[0.06] border-b-2 border-zinc-100'
+                                            : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.02]'
                                     )}
                                 >
                                     Snippets
@@ -222,19 +239,22 @@ export function SettingsModal({ isOpen, onClose, defaultTab = 'api-keys', onOpen
                                             value={inputValue}
                                             onChange={(e) => setInputValue(e.target.value)}
                                             onKeyDown={(e) => e.key === 'Enter' && handleSave()}
-                                            placeholder="sk-or-v1-..."
+                                            placeholder={keyHint ? `Saved · ${keyHint}` : 'sk-or-v1-...'}
+                                            disabled={!user}
                                             className={cn(
                                                 'w-full px-3 py-2.5 rounded-xl text-sm text-zinc-200',
                                                 'bg-white/[0.04] border border-white/[0.06]',
-                                                'focus:outline-none focus:border-violet-500/40 focus:shadow-[0_0_0_1px_rgba(124,58,237,0.15)]',
+                                                'focus:outline-none focus:border-white/45 focus:shadow-[0_0_0_3px_rgba(255,255,255,0.08)]',
                                                 'placeholder:text-zinc-600',
                                                 'transition-all'
                                             )}
                                         />
-                                        <p className="mt-2 text-[11px] text-zinc-600">
-                                            {user
-                                                ? 'Your key is stored securely in the database and synced across sessions.'
-                                                : 'Your key is stored locally in your browser. Sign in to sync across devices.'}
+                                        <p className="mt-2 text-[11px] text-zinc-500">
+                                            {!user
+                                                ? 'Sign in to save a key. Keys are stored on the server, never in this browser.'
+                                                : keyHint
+                                                    ? 'Saved on the server. Enter a new key to replace it, or clear the field and save to remove it.'
+                                                    : 'Stored on the server against your account — never in this browser.'}
                                         </p>
                                     </div>
 
@@ -242,11 +262,44 @@ export function SettingsModal({ isOpen, onClose, defaultTab = 'api-keys', onOpen
                                         href="https://openrouter.ai/keys"
                                         target="_blank"
                                         rel="noopener noreferrer"
-                                        className="flex items-center gap-1.5 text-xs text-violet-400 hover:text-violet-300 transition-colors"
+                                        className="flex items-center gap-1.5 text-xs text-zinc-100 hover:text-white transition-colors"
                                     >
                                         <ExternalLink className="w-3 h-3" />
                                         Get a free API key from OpenRouter
                                     </a>
+
+                                    {/* Developer mode — controls which surfaces the
+                                        workspace offers. See lib/surfaces.ts. */}
+                                    <div className="pt-3 border-t border-white/[0.06]">
+                                        <label className="flex items-center justify-between cursor-pointer">
+                                            <div>
+                                                <div className="text-xs font-medium text-zinc-300 mb-0.5">
+                                                    Developer mode
+                                                </div>
+                                                <div className="text-[11px] text-zinc-400">
+                                                    Adds the Code and Logs tabs. Off by default — the app opens on your
+                                                    build and your running app instead.
+                                                </div>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                role="switch"
+                                                aria-checked={viewTier === 'developer'}
+                                                onClick={() => setViewTier(viewTier === 'developer' ? 'simple' : 'developer')}
+                                                className={cn(
+                                                    'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out',
+                                                    viewTier === 'developer' ? 'bg-zinc-50' : 'bg-zinc-700'
+                                                )}
+                                            >
+                                                <span
+                                                    className={cn(
+                                                        'pointer-events-none inline-block h-5 w-5 transform rounded-full shadow ring-0 transition duration-200 ease-in-out',
+                                                        viewTier === 'developer' ? 'translate-x-5 bg-zinc-900' : 'translate-x-0 bg-white'
+                                                    )}
+                                                />
+                                            </button>
+                                        </label>
+                                    </div>
 
                                     {/* Diff Preview Toggle */}
                                     <div className="pt-3 border-t border-white/[0.06]">
@@ -264,13 +317,13 @@ export function SettingsModal({ isOpen, onClose, defaultTab = 'api-keys', onOpen
                                                 onClick={() => setShowDiffPreview(!showDiffPreview)}
                                                 className={cn(
                                                     'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out',
-                                                    showDiffPreview ? 'bg-violet-600' : 'bg-zinc-700'
+                                                    showDiffPreview ? 'bg-zinc-50' : 'bg-zinc-700'
                                                 )}
                                             >
                                                 <span
                                                     className={cn(
-                                                        'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
-                                                        showDiffPreview ? 'translate-x-5' : 'translate-x-0'
+                                                        'pointer-events-none inline-block h-5 w-5 transform rounded-full shadow ring-0 transition duration-200 ease-in-out',
+                                                        showDiffPreview ? 'translate-x-5 bg-zinc-900' : 'translate-x-0 bg-white'
                                                     )}
                                                 />
                                             </button>
@@ -297,13 +350,13 @@ export function SettingsModal({ isOpen, onClose, defaultTab = 'api-keys', onOpen
                                                 }}
                                                 className={cn(
                                                     'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out',
-                                                    autocompleteOn ? 'bg-violet-600' : 'bg-zinc-700'
+                                                    autocompleteOn ? 'bg-zinc-50' : 'bg-zinc-700'
                                                 )}
                                             >
                                                 <span
                                                     className={cn(
-                                                        'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
-                                                        autocompleteOn ? 'translate-x-5' : 'translate-x-0'
+                                                        'pointer-events-none inline-block h-5 w-5 transform rounded-full shadow ring-0 transition duration-200 ease-in-out',
+                                                        autocompleteOn ? 'translate-x-5 bg-zinc-900' : 'translate-x-0 bg-white'
                                                     )}
                                                 />
                                             </button>
@@ -323,7 +376,7 @@ export function SettingsModal({ isOpen, onClose, defaultTab = 'api-keys', onOpen
                                         </div>
                                         <button
                                             onClick={addEnvVar}
-                                            className="flex items-center gap-1 px-2 py-1 text-xs text-violet-400 hover:text-violet-300 hover:bg-white/[0.06] rounded-lg transition-all"
+                                            className="flex items-center gap-1 px-2 py-1 text-xs text-zinc-300 hover:text-zinc-50 hover:bg-white/[0.06] rounded-lg transition-all"
                                         >
                                             <Plus className="w-3 h-3" />
                                             Add
@@ -346,7 +399,7 @@ export function SettingsModal({ isOpen, onClose, defaultTab = 'api-keys', onOpen
                                                         className={cn(
                                                             'flex-1 px-3 py-2 rounded-lg text-xs text-zinc-200 font-mono',
                                                             'bg-white/[0.04] border border-white/[0.06]',
-                                                            'focus:outline-none focus:border-violet-500/40',
+                                                            'focus:outline-none focus:border-white/45',
                                                             'placeholder:text-zinc-600',
                                                             'transition-all'
                                                         )}
@@ -359,7 +412,7 @@ export function SettingsModal({ isOpen, onClose, defaultTab = 'api-keys', onOpen
                                                         className={cn(
                                                             'flex-[2] px-3 py-2 rounded-lg text-xs text-zinc-200 font-mono',
                                                             'bg-white/[0.04] border border-white/[0.06]',
-                                                            'focus:outline-none focus:border-violet-500/40',
+                                                            'focus:outline-none focus:border-white/45',
                                                             'placeholder:text-zinc-600',
                                                             'transition-all'
                                                         )}
@@ -383,7 +436,7 @@ export function SettingsModal({ isOpen, onClose, defaultTab = 'api-keys', onOpen
 
                                     <div className="pt-3 border-t border-white/[0.06]">
                                         <p className="text-[11px] text-zinc-600">
-                                            These variables will be saved to <code className="text-violet-400">.env</code> in your project root.
+                                            These variables will be saved to <code className="text-zinc-300">.env</code> in your project root.
                                             Restart your dev server after making changes.
                                         </p>
                                     </div>
@@ -420,7 +473,7 @@ export function SettingsModal({ isOpen, onClose, defaultTab = 'api-keys', onOpen
                                         'px-4 py-1.5 text-xs font-medium rounded-lg transition-all',
                                         (activeTab === 'api-keys' ? apiSaved : envSaved)
                                             ? 'bg-emerald-600 text-white'
-                                            : 'bg-violet-600/90 text-white hover:bg-violet-500'
+                                            : 'bg-zinc-50 text-zinc-950 hover:bg-white'
                                     )}
                                 >
                                     {(activeTab === 'api-keys' ? apiSaved : envSaved) ? '\u2713 Saved' : 'Save'}

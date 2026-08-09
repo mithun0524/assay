@@ -2,7 +2,7 @@
 
 import { useRef, useEffect, useState, useCallback } from 'react';
 import { RiArrowRightLine, RiGridLine, RiDownloadLine, RiFolderLine } from '@remixicon/react';
-import Image from 'next/image';
+import { AssayWordmark } from './Logo';
 import { useStore } from '@/lib/store';
 import { useChat } from '@/hooks/useChat';
 import { FREE_MODELS } from '@/lib/openrouter';
@@ -116,8 +116,10 @@ export function WelcomeScreen({ onOpenProjects }: WelcomeScreenProps) {
         <div className="h-screen w-screen flex flex-col relative overflow-hidden bg-[#09090b]">
             {/* Aurora background */}
             <div className="absolute inset-0 z-[1] overflow-hidden pointer-events-none opacity-40">
+                {/* Neutral wash. Was a violet→cyan aurora; color in this
+                    product is reserved for agent identity and status. */}
                 <Aurora
-                    colorStops={['#7c3aed', '#06b6d4', '#7c3aed']}
+                    colorStops={['#3f3f46', '#a1a1aa', '#3f3f46']}
                     amplitude={1.2}
                     blend={0.6}
                     speed={0.3}
@@ -127,7 +129,7 @@ export function WelcomeScreen({ onOpenProjects }: WelcomeScreenProps) {
             {/* Minimal top bar */}
             <div className="relative z-10 h-12 px-5 flex items-center border-b border-white/[0.06] bg-transparent">
                 <div className="flex items-center gap-3">
-                    <Image src="/logo-with-typo.png" alt="DevForge" width={100} height={24} className="h-6 w-auto" />
+                    <AssayWordmark className="text-[15px] text-zinc-100" />
                     {onOpenProjects && (
                         <button
                             onClick={onOpenProjects}
@@ -148,7 +150,7 @@ export function WelcomeScreen({ onOpenProjects }: WelcomeScreenProps) {
                         What do you want to build?
                     </h1>
                     <p className="text-sm text-zinc-500 text-center mb-8 animate-fade-up delay-100">
-                        Describe your app and DevForge will generate the code, install dependencies, and show a live preview.
+                        Describe your app and Assay will generate the code, install dependencies, and show a live preview.
                     </p>
 
                     {/* Input area — glassmorphic */}

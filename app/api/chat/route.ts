@@ -2,7 +2,7 @@ import { createOpenAI } from '@ai-sdk/openai';
 import { streamText } from 'ai';
 import { NextRequest } from 'next/server';
 import { SYSTEM_PROMPT } from '@/lib/systemPrompt';
-import { OPENROUTER_BASE_URL } from '@/lib/openrouter';
+import { OPENROUTER_BASE_URL, fallbackChain } from '@/lib/openrouter';
 import { createClient } from '@/lib/supabase/server';
 import { requireAuth, checkCsrf, rateLimit } from '@/lib/api-auth';
 
@@ -20,7 +20,6 @@ export async function POST(req: NextRequest) {
   const {
     messages,
     model,
-    apiKey: clientKey,
     fileContext,
     systemPrompt: customSystemPrompt,
     temperature: customTemperature,
@@ -43,10 +42,6 @@ export async function POST(req: NextRequest) {
     } catch {
       // DB error — fall through to client key
     }
-  }
-
-  if (!resolvedKey) {
-    resolvedKey = clientKey || '';
   }
 
   if (!resolvedKey) {
@@ -88,27 +83,76 @@ export async function POST(req: NextRequest) {
     };
   });
 
-  try {
-    const result = await streamText({
-      // CRITICAL: Use .chat() to force the Chat Completions API (/v1/chat/completions).
-      model: openrouter.chat(model ?? 'stepfun/step-3.5-flash:free'),
-      system: systemPrompt,
-      messages: sanitizedMessages,
-      temperature: customTemperature ?? 0.2,
-    });
+  // Free-tier models drop out under load, so try the next allow-listed model
+  // instead of handing the user a dead turn.
+  const chain = fallbackChain(model);
+  let lastErr: unknown = null;
 
-    return result.toTextStreamResponse();
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : '';
-    if (message.includes('429')) {
-      return new Response(
-        JSON.stringify({ error: 'Rate limit hit. Please wait 10 seconds and try again.' }),
-        { status: 429, headers: { 'Content-Type': 'application/json' } }
-      );
+  for (const candidate of chain) {
+    try {
+      const result = streamText({
+        // CRITICAL: Use .chat() to force the Chat Completions API (/v1/chat/completions).
+        model: openrouter.chat(candidate),
+        system: systemPrompt,
+        messages: sanitizedMessages,
+        temperature:
+          typeof customTemperature === 'number' && customTemperature >= 0 && customTemperature <= 2
+            ? customTemperature
+            : 0.2,
+        // A whole project runs past most provider defaults; a truncated stream
+        // means half-written files in the sandbox.
+        maxOutputTokens: 16000,
+      });
+
+      // Touch the stream before committing to it so an immediate upstream
+      // rejection (429 / resource exhausted) falls through to the next model.
+      const reader = result.textStream.getReader();
+      const first = await reader.read();
+
+      const stream = new ReadableStream<Uint8Array>({
+        start(controller) {
+          const encoder = new TextEncoder();
+          if (!first.done && first.value) controller.enqueue(encoder.encode(first.value));
+          (async () => {
+            try {
+              for (;;) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                if (value) controller.enqueue(encoder.encode(value));
+              }
+              controller.close();
+            } catch (streamErr) {
+              controller.error(streamErr);
+            }
+          })();
+        },
+      });
+
+      return new Response(stream, {
+        headers: {
+          'Content-Type': 'text/plain; charset=utf-8',
+          'X-Model-Used': candidate,
+        },
+      });
+    } catch (err: unknown) {
+      lastErr = err;
+      const message = err instanceof Error ? err.message : String(err);
+      console.warn(`[chat] ${candidate} unavailable, trying next:`, message.slice(0, 200));
+      if (!/429|rate|exhaust|unavailable|capacity|timeout|502|503/i.test(message)) {
+        break; // a real error (bad key, bad request) won't be fixed by another model
+      }
     }
+  }
+
+  const message = lastErr instanceof Error ? lastErr.message : '';
+  if (/429|rate|exhaust/i.test(message)) {
     return new Response(
-      JSON.stringify({ error: 'Chat request failed. Please try again.' }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
+      JSON.stringify({ error: 'Every free model is busy right now. Wait a few seconds and send again.' }),
+      { status: 429, headers: { 'Content-Type': 'application/json', 'Retry-After': '15' } }
     );
   }
+  return new Response(
+    JSON.stringify({ error: 'Chat request failed. Please try again.' }),
+    { status: 500, headers: { 'Content-Type': 'application/json' } }
+  );
 }

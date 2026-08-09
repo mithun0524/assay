@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getGitHubUser } from '@/lib/github-server';
-import { requireAuth, rateLimit, safeError } from '@/lib/api-auth';
+import { getGitHubUser, githubErrorResponse } from '@/lib/github-server';
+import { requireAuth, rateLimit } from '@/lib/api-auth';
 
 export async function GET(request: NextRequest) {
   const rl = rateLimit(request, { windowMs: 60_000, max: 30 });
@@ -13,10 +13,6 @@ export async function GET(request: NextRequest) {
     const githubUser = await getGitHubUser();
     return NextResponse.json(githubUser);
   } catch (err) {
-    const msg = err instanceof Error && err.message?.includes('not linked')
-      ? 'GitHub account not linked'
-      : safeError(err, 'Failed to get GitHub user');
-    const status = msg.includes('not linked') ? 403 : 500;
-    return NextResponse.json({ error: msg }, { status });
+    return githubErrorResponse(err, 'Failed to get GitHub user');
   }
 }

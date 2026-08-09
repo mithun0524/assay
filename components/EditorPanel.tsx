@@ -256,7 +256,7 @@ Please modify ONLY the selected code above based on the instruction. Return the 
                 )}
                 <FileCode className={cn(
                   'w-3.5 h-3.5 shrink-0 transition-colors',
-                  tab === activeFile ? 'text-violet-400' : 'text-zinc-600'
+                  tab === activeFile ? 'text-zinc-200' : 'text-zinc-500'
                 )} />
                 <span className="truncate">{tab.split('/').pop()}</span>
                 <button

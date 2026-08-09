@@ -1,15 +1,38 @@
 import { create } from 'zustand';
+import type { Tier } from './surfaces';
 import { ActionHistory } from './actionHistory';
 import { detectTerminalErrors } from './terminalErrorDetector';
+import { AUTO_MODEL_ID } from './openrouter';
+import type { AgentRole } from './agents/types';
 
 export type FileEntry = {
   content: string;
   language: string;
 };
 
+export type GenerationPhase =
+  | 'idle'
+  | 'writing'
+  | 'installing'
+  | 'starting'
+  | 'searching'
+  | 'verifying'
+  | 'done';
+
+export type QaStatus = {
+  state: 'fixing' | 'passed' | 'failed';
+  summary: string;
+  attempt: number;
+  maxAttempts: number;
+};
+
 export type Message = {
   id: string;
   role: 'user' | 'assistant';
+  /** Machine-generated turns the client injects on the agent's behalf. */
+  kind?: 'qa' | 'inspect' | 'search';
+  /** Which specialist produced this turn — drives the rail colour in the transcript. */
+  agent?: AgentRole;
   content: string;
   images?: string[];
   displayContent: string;
@@ -36,6 +59,7 @@ type AppStore = {
   messages: Message[];
   addMessage: (msg: Message) => void;
   updateLastAssistantMessage: (content: string, displayContent: string) => void;
+  setLastAssistantAgent: (agent: AgentRole) => void;
   setMessages: (msgs: Message[]) => void;
   clearMessages: () => void;
 
@@ -76,11 +100,13 @@ type AppStore = {
   hasProject: boolean;
   setHasProject: (v: boolean) => void;
 
+  viewTier: Tier;
+  setViewTier: (tier: Tier) => void;
   activelyWritingFile: string | null;
   setActivelyWritingFile: (path: string | null) => void;
 
-  generationPhase: 'idle' | 'writing' | 'installing' | 'starting' | 'searching' | 'done';
-  setGenerationPhase: (phase: 'idle' | 'writing' | 'installing' | 'starting' | 'searching' | 'done') => void;
+  generationPhase: GenerationPhase;
+  setGenerationPhase: (phase: GenerationPhase) => void;
 
   webSearchEnabled: boolean;
   setWebSearchEnabled: (v: boolean) => void;
@@ -97,8 +123,6 @@ type AppStore = {
   addTerminalError: (err: string) => void;
   clearTerminalErrors: () => void;
 
-  apiKey: string | null;
-  setApiKey: (key: string | null) => void;
 
   rateLimitUntil: number | null;
   setRateLimitUntil: (ts: number | null) => void;
@@ -147,8 +171,13 @@ type AppStore = {
     componentName: string | null;
   }) => void;
 
-  activeAgent: string | null;
-  setActiveAgent: (agent: string | null) => void;
+  qaStatus: QaStatus | null;
+  setQaStatus: (status: QaStatus | null) => void;
+
+  activeAgent: AgentRole | null;
+  setActiveAgent: (agent: AgentRole | null) => void;
+  activeAgentReasoning: string | null;
+  setActiveAgentReasoning: (reason: string | null) => void;
 
   designMode: boolean;
   setDesignMode: (enabled: boolean) => void;
@@ -181,6 +210,19 @@ export const useStore = create<AppStore>((set) => ({
       const next = msgs.slice();
       next[lastIdx] = { ...existing, content, displayContent };
       return { messages: next };
+    }),
+  setLastAssistantAgent: (agent) =>
+    set((s) => {
+      const msgs = s.messages;
+      for (let i = msgs.length - 1; i >= 0; i--) {
+        if (msgs[i].role === 'assistant') {
+          if (msgs[i].agent === agent) return s;
+          const next = msgs.slice();
+          next[i] = { ...next[i], agent };
+          return { messages: next };
+        }
+      }
+      return s;
     }),
   clearMessages: () => set({ messages: [] }),
   setMessages: (msgs) => set({ messages: msgs }),
@@ -311,7 +353,7 @@ export const useStore = create<AppStore>((set) => ({
   isStreaming: false,
   setIsStreaming: (v) => set({ isStreaming: v }),
 
-  selectedModel: 'stepfun/step-3.5-flash:free', // Reliable fallback model
+  selectedModel: AUTO_MODEL_ID, // 'auto' = let the agent router pick per message
   setSelectedModel: (m) => set({ selectedModel: m }),
 
   hasProject: false,
@@ -348,15 +390,6 @@ export const useStore = create<AppStore>((set) => ({
     })),
   clearTerminalErrors: () => set({ terminalErrors: [] }),
 
-  apiKey: typeof window !== 'undefined' ? localStorage.getItem('openrouter-api-key') : null,
-  setApiKey: (key) => {
-    if (key) {
-      localStorage.setItem('openrouter-api-key', key);
-    } else {
-      localStorage.removeItem('openrouter-api-key');
-    }
-    set({ apiKey: key });
-  },
 
   rateLimitUntil: null,
   setRateLimitUntil: (ts) => set({ rateLimitUntil: ts }),
@@ -462,6 +495,20 @@ export const useStore = create<AppStore>((set) => ({
     set({ showDiffPreview: show });
   },
 
+  // Which surfaces the workspace offers. Defaults to 'simple': someone who
+  // typed "a task management app" wants to watch the app, not the scaffold.
+  // Intended to be set by an onboarding step later — only lib/surfaces.ts
+  // interprets this value, so nothing else changes when that lands.
+  viewTier: typeof window !== 'undefined' && localStorage.getItem('view-tier') === 'developer'
+    ? 'developer'
+    : 'simple',
+  setViewTier: (tier) => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('view-tier', tier);
+    }
+    set({ viewTier: tier });
+  },
+
   githubUser: null,
   githubRepo: null,
   setGitHubUser: (user) => set({ githubUser: user }),
@@ -477,8 +524,13 @@ export const useStore = create<AppStore>((set) => ({
   },
   setComponentEditMode: (mode) => set({ componentEditMode: mode }),
 
+  qaStatus: null,
+  setQaStatus: (status) => set({ qaStatus: status }),
+
   activeAgent: null,
   setActiveAgent: (agent) => set({ activeAgent: agent }),
+  activeAgentReasoning: null,
+  setActiveAgentReasoning: (reason) => set({ activeAgentReasoning: reason }),
 
   designMode: false,
   setDesignMode: (enabled) => set({ designMode: enabled }),

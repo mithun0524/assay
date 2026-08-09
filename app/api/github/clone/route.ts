@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { cloneRepository } from '@/lib/github-server';
-import { requireAuth, checkCsrf, rateLimit, safeError } from '@/lib/api-auth';
+import { cloneRepository, githubErrorResponse } from '@/lib/github-server';
+import { requireAuth, checkCsrf, rateLimit } from '@/lib/api-auth';
 
 const SAFE_NAME = /^[a-zA-Z0-9._-]{1,100}$/;
 
@@ -30,10 +30,6 @@ export async function POST(request: NextRequest) {
     const files = await cloneRepository(owner, repo, branch);
     return NextResponse.json(files);
   } catch (err) {
-    const msg = err instanceof Error && err.message?.includes('not linked')
-      ? 'GitHub account not linked'
-      : safeError(err, 'Failed to clone repository');
-    const status = msg.includes('not linked') ? 403 : 500;
-    return NextResponse.json({ error: msg }, { status });
+    return githubErrorResponse(err, 'Failed to clone repository');
   }
 }

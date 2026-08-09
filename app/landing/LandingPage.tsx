@@ -1,365 +1,108 @@
 'use client';
 
-import { useState, useEffect, useRef, useMemo, useCallback, type ReactNode, memo } from 'react';
-import dynamic from 'next/dynamic';
-import Image from 'next/image';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { AssayWordmark } from '@/components/Logo';
 import Link from 'next/link';
-import Lenis from 'lenis';
-import 'lenis/dist/lenis.css';
 
-const Aurora = dynamic(() => import('@/components/Aurora'), { ssr: false });
+import { onScrollPast } from '@/lib/motion';
+
 import { LoaderScreen } from './LoaderScreen';
-import BlurText from '@/components/BlurText';
+import { BuildTranscript } from '@/components/landing/BuildTranscript';
+import { PipelineRail } from '@/components/landing/PipelineRail';
+import { AgentRoster, ProofStrip } from '@/components/landing/AgentRoster';
+import { ScrollExpand } from '@/components/landing/ScrollExpand';
+import { RevealText } from '@/components/landing/RevealText';
+import { ScrollVelocity } from '@/components/reactbits/ScrollVelocity';
+import DecryptedText from '@/components/reactbits/DecryptedText';
+import Magnet from '@/components/reactbits/Magnet';
 import ClickSpark from '@/components/ClickSpark';
 import {
-  RiCodeSSlashLine,
-  RiEyeLine,
-  RiFileList3Line,
-  RiRocketLine,
   RiGithubLine,
-  RiSearchLine,
   RiMenuLine,
   RiCloseLine,
   RiArrowRightLine,
-  RiMagicLine,
-  RiTerminalLine,
-  RiFlashlightLine,
-  RiTimeLine,
-  RiShieldCheckLine,
-  RiTeamLine,
-  RiGlobalLine,
-  RiCheckLine,
-  RiLayoutGridLine,
-  RiPaintBrushLine,
-  RiDatabase2Line,
-  RiCloudLine,
 } from '@remixicon/react';
-
-/* ────────────────────────────────────────────── */
-/*  Scroll-reveal hook                             */
-/* ────────────────────────────────────────────── */
-
-function useReveal(threshold = 0.15) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [visible, setVisible] = useState(false);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const obs = new IntersectionObserver(
-      ([entry]) => { if (entry.isIntersecting) { setVisible(true); obs.disconnect(); } },
-      { threshold },
-    );
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, [threshold]);
-
-  return { ref, visible };
-}
-
-const Reveal = memo(({
-  children,
-  className = '',
-  delay = 0,
-  direction = 'up',
-}: {
-  children: ReactNode;
-  className?: string;
-  delay?: number;
-  direction?: 'up' | 'down' | 'left' | 'right' | 'none';
-}) => {
-  const { ref, visible } = useReveal(0.1);
-
-  const dirMap = useMemo(() => ({
-    up: 'translate-y-8',
-    down: '-translate-y-8',
-    left: 'translate-x-8',
-    right: '-translate-x-8',
-    none: '',
-  }), []);
-
-  const style = useMemo(() => ({ transitionDelay: `${delay}ms` }), [delay]);
-
-  return (
-    <div
-      ref={ref}
-      className={`transition-all duration-700 ease-out ${
-        visible ? 'opacity-100 translate-x-0 translate-y-0' : `opacity-0 ${dirMap[direction]}`
-      } ${className}`}
-      style={style}
-    >
-      {children}
-    </div>
-  );
-});
-Reveal.displayName = 'Reveal';
 
 /* ────────────────────────────────────────────── */
 /*  Constants                                      */
 /* ────────────────────────────────────────────── */
 
+/* A `useReveal` hook and a memoised `Reveal` wrapper used to live here: an
+   IntersectionObserver-per-instance scroll reveal. Neither was ever rendered —
+   every heading on this page reveals through RevealText, which is GSAP. They
+   were deleted rather than ported, along with components/ScrollReveal.tsx,
+   which was likewise unreferenced. Scroll-linked motion is GSAP only now; the
+   shared helpers live in lib/motion.ts. */
+
 const NAV_LINKS = [
-  { label: 'Features', href: '#features' },
-  { label: 'How It Works', href: '#how-it-works' },
-  { label: 'Showcase', href: '#showcase' },
-  { label: 'Pricing', href: '#pricing' },
+  { label: 'How it works', href: '#how-it-works' },
+  { label: 'What you get', href: '#showcase' },
+  { label: 'The agents', href: '#features' },
 ];
 
-const TRUSTED_BY = [
-  'Next.js', 'React', 'TypeScript', 'Tailwind CSS', 'Supabase', 'Vercel', 'OpenRouter', 'WebContainers',
+
+
+
+// Only what is actually implemented. The previous copy promised Netlify and
+// Cloudflare deploys, custom domains and zero-config CI/CD — none of which
+// exist in this codebase.
+const TEMPLATE_KINDS = [
+  { name: 'Dashboards', count: '2 templates', body: 'Charts, tables and a sidebar shell.' },
+  { name: 'Tools', count: '4 templates', body: 'Editors, trackers and small utilities.' },
+  { name: 'Marketing', count: '2 templates', body: 'Landing and SaaS pages with sections.' },
+  { name: 'Commerce & blog', count: '2 templates', body: 'Product grids and post layouts.' },
 ];
 
-const HOW_IT_WORKS = [
+const CAPABILITIES = [
   {
-    icon: RiTerminalLine,
-    title: 'Describe Your App with a Prompt',
-    description:
-      'Simply type what you want to build — a landing page, a dashboard, an API. DevForge understands natural language and turns it into a detailed build plan.',
-    mockup: 'prompt',
+    label: 'Sandbox',
+    title: 'A Node runtime inside the browser tab',
+    body: 'WebContainers run npm install and your dev server locally in the page. No Docker, no remote VM, nothing to set up — and it keeps working when you are offline mid-session.',
   },
   {
-    icon: RiCodeSSlashLine,
-    title: 'AI Generates Multi-file Code',
-    description:
-      'Our AI writes clean, production-ready code across multiple files — React components, API routes, styles, and configuration — all wired together.',
-    mockup: 'code',
+    label: 'Editor',
+    title: 'Monaco, a file tree and a real terminal',
+    body: 'Edit anything the agents wrote, open several files at once, search across the project, and watch install and build output stream into the terminal panel.',
   },
   {
-    icon: RiEyeLine,
-    title: 'Live Preview in Your Browser',
-    description:
-      'Every project runs instantly in a sandboxed environment with hot reloading. See your app come to life in real time — zero local setup required.',
-    mockup: 'preview',
+    label: 'Review',
+    title: 'See every change before it lands',
+    body: 'Turn on diff preview and each file the agent wants to write arrives as an accept-or-reject diff. Undo restores the snapshot taken before the agent started.',
   },
   {
-    icon: RiRocketLine,
-    title: 'Deploy to Production in One Click',
-    description:
-      'Push to GitHub, deploy to Vercel, Netlify, or Cloudflare. Your app goes from idea to production URL in minutes, not days.',
-    mockup: 'deploy',
-  },
-];
-
-const APP_TEMPLATES = [
-  { icon: RiLayoutGridLine, name: 'Dashboard', description: 'Admin panels with charts, tables, and data visualization.' },
-  { icon: RiGlobalLine, name: 'Landing Page', description: 'Marketing pages with hero sections, features, and CTAs.' },
-  { icon: RiDatabase2Line, name: 'CRUD App', description: 'Full-stack apps with database, API routes, and forms.' },
-  { icon: RiPaintBrushLine, name: 'Portfolio', description: 'Personal sites with project showcases and contact forms.' },
-  { icon: RiCloudLine, name: 'SaaS Starter', description: 'Auth, billing, dashboards — everything to launch a SaaS.' },
-  { icon: RiFileList3Line, name: 'Blog', description: 'Markdown-powered blogs with syntax highlighting and SEO.' },
-];
-
-const SHOWCASE_FEATURES = [
-  {
-    badge: 'AI-Powered Editor',
-    title: 'Generate AI-powered code — in 1 click.',
-    description:
-      'Our AI understands your intent and generates complete, working code across multiple files. From React components to API routes, describe it and DevForge builds it instantly.',
-    points: [
-      'Natural language to production code',
-      'Multi-file scaffolding in seconds',
-      'Smart dependency management',
-      'Context-aware code completion',
-    ],
-    cta: 'Try the Editor',
-  },
-  {
-    badge: 'Live Preview',
-    title: 'Instant preview with hot reloading.',
-    description:
-      'Every project runs in a sandboxed WebContainer environment. See your changes reflected in real-time with zero configuration — no Docker, no local setup, no waiting.',
-    points: [
-      'Real-time hot reload preview',
-      'Sandboxed WebContainer execution',
-      'Built-in dev server & console output',
-      'Mobile-responsive preview modes',
-    ],
-    cta: 'See It Live',
-  },
-  {
-    badge: 'One-Click Deploy',
-    title: 'Ship to production in seconds.',
-    description:
-      'Deploy your app to Vercel, Netlify, or Cloudflare with a single click. Push to GitHub with built-in version control. No CI/CD configuration needed.',
-    points: [
-      'Deploy to Vercel, Netlify, Cloudflare',
-      'Automatic GitHub repository creation',
-      'Custom domain support',
-      'Zero-config CI/CD pipeline',
-    ],
-    cta: 'Deploy Now',
+    label: 'Ship',
+    title: 'GitHub push and Vercel deploy',
+    body: 'Create a repo and push straight from the workspace, or deploy to Vercel with your own token. Or export the project as a zip and never come back.',
   },
 ];
 
-const FEATURES = [
-  {
-    icon: RiMagicLine,
-    title: 'AI Code Generation',
-    description: 'Describe what you want in plain English and watch as production-ready code is generated instantly.',
-  },
-  {
-    icon: RiEyeLine,
-    title: 'Live Preview',
-    description: 'See your changes in real-time with an integrated browser preview that updates as you build.',
-  },
-  {
-    icon: RiFileList3Line,
-    title: 'Multi-file Editor',
-    description: 'Work across multiple files with a full-featured code editor, file tree, and syntax highlighting.',
-  },
-  {
-    icon: RiRocketLine,
-    title: 'One-Click Deploy',
-    description: 'Deploy to Vercel, Netlify, or Cloudflare with a single click. No configuration needed.',
-  },
-  {
-    icon: RiGithubLine,
-    title: 'GitHub Integration',
-    description: 'Push your projects directly to GitHub repositories. Version control built right in.',
-  },
-  {
-    icon: RiSearchLine,
-    title: 'Smart Search',
-    description: 'Find anything across your entire project with intelligent search and file navigation.',
-  },
-];
 
-const STATS = [
-  { value: '10K+', label: 'Apps Built' },
-  { value: '50K+', label: 'Active Developers' },
-  { value: '166%', label: 'Faster Development' },
-  { value: '99.9%', label: 'Uptime SLA' },
-];
 
-const TESTIMONIALS = [
-  {
-    quote: 'DevForge completely changed how I prototype. What used to take days now takes minutes. The AI understands exactly what I need.',
-    name: 'Sarah Chen',
-    role: 'Frontend Developer',
-    company: 'Vercel',
-  },
-  {
-    quote: 'The AI code generation is surprisingly good. It understands context and writes clean, deployable code. Best tool in my workflow.',
-    name: 'Marcus Rivera',
-    role: 'Full-Stack Engineer',
-    company: 'Stripe',
-  },
-  {
-    quote: 'One-click deploy to Vercel is a game changer. I ship side projects faster than ever before. DevForge is the future.',
-    name: 'Aisha Patel',
-    role: 'Indie Hacker',
-    company: 'ProductHunt',
-  },
-];
 
-const FOOTER_LINKS = {
-  Platform: ['AI Code Editor', 'Live Preview', 'One-Click Deploy', 'GitHub Sync', 'Multi-file Support'],
-  Resources: ['Documentation', 'API Reference', 'Templates', 'Blog', 'Changelog'],
-  Developers: ['Getting Started', 'Guides', 'Examples', 'Community', 'Open Source'],
-  Company: ['About', 'Careers', 'Contact', 'Press', 'Partners'],
-  Legal: ['Privacy Policy', 'Terms of Service', 'Cookie Policy', 'Security'],
+// Only destinations that exist. The old footer advertised an API reference, a
+// changelog, a blog, careers and partners — twenty-odd links to nowhere, which
+// is the fastest way to tell a developer the product is a shell.
+const FOOTER_LINKS: Record<string, Array<{ label: string; href: string }>> = {
+  Product: [
+    { label: 'Open the workspace', href: '/app' },
+    { label: 'How it works', href: '#how-it-works' },
+    { label: 'The agents', href: '#features' },
+  ],
+  Source: [
+    { label: 'GitHub repository', href: 'https://github.com/mithun0524/devforge' },
+    { label: 'Report an issue', href: 'https://github.com/mithun0524/devforge/issues' },
+  ],
+  'Built on': [
+    { label: 'WebContainers', href: 'https://webcontainers.io' },
+    { label: 'OpenRouter', href: 'https://openrouter.ai' },
+    { label: 'Supabase', href: 'https://supabase.com' },
+  ],
 };
 
 /* ────────────────────────────────────────────── */
 /*  Mockup sub-components                         */
 /* ────────────────────────────────────────────── */
 
-const WindowChrome = memo(({ title }: { title: string }) => {
-  return (
-    <div className="flex items-center gap-2 px-4 py-2.5 border-b border-[var(--border-subtle)] bg-black/20">
-      <div className="flex gap-1.5">
-        <span className="w-2.5 h-2.5 rounded-full bg-red-500/70" />
-        <span className="w-2.5 h-2.5 rounded-full bg-yellow-500/70" />
-        <span className="w-2.5 h-2.5 rounded-full bg-green-500/70" />
-      </div>
-      <span className="text-[11px] text-zinc-500 ml-2">{title}</span>
-    </div>
-  );
-});
-WindowChrome.displayName = 'WindowChrome';
-
-const MockupCard = memo(({ type, title }: { type: string; title: string }) => {
-  return (
-    <div className="relative glass rounded-xl overflow-hidden border border-[var(--border-subtle)]">
-      <WindowChrome title={title} />
-      <div className="p-5 h-48 sm:h-56">
-        {type === 'prompt' && (
-          <div className="space-y-3">
-            <div className="glass rounded-lg p-3 border border-[var(--border-subtle)]">
-              <div className="text-[10px] text-zinc-600 mb-2">Prompt</div>
-              <div className="text-xs text-zinc-400">Build a task manager app with drag-and-drop, dark theme, and local storage...</div>
-              <div className="cursor-blink mt-1" />
-            </div>
-            <div className="flex gap-2 flex-wrap">
-              {['React', 'TypeScript', 'Tailwind'].map((t) => (
-                <span key={t} className="px-2 py-0.5 rounded text-[10px] bg-violet-600/15 text-violet-400 border border-violet-500/20">{t}</span>
-              ))}
-            </div>
-            <div className="flex items-center gap-2 mt-2">
-              <div className="h-1.5 flex-1 rounded-full bg-zinc-800 overflow-hidden">
-                <div className="h-full w-3/4 rounded-full bg-gradient-to-r from-violet-600 to-cyan-500" />
-              </div>
-              <span className="text-[10px] text-zinc-500">Generating...</span>
-            </div>
-          </div>
-        )}
-        {type === 'code' && (
-          <div className="font-mono text-[11px] leading-relaxed text-zinc-500 space-y-0.5">
-            <div><span className="text-violet-400">import</span> {'{'} useState {'}'} <span className="text-violet-400">from</span> <span className="text-green-400">&apos;react&apos;</span>;</div>
-            <div><span className="text-violet-400">import</span> {'{'} DndContext {'}'} <span className="text-violet-400">from</span> <span className="text-green-400">&apos;@dnd-kit/core&apos;</span>;</div>
-            <div />
-            <div><span className="text-violet-400">export default</span> <span className="text-cyan-400">function</span> <span className="text-zinc-300">TaskBoard</span>() {'{'}</div>
-            <div className="pl-4"><span className="text-violet-400">const</span> [tasks, setTasks] = <span className="text-cyan-400">useState</span>([]);</div>
-            <div className="pl-4"><span className="text-violet-400">const</span> [columns] = <span className="text-cyan-400">useState</span>({'{'}...{'}'});</div>
-            <div />
-            <div className="pl-4"><span className="text-violet-400">return</span> (</div>
-            <div className="pl-8">&lt;<span className="text-cyan-400">DndContext</span>&gt;</div>
-            <div className="pl-12">&lt;<span className="text-cyan-400">div</span> <span className="text-zinc-400">className</span>=<span className="text-green-400">&quot;board&quot;</span>&gt;</div>
-            <div className="pl-12 text-zinc-600">{'  '}...</div>
-          </div>
-        )}
-        {type === 'preview' && (
-          <div className="flex flex-col items-center justify-center h-full gap-3">
-            <div className="w-full glass rounded-lg p-3 border border-[var(--border-subtle)]">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-xs font-medium text-zinc-300">Task Board</span>
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-violet-600/20 text-violet-400">3 tasks</span>
-              </div>
-              <div className="flex gap-2">
-                {['To Do', 'In Progress', 'Done'].map((col) => (
-                  <div key={col} className="flex-1 rounded bg-black/20 p-1.5">
-                    <div className="text-[9px] text-zinc-600 mb-1">{col}</div>
-                    <div className="h-4 rounded bg-white/[0.03] mb-1" />
-                    {col === 'To Do' && <div className="h-4 rounded bg-white/[0.03]" />}
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="flex items-center gap-2 text-[10px] text-zinc-600">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-              Live — localhost:3000
-            </div>
-          </div>
-        )}
-        {type === 'deploy' && (
-          <div className="flex flex-col items-center justify-center h-full gap-3">
-            <div className="w-14 h-14 rounded-full bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center">
-              <RiCheckLine className="w-7 h-7 text-emerald-400" />
-            </div>
-            <div className="text-sm font-medium text-zinc-300">Deployed Successfully</div>
-            <div className="text-[11px] text-violet-400 font-mono">my-app.vercel.app</div>
-            <div className="flex gap-2 mt-1">
-              {['Vercel', 'GitHub'].map((p) => (
-                <span key={p} className="px-2 py-0.5 rounded text-[10px] bg-white/[0.03] text-zinc-500 border border-[var(--border-subtle)]">{p}</span>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-});
-MockupCard.displayName = 'MockupCard';
 
 /* ────────────────────────────────────────────── */
 /*  Main component                                 */
@@ -369,7 +112,12 @@ export function LandingPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showLoader, setShowLoader] = useState(true);
   const [heroMorphing, setHeroMorphing] = useState(false);
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [navScrolled, setNavScrolled] = useState(false);
+
+  // The navbar sits over the hero's agent-hue wash, so at rest it is
+  // transparent and lets the wash through; once the page moves it earns a
+  // ground and a hairline.
+  useEffect(() => onScrollPast(24, setNavScrolled), []);
 
   const handleLoaderComplete = useCallback(() => {
     setHeroMorphing(true);
@@ -378,33 +126,11 @@ export function LandingPage() {
     }, 100);
   }, []);
 
-  useEffect(() => {
-    if (!scrollContainerRef.current || showLoader) return;
-
-    const lenis = new Lenis({
-      wrapper: scrollContainerRef.current,
-      content: scrollContainerRef.current,
-      duration: 1.2,
-      easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
-      orientation: 'vertical',
-      smoothWheel: true,
-      wheelMultiplier: 1,
-      touchMultiplier: 2,
-    });
-
-    let rafId: number;
-    function raf(time: number) {
-      lenis.raf(time);
-      rafId = requestAnimationFrame(raf);
-    }
-
-    rafId = requestAnimationFrame(raf);
-
-    return () => {
-      cancelAnimationFrame(rafId);
-      lenis.destroy();
-    };
-  }, [showLoader]);
+  // Smooth scroll (Lenis) removed: it ran a permanent rAF loop and, worse,
+  // animated every wheel event on a spring — which reads as input lag no matter
+  // how high the frame rate is. Native scrolling responds immediately.
+  // To bring it back, reinstate the Lenis effect here and pass the same
+  // scroller id to PipelineRail / ScrollExpand / ScrollVelocity.
 
   return (
     <>
@@ -417,25 +143,38 @@ export function LandingPage() {
         sparkCount={8}
         duration={400}
       >
-        <div ref={scrollContainerRef} className="h-screen overflow-y-auto bg-[var(--bg-primary)] text-[var(--text-primary)]">
+        <div className="bg-[var(--bg-primary)] text-[var(--text-primary)]">
           <div className="gradient-mesh" />
 
       {/* Aurora region — wraps navbar + hero */}
       <div className="relative">
         <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
-          <Aurora
-            colorStops={['#7c3aed', '#06b6d4', '#7c3aed']}
-            amplitude={1.2}
-            blend={0.6}
-            speed={0.5}
-          />
+          {/* The agent hues, painted with CSS instead of a WebGL shader.
+              Strands looked good but ran a full-screen fragment shader every
+              frame; it was the single biggest cost on the page. This costs
+              nothing to composite and reads almost the same at 55% opacity.
+
+              The five radials moved into the `.agent-wash` class in globals.css
+              so they are built from --agent-* rather than hardcoded rgba: the
+              login page uses the same wash, and the two must not drift. */}
+          <div className="absolute inset-0 opacity-55 agent-wash" />
+          {/* Keep the strands off the type: solid on the left where the headline
+              sits, clear on the right where the transcript is. */}
+          <div className="absolute inset-0 bg-[linear-gradient(100deg,#08080A_0%,#08080A_34%,rgba(8,8,10,0.55)_52%,rgba(8,8,10,0.15)_72%,transparent_100%)]" />
+          <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-[#09090b] to-transparent" />
         </div>
 
       {/* ─────────── Navbar ─────────── */}
-      <nav className="sticky top-0 z-50 glass border-b border-[var(--border-subtle)]">
+      <nav
+        className={`sticky top-0 z-50 border-b transition-colors duration-300 ${
+          navScrolled
+            ? 'border-white/[0.06] bg-[#09090b]/85 backdrop-blur-xl'
+            : 'border-transparent bg-transparent'
+        }`}
+      >
         <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
           <Link href="/landing" className="flex items-center cursor-pointer">
-            <Image src="/logo-with-typo.png" alt="DevForge" width={160} height={40} className="h-9 w-auto" />
+            <AssayWordmark className="text-[19px] text-zinc-100" />
           </Link>
 
           <div className="hidden md:flex items-center gap-8">
@@ -476,529 +215,241 @@ export function LandingPage() {
       </nav>
 
       {/* ─────────── Hero ─────────── */}
-      <section className="relative pt-20 sm:pt-28 pb-0 px-6 overflow-hidden">
-
-        <div className="max-w-4xl mx-auto text-center relative z-10">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full glass text-xs text-[var(--text-secondary)] mb-8 animate-fade-up">
-            <Image src="/logo.png" alt="" width={16} height={16} className="w-4 h-4 rounded-sm" />
-            Build apps in minutes
-          </div>
-
-          {heroMorphing ? (
-            <div className="mb-6 text-center">
-              <BlurText
-                text="Build Ambitious Apps"
-                delay={50}
-                animateBy="words"
-                direction="bottom"
-                className="text-4xl sm:text-5xl lg:text-7xl font-bold tracking-tight leading-[1.08] justify-center"
+      <section className="relative px-6 pt-16 sm:pt-24 pb-20 overflow-hidden">
+        <div className="max-w-6xl mx-auto grid lg:grid-cols-[1.05fr_1fr] gap-12 lg:gap-16 items-center relative z-10">
+          {/* Left: the claim */}
+          <div>
+            <div className="inline-flex items-center gap-2 mb-7 animate-fade-up">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+              <DecryptedText
+                text="SIX AGENTS · ONE QA GATE"
+                animateOn="view"
+                sequential
+                speed={38}
+                revealDirection="start"
+                characters="ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789·"
+                parentClassName="font-mono text-[11px] uppercase tracking-[0.2em]"
+                className="text-zinc-400"
+                encryptedClassName="text-zinc-700"
               />
-              <div className="mt-2 pointer-events-none" style={{ color: '#a78bfa' }}>
-                <BlurText
-                  text="With AI"
-                  delay={50}
-                  animateBy="words"
-                  direction="bottom"
-                  className="text-4xl sm:text-5xl lg:text-7xl font-bold tracking-tight leading-[1.08] justify-center"
-                />
-              </div>
             </div>
-          ) : showLoader ? (
-            <h1 className="text-4xl sm:text-5xl lg:text-7xl font-bold tracking-tight leading-[1.08] mb-6 opacity-0">
-              Build Ambitious Apps
-              <br />
-              <span className="gradient-text">With AI</span>
-            </h1>
-          ) : (
-            <h1 className="text-4xl sm:text-5xl lg:text-7xl font-bold tracking-tight leading-[1.08] mb-6 animate-fade-up delay-100">
-              Build Ambitious Apps
-              <br />
-              <span className="gradient-text">With AI</span>
-            </h1>
-          )}
 
-          <p className={`text-base sm:text-lg text-[var(--text-secondary)] max-w-2xl mx-auto mb-10 ${
-            showLoader ? 'opacity-0' : 'animate-fade-up delay-200'
-          }`}>
-            DevForge turns your ideas into production-ready web applications.
-            Describe what you want, and AI handles the code, dependencies, and deployment.
-          </p>
+            {heroMorphing || !showLoader ? (
+              <h1 className="text-[2.4rem] leading-[1.04] sm:text-5xl lg:text-[3.5rem] font-semibold tracking-[-0.04em] text-zinc-50 mb-6">
+                <RevealText as="span" className="block" text="Six agents build it." stagger={0.045} delay={0.15} />
+                <RevealText as="span" className="block text-zinc-400" text="One agent breaks it." stagger={0.045} delay={0.32} />
+                <RevealText as="span" className="block" text="You get what works." stagger={0.045} delay={0.49} />
+              </h1>
+            ) : (
+              <h1 className="text-[2.4rem] leading-[1.04] sm:text-5xl lg:text-[3.5rem] font-semibold tracking-[-0.04em] mb-6 opacity-0">
+                Six agents build it. One agent breaks it. You get what works.
+              </h1>
+            )}
 
-          {/* Prompt input mockup (Ribbit-style) */}
-          <div className={`max-w-xl mx-auto mb-6 ${
-            showLoader ? 'opacity-0' : 'animate-fade-up delay-300'
-          }`}>
-            <div className="glass rounded-xl p-1.5 border border-[var(--border-subtle)] flex items-center gap-2">
-              <input
-                type="text"
-                readOnly
-                placeholder="Describe the app you want to build..."
-                className="flex-1 bg-transparent text-sm text-[var(--text-secondary)] placeholder:text-zinc-600 px-4 py-2.5 outline-none cursor-text"
-              />
-              <Link
-                href="/app"
-                className="shrink-0 bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium px-5 py-2.5 rounded-lg transition-all hover:shadow-[0_0_24px_-4px_rgba(124,58,237,0.5)] cursor-pointer"
+            <p className={`text-base sm:text-[17px] leading-relaxed text-zinc-400 max-w-lg mb-9 ${showLoader ? 'opacity-0' : 'animate-fade-up delay-200'}`}>
+              Describe an app. The architect plans it, the coder writes it, and the QA agent
+              runs it in a real Node sandbox in your browser. Anything broken goes back to the
+              debugger before it reaches you.
+            </p>
+
+            <div className={`flex flex-wrap items-center gap-3 mb-8 ${showLoader ? 'opacity-0' : 'animate-fade-up delay-300'}`}>
+              <Magnet padding={90} magnetStrength={6}>
+                <Link
+                  href="/app"
+                  className="group inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-zinc-50 text-zinc-950 text-sm font-medium transition-all hover:bg-white hover:shadow-[0_0_40px_-8px_rgba(255,255,255,0.35)]"
+                >
+                  Start building
+                  <RiArrowRightLine className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
+                </Link>
+              </Magnet>
+              <a
+                href="#how-it-works"
+                className="inline-flex items-center gap-2 px-5 py-3 rounded-xl border border-white/[0.08] text-sm text-zinc-300 hover:text-zinc-50 hover:border-white/20 transition-all"
               >
-                Start Building
-              </Link>
+                See how it works
+              </a>
+            </div>
+
+            <div className={`flex flex-wrap items-center gap-x-6 gap-y-2 font-mono text-[11px] text-zinc-400 ${showLoader ? 'opacity-0' : 'animate-fade-up delay-400'}`}>
+              <span>No install</span>
+              <span>Runs in your tab</span>
+              <span>Your code, plain React</span>
             </div>
           </div>
 
-          {/* Category pills */}
-          <div className={`flex flex-wrap items-center justify-center gap-2 mb-16 ${
-            showLoader ? 'opacity-0' : 'animate-fade-up delay-400'
-          }`}>
-            {['Dashboard', 'Landing Page', 'SaaS App', 'Portfolio', 'E-Commerce', 'Blog'].map((cat) => (
-              <span key={cat} className="px-3 py-1 rounded-full text-xs text-zinc-500 border border-[var(--border-subtle)] hover:border-zinc-600 hover:text-zinc-300 transition-all cursor-pointer">
-                {cat}
-              </span>
-            ))}
-          </div>
-        </div>
-
-        {/* Hero image */}
-        <div className={`relative max-w-6xl mx-auto ${
-          showLoader ? 'opacity-0' : 'animate-fade-up delay-500'
-        }`} style={{ bottom: '-28px' }}>
-          <div
-            className="relative rounded-t-[38px] rounded-b-none overflow-hidden"
-            style={{ background: 'linear-gradient(160deg, #1a103d 0%, #130d2b 30%, #0d0b1a 60%, #09090b 100%)' }}
-          >
-            <Image
-              src="/landing-hero.png"
-              alt="DevForge — AI-powered app builder showing multiple generated applications"
-              width={1920}
-              height={1080}
-              className="w-full h-auto"
-              priority
-            />
+          {/* Right: the product, playing itself */}
+          <div className={showLoader ? 'opacity-0' : 'animate-fade-up delay-300'}>
+            <BuildTranscript />
           </div>
         </div>
       </section>
       </div>{/* end Aurora region */}
 
       {/* ─────────── Trusted By (marquee) ─────────── */}
-      <section className="py-16 border-t border-[var(--border-subtle)] overflow-hidden">
-        <Reveal>
-          <p className="text-sm text-[var(--text-muted)] text-center mb-8">
-            Trusted by developers &middot; Built with modern technologies
+      <section className="py-14 border-t border-white/[0.06] overflow-hidden">
+        <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-zinc-400 text-center mb-7">
+          Built with
+        </p>
+        {/* Speed tracks the scroll, so the strip reacts instead of looping blindly. */}
+        {/* The component's classNames REPLACE its stylesheet's .parallax/.scroller,
+            so the layout rules have to come from here or the strip wraps into
+            several rows instead of scrolling as one line. */}
+        <ScrollVelocity
+          texts={['WebContainers — OpenRouter — Next.js — React — TypeScript — Tailwind — Supabase — Vercel']}
+          velocity={34}
+          damping={60}
+          stiffness={320}
+          numCopies={5}
+          parallaxClassName="relative w-full overflow-hidden"
+          scrollerClassName="flex gap-14 whitespace-nowrap text-xl sm:text-2xl font-medium tracking-[-0.01em] text-zinc-500 [word-spacing:0.35em]"
+        />
+      </section>
+
+      {/* ─────────── The workspace, revealed by scroll ─────────── */}
+      {/* Real footage of a build, recorded from this app — see test/record-promo.mjs.
+          The frame stays inside the section padding rather than going full-bleed. */}
+      <section className="border-t border-white/[0.06] px-4 sm:px-8 lg:px-12">
+        <ScrollExpand
+          mediaType="video"
+          src="/promo.mp4"
+          poster="/promo-poster.jpg"
+          alt="How a Assay build runs: the architect plans, the coder writes files, QA finds a crash, the debugger fixes it, QA passes"
+          scrollHint="Six agents · one QA gate"
+          stageHeight={0.82}
+          startWidth={54}
+          startHeight={64}
+          startRadius={20}
+          endRadius={18}
+          mediaZoom={1}
+          scrollDistance={0.9}
+          holdDistance={0.3}
+          overlayScrim={0.45}
+          playAt={0.5}
+        />
+      </section>
+
+      {/* ─────────── How It Works — scroll-drawn pipeline ─────────── */}
+      <PipelineRail />
+
+      {/* Templates — same rail language as everything else, and only the
+          categories that actually ship in lib/templates. */}
+      <section className="py-24 sm:py-28 px-6 border-t border-white/[0.06]">
+        <div className="max-w-5xl mx-auto">
+          <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-zinc-400 mb-3">
+            Or skip the prompt
           </p>
-        </Reveal>
-        <div className="relative">
-          <div className="absolute left-0 top-0 bottom-0 w-24 bg-gradient-to-r from-[var(--bg-primary)] to-transparent z-10 pointer-events-none" />
-          <div className="absolute right-0 top-0 bottom-0 w-24 bg-gradient-to-l from-[var(--bg-primary)] to-transparent z-10 pointer-events-none" />
-          <div className="flex w-max marquee">
-            {[0, 1].map((copy) => (
-              <div key={copy} className="flex shrink-0">
-                {TRUSTED_BY.map((tech) => (
-                  <span
-                    key={`${tech}-${copy}`}
-                    className="shrink-0 mx-8 sm:mx-12 text-sm sm:text-base font-medium text-zinc-500 whitespace-nowrap"
-                  >
-                    {tech}
-                  </span>
-                ))}
-              </div>
+          <RevealText
+            as="h2"
+            text="Ten starting points, already running."
+            onScroll
+              className="block text-3xl sm:text-4xl font-semibold tracking-[-0.03em] text-zinc-50 max-w-2xl mb-4"
+          />
+          <p className="text-[15px] leading-relaxed text-zinc-400 max-w-xl mb-12">
+            Pick a template and it installs and boots in the sandbox before you have typed
+            anything. Then describe a change and the agents take it from there.
+          </p>
+
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-white/[0.06] border border-white/[0.06] rounded-2xl overflow-hidden">
+            {TEMPLATE_KINDS.map((t) => (
+              <Link
+                key={t.name}
+                href="/app"
+                className="group bg-[#0A0A0D] p-6 transition-colors hover:bg-[#0D0D12]"
+              >
+                <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-zinc-400 mb-3">
+                  {t.count}
+                </p>
+                <h3 className="text-base font-medium text-zinc-100 mb-1.5">{t.name}</h3>
+                <p className="text-[13px] leading-relaxed text-zinc-400">{t.body}</p>
+              </Link>
             ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ─────────── How It Works (2×2 visual grid — Ribbit style) ─────────── */}
-      <section id="how-it-works" className="py-24 px-6 border-t border-[var(--border-subtle)]">
-        <div className="max-w-6xl mx-auto">
-          <Reveal>
-            <div className="text-center mb-4">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full glass text-xs text-[var(--text-secondary)] mb-4">
-                <RiTerminalLine className="w-3.5 h-3.5 text-violet-400" />
-                How It Works
-              </div>
-            </div>
-          </Reveal>
-          <Reveal delay={100}>
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-center mb-4">
-              How our AI builder works
-            </h2>
-          </Reveal>
-          <Reveal delay={150}>
-            <p className="text-[var(--text-secondary)] max-w-xl mx-auto text-center mb-16">
-              Go from idea to deployed application in four simple steps. No setup, no configuration, no waiting.
-            </p>
-          </Reveal>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {HOW_IT_WORKS.map((step, i) => {
-              const Icon = step.icon;
-              return (
-                <Reveal key={step.title} delay={i * 120}>
-                  <div className="glass rounded-xl overflow-hidden border border-[var(--border-subtle)] glow-hover">
-                    <MockupCard type={step.mockup} title={`DevForge — Step ${i + 1}`} />
-                    <div className="p-6">
-                      <div className="flex items-center gap-3 mb-3">
-                        <div className="w-8 h-8 rounded-lg bg-violet-600/10 border border-violet-500/20 flex items-center justify-center">
-                          <Icon className="w-4 h-4 text-violet-400" />
-                        </div>
-                        <h3 className="text-sm font-semibold">{step.title}</h3>
-                      </div>
-                      <p className="text-sm text-[var(--text-secondary)] leading-relaxed">
-                        {step.description}
-                      </p>
-                    </div>
-                  </div>
-                </Reveal>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
-      {/* ─────────── App Templates (horizontal scroll — Ribbit style) ─────────── */}
-      <section className="py-24 px-6 border-t border-[var(--border-subtle)]">
-        <div className="max-w-6xl mx-auto">
-          <Reveal>
-            <div className="text-center mb-4">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full glass text-xs text-[var(--text-secondary)] mb-4">
-                <RiLayoutGridLine className="w-3.5 h-3.5 text-violet-400" />
-                Templates
-              </div>
-            </div>
-          </Reveal>
-          <Reveal delay={100}>
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-center mb-4">
-              Pre-built templates for<br />every use case
-            </h2>
-          </Reveal>
-          <Reveal delay={150}>
-            <p className="text-[var(--text-secondary)] max-w-xl mx-auto text-center mb-16">
-              Start from a template and customize with AI. Every template is production-ready with best practices baked in.
-            </p>
-          </Reveal>
-
-          <div className="relative overflow-hidden -mx-6">
-            <div className="absolute left-0 top-0 bottom-0 w-24 bg-gradient-to-r from-[var(--bg-primary)] to-transparent z-10 pointer-events-none" />
-            <div className="absolute right-0 top-0 bottom-0 w-24 bg-gradient-to-l from-[var(--bg-primary)] to-transparent z-10 pointer-events-none" />
-            <div className="group/marquee flex w-max marquee-slow">
-              {[0, 1].map((copy) => (
-                <div key={copy} className="flex shrink-0 gap-4 px-2">
-                  {APP_TEMPLATES.map((tmpl) => {
-                    const Icon = tmpl.icon;
-                    return (
-                      <div
-                        key={`${tmpl.name}-${copy}`}
-                        className="glass rounded-xl p-6 w-[260px] sm:w-[280px] border border-[var(--border-subtle)] glow-hover cursor-pointer flex flex-col shrink-0 transition-all duration-300 group-hover/marquee:grayscale group-hover/marquee:opacity-50 hover:!grayscale-0 hover:!opacity-100"
-                      >
-                        <div className="w-10 h-10 rounded-lg bg-violet-600/10 border border-violet-500/20 flex items-center justify-center mb-4">
-                          <Icon className="w-5 h-5 text-violet-400" />
-                        </div>
-                        <h3 className="text-sm font-semibold mb-2">{tmpl.name}</h3>
-                        <p className="text-xs text-[var(--text-secondary)] leading-relaxed mb-4 flex-1">
-                          {tmpl.description}
-                        </p>
-                        <span className="inline-flex items-center gap-1 text-xs text-violet-400 hover:text-violet-300 transition-colors cursor-pointer">
-                          Use Template <RiArrowRightLine className="w-3 h-3" />
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              ))}
-            </div>
           </div>
         </div>
       </section>
 
       {/* ─────────── Showcase — Alternating feature sections (Ribbit style) ─────────── */}
-      <section id="showcase" className="py-24 px-6 border-t border-[var(--border-subtle)]">
-        <div className="max-w-6xl mx-auto">
-          <Reveal>
-            <div className="text-center mb-4">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full glass text-xs text-[var(--text-secondary)] mb-4">
-                <Image src="/logo.png" alt="" width={14} height={14} className="w-3.5 h-3.5 rounded-sm" loading="lazy" />
-                Why DevForge
-              </div>
-            </div>
-          </Reveal>
-          <Reveal delay={100}>
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-center mb-4">
-              Why wait to take advantage?
-            </h2>
-          </Reveal>
-          <Reveal delay={150}>
-            <p className="text-[var(--text-secondary)] max-w-xl mx-auto text-center mb-20">
-              Our users go from idea to live app faster than any traditional workflow.
-            </p>
-          </Reveal>
-
-          <div className="flex flex-col gap-32">
-            {SHOWCASE_FEATURES.map((item, idx) => (
-              <div
-                key={item.title}
-                className={`flex flex-col ${idx % 2 === 0 ? 'lg:flex-row' : 'lg:flex-row-reverse'} gap-12 lg:gap-16 items-center`}
-              >
-                {/* Text */}
-                <Reveal direction={idx % 2 === 0 ? 'left' : 'right'} className="flex-1 min-w-0">
-                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full glass text-xs text-[var(--text-secondary)] mb-5">
-                    <Image src="/logo.png" alt="" width={12} height={12} className="w-3 h-3 rounded-sm" loading="lazy" />
-                    {item.badge}
-                  </div>
-                  <h3 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight mb-5 leading-tight">
-                    {item.title}
-                  </h3>
-                  <p className="text-[var(--text-secondary)] leading-relaxed mb-6">
-                    {item.description}
-                  </p>
-                  <ul className="space-y-3 mb-8">
-                    {item.points.map((point) => (
-                      <li key={point} className="flex items-center gap-3 text-sm text-[var(--text-secondary)]">
-                        <span className="w-5 h-5 rounded-full bg-violet-600/15 border border-violet-500/30 flex items-center justify-center shrink-0">
-                          <RiCheckLine className="w-3 h-3 text-violet-400" />
-                        </span>
-                        {point}
-                      </li>
-                    ))}
-                  </ul>
-                  <div className="flex items-center gap-4">
-                    <Link
-                      href="/app"
-                      className="inline-flex items-center gap-2 bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium px-5 py-2.5 rounded-lg transition-all hover:shadow-[0_0_24px_-4px_rgba(124,58,237,0.5)] cursor-pointer"
-                    >
-                      {item.cta}
-                    </Link>
-                    <a href="#how-it-works" className="text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors cursor-pointer">
-                      Learn more &rarr;
-                    </a>
-                  </div>
-                </Reveal>
-
-                {/* Visual mockup */}
-                <Reveal direction={idx % 2 === 0 ? 'right' : 'left'} delay={150} className="flex-1 min-w-0 w-full">
-                  <div className="relative">
-                    <div className="absolute -inset-4 bg-violet-600/8 rounded-2xl blur-2xl pointer-events-none" />
-                    <div className="relative glass rounded-xl overflow-hidden border border-[var(--border-subtle)]">
-                      <WindowChrome title={`DevForge — ${item.badge}`} />
-                      <div className="p-6 h-64 sm:h-80">
-                        {idx === 0 && (
-                          <div className="font-mono text-[11px] leading-relaxed text-zinc-500 space-y-0.5">
-                            <div><span className="text-violet-400">import</span> {'{'} useState {'}'} <span className="text-violet-400">from</span> <span className="text-green-400">&apos;react&apos;</span>;</div>
-                            <div><span className="text-violet-400">import</span> {'{'} motion {'}'} <span className="text-violet-400">from</span> <span className="text-green-400">&apos;framer-motion&apos;</span>;</div>
-                            <div />
-                            <div><span className="text-violet-400">export default</span> <span className="text-cyan-400">function</span> <span className="text-zinc-300">Dashboard</span>() {'{'}</div>
-                            <div className="pl-4"><span className="text-violet-400">const</span> [data, setData] = <span className="text-cyan-400">useState</span>([]);</div>
-                            <div className="pl-4"><span className="text-violet-400">const</span> [loading, setLoading] = <span className="text-cyan-400">useState</span>(<span className="text-cyan-400">true</span>);</div>
-                            <div />
-                            <div className="pl-4"><span className="text-cyan-400">useEffect</span>(() =&gt; {'{'}</div>
-                            <div className="pl-8"><span className="text-cyan-400">fetch</span>(<span className="text-green-400">&apos;/api/analytics&apos;</span>)</div>
-                            <div className="pl-12">.<span className="text-cyan-400">then</span>(r =&gt; r.<span className="text-cyan-400">json</span>())</div>
-                            <div className="pl-12">.<span className="text-cyan-400">then</span>(setData)</div>
-                            <div className="pl-12">.<span className="text-cyan-400">finally</span>(() =&gt; <span className="text-cyan-400">setLoading</span>(<span className="text-cyan-400">false</span>));</div>
-                            <div className="pl-4">{'}'}, []);</div>
-                          </div>
-                        )}
-                        {idx === 1 && (
-                          <div className="flex flex-col h-full gap-3">
-                            <div className="flex items-center gap-1.5 mb-2">
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                              <span className="text-[10px] text-zinc-600">Live — localhost:3000</span>
-                            </div>
-                            <div className="flex-1 glass rounded-lg border border-[var(--border-subtle)] p-4 flex flex-col gap-3">
-                              <div className="flex items-center justify-between">
-                                <span className="text-xs font-medium text-zinc-300">Analytics Dashboard</span>
-                                <span className="text-[10px] text-zinc-600">Updated just now</span>
-                              </div>
-                              <div className="flex gap-3">
-                                {[{ l: 'Users', v: '2,847' }, { l: 'Revenue', v: '$12.4K' }, { l: 'Growth', v: '+24%' }].map((s) => (
-                                  <div key={s.l} className="flex-1 rounded bg-black/20 p-2">
-                                    <div className="text-[9px] text-zinc-600">{s.l}</div>
-                                    <div className="text-xs font-semibold text-zinc-300">{s.v}</div>
-                                  </div>
-                                ))}
-                              </div>
-                              <div className="flex-1 flex items-end gap-1 px-1">
-                                {[35, 50, 40, 65, 55, 80, 70, 90, 75, 85, 95, 88].map((h, i) => (
-                                  <div key={i} className="flex-1 bg-gradient-to-t from-violet-600/40 to-violet-600/10 rounded-t" style={{ height: `${h}%` }} />
-                                ))}
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                        {idx === 2 && (
-                          <div className="flex flex-col items-center justify-center h-full gap-4">
-                            <div className="w-16 h-16 rounded-full bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center">
-                              <RiCheckLine className="w-8 h-8 text-emerald-400" />
-                            </div>
-                            <div className="text-base font-medium text-zinc-300">Deployed to Production</div>
-                            <div className="text-sm text-violet-400 font-mono">my-dashboard.vercel.app</div>
-                            <div className="flex gap-2 mt-1">
-                              {['Vercel', 'GitHub', 'Custom Domain'].map((p) => (
-                                <span key={p} className="px-2.5 py-1 rounded-full text-[10px] bg-white/[0.03] text-zinc-500 border border-[var(--border-subtle)]">{p}</span>
-                              ))}
-                            </div>
-                            <div className="flex items-center gap-4 mt-2">
-                              <span className="text-[10px] text-zinc-600 flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-400" /> SSL Active</span>
-                              <span className="text-[10px] text-zinc-600 flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-400" /> CDN Enabled</span>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </Reveal>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ─────────── Features Grid ─────────── */}
-      <section id="features" className="py-24 px-6 border-t border-[var(--border-subtle)]">
-        <div className="max-w-6xl mx-auto">
-          <Reveal>
-            <div className="text-center mb-4">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full glass text-xs text-[var(--text-secondary)] mb-4">
-                <RiFlashlightLine className="w-3.5 h-3.5 text-violet-400" />
-                Features
-              </div>
-            </div>
-          </Reveal>
-          <Reveal delay={100}>
-            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight mb-4 text-center">
-              Everything you need to{' '}
-              <span className="gradient-text">ship fast</span>
-            </h2>
-          </Reveal>
-          <Reveal delay={150}>
-            <p className="text-[var(--text-secondary)] max-w-xl mx-auto text-center mb-16">
-              A complete development environment powered by AI. From idea to production in minutes.
-            </p>
-          </Reveal>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {FEATURES.map((feature, i) => {
-              const Icon = feature.icon;
-              return (
-                <Reveal key={feature.title} delay={i * 80}>
-                  <div className="glass rounded-xl p-6 glow-hover cursor-default h-full">
-                    <div className="w-10 h-10 rounded-lg bg-violet-600/10 border border-violet-500/20 flex items-center justify-center mb-4">
-                      <Icon className="w-5 h-5 text-violet-400" />
-                    </div>
-                    <h3 className="text-sm font-semibold mb-2">{feature.title}</h3>
-                    <p className="text-sm text-[var(--text-secondary)] leading-relaxed">{feature.description}</p>
-                  </div>
-                </Reveal>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
-      {/* ─────────── Social Proof — Stats + Testimonials (Ribbit style) ─────────── */}
-      <section className="py-24 px-6 border-t border-[var(--border-subtle)]">
+      {/* ─────────── What it does, matched to what is actually built ─────────── */}
+      <section id="showcase" className="py-24 sm:py-32 px-6 border-t border-white/[0.06]">
         <div className="max-w-5xl mx-auto">
-          <Reveal>
-            <div className="text-center mb-4">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full glass text-xs text-[var(--text-secondary)] mb-4">
-                <RiTeamLine className="w-3.5 h-3.5 text-violet-400" />
-                Social Proof
+          <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-zinc-400 mb-3">
+            What you get
+          </p>
+          <h2 className="text-3xl sm:text-4xl font-semibold tracking-[-0.03em] text-zinc-50 max-w-2xl mb-14">
+            A real workspace, not a chat window with a code block in it.
+          </h2>
+
+          <div className="divide-y divide-white/[0.06] border-y border-white/[0.06]">
+            {CAPABILITIES.map((c) => (
+              <div key={c.title} className="grid sm:grid-cols-[13rem_1fr] gap-4 sm:gap-10 py-8">
+                <div>
+                  <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-zinc-400">{c.label}</p>
+                </div>
+                <div>
+                  <h3 className="text-xl font-medium tracking-[-0.01em] text-zinc-100 mb-2">{c.title}</h3>
+                  <p className="text-[15px] leading-relaxed text-zinc-400 max-w-2xl">{c.body}</p>
+                </div>
               </div>
-            </div>
-          </Reveal>
-          <Reveal delay={100}>
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-center mb-4">
-              Real developers, surreal results
-            </h2>
-          </Reveal>
-          <Reveal delay={150}>
-            <p className="text-[var(--text-secondary)] max-w-xl mx-auto text-center mb-16">
-              Thousands of developers ship faster with DevForge. Here&apos;s what the numbers say.
-            </p>
-          </Reveal>
-
-          {/* Stats row */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
-            {STATS.map((stat, i) => (
-              <Reveal key={stat.label} delay={i * 100}>
-                <div className="text-center glass rounded-xl p-6 border border-[var(--border-subtle)]">
-                  <div className="text-3xl sm:text-4xl font-bold gradient-text mb-1">{stat.value}</div>
-                  <div className="text-sm text-[var(--text-secondary)]">{stat.label}</div>
-                </div>
-              </Reveal>
-            ))}
-          </div>
-
-          {/* Testimonial cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {TESTIMONIALS.map((t, i) => (
-              <Reveal key={t.name} delay={i * 120}>
-                <div className="glass rounded-xl p-6 flex flex-col justify-between h-full border border-[var(--border-subtle)] glow-hover">
-                  <p className="text-sm text-[var(--text-secondary)] leading-relaxed mb-6">
-                    &ldquo;{t.quote}&rdquo;
-                  </p>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="text-sm font-semibold">{t.name}</div>
-                      <div className="text-xs text-[var(--text-muted)]">{t.role}</div>
-                    </div>
-                    <span className="text-xs text-zinc-600 font-medium">{t.company}</span>
-                  </div>
-                </div>
-              </Reveal>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ─────────── CTA Section ─────────── */}
-      <section id="pricing" className="relative py-28 px-6 overflow-hidden border-t border-[var(--border-subtle)]">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-violet-600/10 rounded-full blur-[140px] pointer-events-none" />
+      <AgentRoster />
+      <ProofStrip />
 
-        <Reveal className="max-w-2xl mx-auto text-center relative z-10">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full glass text-xs text-[var(--text-secondary)] mb-6">
-            <Image src="/logo.png" alt="" width={14} height={14} className="w-3.5 h-3.5 rounded-sm" loading="lazy" />
-            Get Started
-          </div>
-          <h2 className="text-3xl sm:text-5xl lg:text-6xl font-bold tracking-tight mb-5 leading-tight">
-            Get started with<br />
-            <span className="gradient-text">DevForge today</span>
-          </h2>
-          <p className="text-[var(--text-secondary)] mb-10 max-w-lg mx-auto">
-            Join thousands of developers who are shipping apps faster with AI.
-            Free to get started — no credit card required.
+      <section id="pricing" className="relative py-28 sm:py-36 px-6 border-t border-white/[0.06]">
+        <div className="max-w-3xl mx-auto text-center">
+          <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-zinc-400 mb-4">
+            Free while it is in the open
           </p>
-          <div className="flex items-center justify-center gap-4 mb-10">
+          <h2 className="text-3xl sm:text-5xl font-semibold tracking-[-0.04em] text-zinc-50 mb-5 text-balance">
+            Describe an app. Watch six agents argue with each other about it.
+          </h2>
+          <p className="text-[15px] leading-relaxed text-zinc-400 mb-10 max-w-lg mx-auto">
+            Runs on free OpenRouter models, so there is no card and no trial clock.
+            Bring your own key if you want a different model.
+          </p>
+          <div className="flex flex-wrap items-center justify-center gap-3">
             <Link
               href="/app"
-              className="inline-flex items-center gap-2 bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium px-8 py-3 rounded-lg transition-all hover:shadow-[0_0_24px_-4px_rgba(124,58,237,0.5)] cursor-pointer"
+              className="group inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-zinc-50 text-zinc-950 text-sm font-medium transition-all hover:bg-white hover:shadow-[0_0_40px_-8px_rgba(255,255,255,0.35)]"
             >
-              Try for Free
-              <RiArrowRightLine className="w-4 h-4" />
+              Start building
+              <RiArrowRightLine className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
             </Link>
-            <Link
-              href="/app"
-              className="inline-flex items-center gap-2 text-sm font-medium px-8 py-3 rounded-lg border border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-zinc-600 transition-all cursor-pointer"
+            <a
+              href="https://github.com/mithun0524/devforge"
+              target="_blank"
+              rel="noreferrer noopener"
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl border border-white/[0.08] text-sm text-zinc-300 hover:text-zinc-50 hover:border-white/20 transition-all"
             >
-              Request Demo
-            </Link>
+              <RiGithubLine className="w-4 h-4" />
+              Read the source
+            </a>
           </div>
-          {/* Repeated trust logos */}
-          <div className="flex flex-wrap items-center justify-center gap-6">
-            {TRUSTED_BY.slice(0, 6).map((tech) => (
-              <span key={tech} className="text-xs font-medium text-zinc-600">{tech}</span>
-            ))}
-          </div>
-        </Reveal>
+          <p className="mt-8 font-mono text-[11px] text-zinc-400">
+            Your code stays plain React. Push it to GitHub or deploy it to Vercel and leave.
+          </p>
+        </div>
       </section>
 
       {/* ─────────── Footer ─────────── */}
       <footer className="border-t border-[var(--border-subtle)]">
         <div className="max-w-6xl mx-auto px-6 pt-16 pb-12">
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-8">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-8">
             {Object.entries(FOOTER_LINKS).map(([category, links]) => (
               <div key={category}>
-                <h4 className="text-sm font-semibold text-[var(--text-primary)] mb-4">{category}</h4>
+                <h4 className="font-mono text-[11px] uppercase tracking-[0.16em] text-zinc-400 mb-4">{category}</h4>
                 <ul className="space-y-2.5">
                   {links.map((link) => (
-                    <li key={link}>
-                      <span className="text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors cursor-pointer">{link}</span>
+                    <li key={link.label}>
+                      <a
+                        href={link.href}
+                        {...(link.href.startsWith('http') ? { target: '_blank', rel: 'noreferrer noopener' } : {})}
+                        className="text-sm text-zinc-400 hover:text-zinc-100 transition-colors"
+                      >
+                        {link.label}
+                      </a>
                     </li>
                   ))}
                 </ul>
@@ -1009,12 +460,17 @@ export function LandingPage() {
 
         <div className="border-t border-[var(--border-subtle)]">
           <div className="max-w-6xl mx-auto px-6 py-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <p className="text-xs text-[var(--text-muted)]">&copy; {new Date().getFullYear()} DevForge Inc. All rights reserved.</p>
-            <div className="flex items-center gap-4">
-              {['Privacy', 'Terms', 'Cookies'].map((item) => (
-                <span key={item} className="text-xs text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors cursor-pointer">{item}</span>
-              ))}
-            </div>
+            <p className="font-mono text-[11px] text-zinc-400">
+              Assay — an open-source AI app builder. Not a company.
+            </p>
+            <a
+              href="https://github.com/mithun0524/devforge"
+              target="_blank"
+              rel="noreferrer noopener"
+              className="font-mono text-[11px] text-zinc-400 hover:text-zinc-200 transition-colors"
+            >
+              github.com/mithun0524/devforge
+            </a>
           </div>
         </div>
 
@@ -1022,7 +478,7 @@ export function LandingPage() {
           <div className="max-w-6xl mx-auto px-6 py-8 sm:py-10">
             <div className="flex items-center justify-center select-none">
               <span className="font-bold tracking-tighter text-white/[0.04] text-[80px] sm:text-[140px] md:text-[220px] lg:text-[350px] leading-none">
-                DevForge
+                Assay
               </span>
             </div>
           </div>

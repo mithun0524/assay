@@ -102,8 +102,8 @@ export function ShareModal({ isOpen, onClose }: ShareModalProps) {
               {/* Header */}
               <div className="flex items-center justify-between mb-5">
                 <div className="flex items-center gap-2.5">
-                  <div className="p-2 rounded-xl bg-violet-500/10">
-                    <RiShareLine className="w-4 h-4 text-violet-400" />
+                  <div className="p-2 rounded-xl bg-white/[0.04]">
+                    <RiShareLine className="w-4 h-4 text-zinc-300" />
                   </div>
                   <h2 className="text-sm font-semibold text-zinc-100">Share Project</h2>
                 </div>
@@ -125,7 +125,7 @@ export function ShareModal({ isOpen, onClose }: ShareModalProps) {
                       value={projectName}
                       onChange={(e) => setProjectName(e.target.value)}
                       placeholder="My Project"
-                      className="w-full px-3 py-2 text-sm text-zinc-200 bg-white/[0.04] border border-white/[0.08] rounded-xl placeholder:text-zinc-600 focus:outline-none focus:border-violet-500/30"
+                      className="w-full px-3 py-2 text-sm text-zinc-200 bg-white/[0.04] border border-white/[0.08] rounded-xl placeholder:text-zinc-600 focus:outline-none focus:border-white/45"
                     />
                   </div>
 
@@ -146,8 +146,8 @@ export function ShareModal({ isOpen, onClose }: ShareModalProps) {
                     className={cn(
                       'w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-xl transition-all',
                       isSharing
-                        ? 'bg-violet-600/50 text-violet-200 cursor-not-allowed'
-                        : 'bg-violet-600 text-white hover:bg-violet-500'
+                        ? 'bg-zinc-50/50 text-zinc-900 cursor-not-allowed'
+                        : 'bg-zinc-50 text-zinc-950 hover:bg-white'
                     )}
                   >
                     {isSharing ? (
@@ -196,7 +196,7 @@ export function ShareModal({ isOpen, onClose }: ShareModalProps) {
                   <div className="flex gap-2">
                     <button
                       onClick={handleCopy}
-                      className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium bg-violet-600 text-white hover:bg-violet-500 rounded-xl transition-all"
+                      className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium bg-zinc-50 text-zinc-950 hover:bg-white rounded-xl transition-all"
                     >
                       <RiFileCopyLine className="w-4 h-4" />
                       {copied ? 'Copied!' : 'Copy Link'}

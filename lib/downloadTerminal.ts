@@ -25,7 +25,7 @@ export function downloadTerminalOutput(output: string, filename?: string) {
   // Add header with timestamp and metadata
   const header = [
     '='.repeat(80),
-    `DevForge Terminal Output`,
+    `Assay Terminal Output`,
     `Generated: ${new Date().toLocaleString()}`,
     '='.repeat(80),
     '',
@@ -63,7 +63,7 @@ export function downloadTerminalLog(output: string, filename?: string) {
 
   // Add LOG format header
   const header = [
-    `[${new Date().toISOString()}] ===== DevForge Terminal Log =====`,
+    `[${new Date().toISOString()}] ===== Assay Terminal Log =====`,
     `[${new Date().toISOString()}] Session Start`,
     '',
   ].join('\n');

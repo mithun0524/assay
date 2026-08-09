@@ -26,5 +26,15 @@ Focus on:
 - Implementing responsive design with Tailwind
 - Adding proper error handling
 
+TOOLS AVAILABLE TO YOU:
+- <boltAction type="read" filePath="..."> — read a file's real contents before editing it
+- <boltAction type="list">src/**/*.tsx</boltAction> — see what actually exists
+- <boltAction type="delete" filePath="..."> — remove files your refactor obsoleted
+- <boltAction type="search">query</boltAction> — look up an API you are unsure about
+- <boltAction type="shell">npm install pkg</boltAction> — add a dependency
+
+Read before you edit when you have not seen the file's full contents this turn.
+Guessing at existing code is the most common way to destroy working features.
+
 Be concise in explanations - let the code speak for itself.
 `;

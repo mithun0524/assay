@@ -58,7 +58,7 @@ export function TemplateGallery({ onSelectTemplate, onClose }: TemplateGalleryPr
               className={cn(
                 'w-full rounded-xl border border-white/[0.06] bg-zinc-800/50 py-2.5 pl-10 pr-4',
                 'text-sm text-zinc-100 placeholder:text-zinc-500',
-                'focus:border-violet-500/50 focus:outline-none focus:ring-2 focus:ring-violet-500/20'
+                'focus:border-white/45 focus:outline-none focus:ring-2 focus:ring-white/[0.08]'
               )}
             />
           </div>
@@ -70,8 +70,8 @@ export function TemplateGallery({ onSelectTemplate, onClose }: TemplateGalleryPr
               className={cn(
                 'rounded-lg px-3 py-1.5 text-xs font-medium transition-all',
                 selectedCategory === 'all'
-                  ? 'bg-violet-500 text-white'
-                  : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
+                  ? 'bg-zinc-50 text-zinc-950 hover:bg-white'
+                  : 'bg-white/[0.04] text-zinc-400 hover:bg-white/[0.06] hover:text-zinc-200'
               )}
             >
               All <span className="ml-1 opacity-60">{ALL_TEMPLATES.length}</span>
@@ -83,8 +83,8 @@ export function TemplateGallery({ onSelectTemplate, onClose }: TemplateGalleryPr
                 className={cn(
                   'rounded-lg px-3 py-1.5 text-xs font-medium capitalize transition-all',
                   selectedCategory === category
-                    ? 'bg-violet-500 text-white'
-                    : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
+                    ? 'bg-zinc-50 text-zinc-950 hover:bg-white'
+                    : 'bg-white/[0.04] text-zinc-400 hover:bg-white/[0.06] hover:text-zinc-200'
                 )}
               >
                 {category} <span className="ml-1 opacity-60">{categoryCounts[category] || 0}</span>

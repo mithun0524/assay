@@ -103,6 +103,26 @@ export async function saveProject(id: string, files: Record<string, FileEntry>, 
   }
 }
 
+/**
+ * Persist whatever is currently in the store, creating the project row if this
+ * is the first time. Every path that fills the workspace must call this —
+ * templates and GitHub clones used to leave everything in memory only, so a
+ * refresh silently threw the user's project away.
+ */
+export async function persistCurrentProject(name?: string): Promise<string | null> {
+  const { useStore } = await import('./store');
+  const state = useStore.getState();
+  if (Object.keys(state.files).length === 0) return null;
+
+  let id = state.currentProjectId;
+  if (!id) {
+    id = await createNewProject(name?.slice(0, 60) || 'Untitled Project');
+    useStore.getState().setCurrentProjectId(id);
+  }
+  await saveProject(id, state.files, state.messages);
+  return id;
+}
+
 export async function loadProject(id: string): Promise<Project | null> {
   const db = await getDb();
   return (await db.get('projects', id)) ?? null;

@@ -52,22 +52,26 @@ export function useAuth() {
   }, []);
 
   const signInWithGitHub = useCallback(async () => {
-    await getSupabase().auth.signInWithOAuth({
+    const { error } = await getSupabase().auth.signInWithOAuth({
       provider: 'github',
       options: {
         scopes: 'repo user:email',
         redirectTo: `${window.location.origin}/api/auth/callback`,
       },
     });
+    // Without this the button silently does nothing when the provider is
+    // disabled in the Supabase dashboard.
+    if (error) throw error;
   }, []);
 
   const signInWithGoogle = useCallback(async () => {
-    await getSupabase().auth.signInWithOAuth({
+    const { error } = await getSupabase().auth.signInWithOAuth({
       provider: 'google',
       options: {
         redirectTo: `${window.location.origin}/api/auth/callback`,
       },
     });
+    if (error) throw error;
   }, []);
 
   const signInWithEmail = useCallback(async (email: string, password: string) => {
@@ -75,8 +79,9 @@ export function useAuth() {
     if (error) throw error;
   }, []);
 
+  /** Returns true when the user is signed in already (email confirmation off). */
   const signUpWithEmail = useCallback(async (email: string, password: string) => {
-    const { error } = await getSupabase().auth.signUp({
+    const { data, error } = await getSupabase().auth.signUp({
       email,
       password,
       options: {
@@ -84,6 +89,7 @@ export function useAuth() {
       },
     });
     if (error) throw error;
+    return Boolean(data.session);
   }, []);
 
   const signOut = useCallback(async () => {

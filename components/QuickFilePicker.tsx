@@ -174,13 +174,13 @@ export function QuickFilePicker({ isOpen, onClose }: QuickFilePickerProps) {
                       className={cn(
                         'w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors',
                         i === selectedIndex
-                          ? 'bg-violet-500/15 text-zinc-100'
+                          ? 'bg-white/[0.06] text-zinc-100'
                           : 'text-zinc-400 hover:bg-white/[0.04]'
                       )}
                     >
                       <FileCode className={cn(
                         'w-4 h-4 shrink-0',
-                        i === selectedIndex ? 'text-violet-400' : 'text-zinc-600'
+                        i === selectedIndex ? 'text-zinc-200' : 'text-zinc-600'
                       )} />
                       <span className="text-sm truncate">
                         <span className="text-zinc-200">{filename}</span>

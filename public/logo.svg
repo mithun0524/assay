@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none" role="img" aria-label="Assay">
+  <!--
+    An "A" reduced to its apex, with the crossbar replaced by the bead — the
+    button of pure metal an assay leaves behind once the fire has taken
+    everything that was not real.
+
+    The first attempt drew the cupel literally: a dish with the bead above it.
+    It read as a smiley face at every size, which is what an arc under a dot
+    always reads as. Two straight strokes and a dot have no such problem.
+  -->
+  <path
+    d="M7 25 16 7l9 18"
+    stroke="currentColor"
+    stroke-width="2.6"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <circle cx="16" cy="20.5" r="2.6" fill="currentColor" />
+</svg>

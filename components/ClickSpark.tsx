@@ -31,6 +31,7 @@ const ClickSpark: React.FC<ClickSparkProps> = ({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const sparksRef = useRef<Spark[]>([]);
   const startTimeRef = useRef<number | null>(null);
+  const startLoopRef = useRef<() => void>(() => {});
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -122,10 +123,17 @@ const ClickSpark: React.FC<ClickSparkProps> = ({
         return true;
       });
 
-      animationId = requestAnimationFrame(draw);
+      // Idle out when there is nothing to draw instead of spinning forever.
+      if (sparksRef.current.length > 0) {
+        animationId = requestAnimationFrame(draw);
+      } else {
+        animationId = 0;
+      }
     };
 
-    animationId = requestAnimationFrame(draw);
+    startLoopRef.current = () => {
+      if (animationId === 0) animationId = requestAnimationFrame(draw);
+    };
 
     return () => {
       cancelAnimationFrame(animationId);
@@ -148,6 +156,7 @@ const ClickSpark: React.FC<ClickSparkProps> = ({
     }));
 
     sparksRef.current.push(...newSparks);
+    startLoopRef.current();
   };
 
   return (

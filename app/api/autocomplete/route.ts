@@ -1,7 +1,7 @@
 import { createOpenAI } from '@ai-sdk/openai';
 import { generateText } from 'ai';
 import { NextRequest, NextResponse } from 'next/server';
-import { OPENROUTER_BASE_URL } from '@/lib/openrouter';
+import { OPENROUTER_BASE_URL , MODEL_IDS } from '@/lib/openrouter';
 import { createClient } from '@/lib/supabase/server';
 import { requireAuth, checkCsrf, rateLimit } from '@/lib/api-auth';
 
@@ -21,13 +21,13 @@ export async function POST(req: NextRequest) {
   const { user, error: authErr } = await requireAuth();
   if (authErr) return authErr;
 
-  let body: { prefix?: string; suffix?: string; language?: string; apiKey?: string };
+  let body: { prefix?: string; suffix?: string; language?: string };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ completion: '' });
   }
-  const { prefix, suffix, language, apiKey: clientKey } = body;
+  const { prefix, suffix, language } = body;
 
   if (!prefix && !suffix) {
     return NextResponse.json({ completion: '' });
@@ -53,10 +53,6 @@ export async function POST(req: NextRequest) {
   }
 
   if (!resolvedKey) {
-    resolvedKey = clientKey || '';
-  }
-
-  if (!resolvedKey) {
     return NextResponse.json({ completion: '' });
   }
 
@@ -71,7 +67,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const result = await generateText({
-      model: openrouter.chat('stepfun/step-3.5-flash:free'),
+      model: openrouter.chat(MODEL_IDS.ling),
       system: AUTOCOMPLETE_PROMPT,
       messages: [
         {

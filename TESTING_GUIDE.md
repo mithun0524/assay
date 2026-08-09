@@ -1,4 +1,4 @@
-# DevForge Testing Guide - Fixed Chat Display
+# Assay Testing Guide - Fixed Chat Display
 
 ## 🔧 Fixes Applied
 
@@ -220,13 +220,13 @@ Or:
 Check if the formatter is working:
 ```javascript
 // In browser console (F12)
-console.log(window.__DEVFORGE_DEBUG__)
+console.log(window.__ASSAY_DEBUG__)
 ```
 
 Check current agent:
 ```javascript
 // In browser console
-localStorage.getItem('devforge-active-agent')
+localStorage.getItem('assay-active-agent')
 ```
 
 ---

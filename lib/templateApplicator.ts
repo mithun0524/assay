@@ -44,6 +44,13 @@ export async function applyTemplate(template: Template): Promise<void> {
     );
     store.appendTerminal('✓ Files created\r\n\r\n');
 
+    // Persist immediately — the files exist now, and a refresh before the first
+    // chat message used to lose all of them.
+    const { persistCurrentProject } = await import('./db');
+    await persistCurrentProject(template.name).catch((err) =>
+      console.error('[template] failed to persist project:', err)
+    );
+
     // Open main file in editor
     const mainFile = template.files['src/App.jsx'] ? 'src/App.jsx' : 'src/main.jsx';
     if (mainFile) {

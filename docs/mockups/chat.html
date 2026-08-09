@@ -1,0 +1,402 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>DevForge — chat UI directions (live)</title>
+<style>
+:root{
+  --bg-base:#09090b; --bg-raised:#0a0a0d; --bg-overlay:#0d0d12;
+  --surface:rgba(255,255,255,.03); --surface-hover:rgba(255,255,255,.06);
+  --hairline:rgba(255,255,255,.06); --hairline-strong:rgba(255,255,255,.12);
+  --text-primary:#fafafa; --text-secondary:#a1a1aa; --text-tertiary:#8b8b96;
+  --architect:#60a5fa; --assistant:#22d3ee; --coder:#4ade80;
+  --debugger:#fb7185;  --designer:#c084fc;  --tester:#fbbf24;
+  --ok:#34d399; --err:#fb7185;
+  --ease:cubic-bezier(.16,1,.3,1);
+  --mono:ui-monospace,"SF Mono",SFMono-Regular,"Cascadia Code",Menlo,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,system-ui,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{background:var(--bg-base);color:var(--text-primary);font-family:var(--sans);
+  -webkit-font-smoothing:antialiased;display:grid;grid-template-rows:auto 1fr;overflow:hidden}
+@media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+
+.bar{height:52px;display:flex;align-items:center;gap:16px;padding:0 20px;
+  border-bottom:1px solid var(--hairline);background:var(--bg-raised)}
+.bar h1{font-size:13px;font-weight:600}.bar h1 span{color:var(--text-tertiary);font-weight:400}
+.sp{flex:1}
+.lab{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--text-tertiary)}
+.btn{background:transparent;border:1px solid var(--hairline-strong);color:var(--text-secondary);
+  font:inherit;font-size:12px;padding:5px 12px;border-radius:8px;cursor:pointer}
+.btn:hover{background:var(--surface-hover);color:var(--text-primary)}
+.btn.p{background:#fafafa;color:#09090b;border-color:transparent;font-weight:500}
+.seg{display:flex;border:1px solid var(--hairline-strong);border-radius:8px;overflow:hidden}
+.seg button{background:transparent;border:0;color:var(--text-secondary);font:inherit;font-size:12px;padding:5px 12px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:#fafafa;color:#09090b;font-weight:500}
+
+.grid{display:flex;overflow-x:auto;min-height:0}
+.col{flex:none;width:var(--w,352px);border-right:1px solid var(--hairline);display:flex;flex-direction:column;min-height:0}
+.col:last-child{border-right:0}
+.hd{padding:12px 14px;border-bottom:1px solid var(--hairline);background:var(--bg-raised);flex:none}
+.hd h2{font-size:12.5px;font-weight:600;display:flex;align-items:center;gap:7px}
+.tag{font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;padding:2px 6px;
+  border-radius:4px;border:1px solid var(--hairline-strong);color:var(--text-tertiary)}
+.tag.rec{border-color:rgba(52,211,153,.35);background:rgba(52,211,153,.08);color:#6ee7b7}
+.tag.now{border-color:rgba(251,113,133,.3);background:rgba(251,113,133,.07);color:#fca5a5}
+.hd p{font-size:11.5px;line-height:1.5;color:var(--text-tertiary);margin-top:6px}
+.hd .src{font-size:10.5px;color:var(--text-tertiary);margin-top:5px;font-style:italic}
+.scroll{flex:1;overflow-y:auto;padding:14px;min-height:0}
+.foot{flex:none;border-top:1px solid var(--hairline);padding:11px 14px;background:var(--bg-raised)}
+.foot ul{list-style:none;display:flex;flex-direction:column;gap:6px}
+.foot li{font-size:11.5px;line-height:1.45;color:var(--text-secondary);padding-left:15px;position:relative}
+.foot li::before{content:'';position:absolute;left:0;top:6px;width:5px;height:5px;border-radius:50%;background:var(--text-tertiary)}
+.foot li.g::before{background:var(--ok)} .foot li.b::before{background:var(--err)}
+
+/* ── shared: the user's own turn ── */
+.you{background:var(--surface);border:1px solid var(--hairline);border-radius:12px;
+  padding:10px 12px;font-size:13.5px;line-height:1.55;color:var(--text-primary);margin-bottom:16px}
+
+/* ── streaming caret ── */
+.caret{display:inline-block;width:2px;height:1em;background:var(--text-secondary);
+  vertical-align:-.15em;margin-left:1px;animation:blink 1s step-start infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+
+/* ══════════ A · current ══════════ */
+.v1 .t{margin-bottom:15px}
+.v1 .l{font-family:var(--mono);font-size:10px;letter-spacing:.14em;margin-bottom:5px}
+.v1 .l .ts{color:var(--text-tertiary);letter-spacing:0}
+.v1 .b{border-left:2px solid var(--hairline-strong);padding-left:10px;font-size:12.5px;line-height:1.5;color:var(--text-secondary)}
+.v1 .t[data-a=you] .l{color:var(--text-tertiary)}
+.v1 .t[data-a=architect] .l{color:var(--architect)} .v1 .t[data-a=architect] .b{border-color:rgba(96,165,250,.55)}
+.v1 .t[data-a=coder] .l{color:var(--coder)} .v1 .t[data-a=coder] .b{border-color:rgba(74,222,128,.55)}
+.v1 .code{margin-top:6px;border:1px solid var(--hairline);border-radius:9px;overflow:hidden;background:#0d0d0f}
+.v1 .code .ch{display:flex;align-items:center;gap:7px;padding:6px 9px;background:var(--surface);
+  border-bottom:1px solid var(--hairline);font-family:var(--mono);font-size:10.5px;color:var(--text-secondary)}
+.v1 .code .ch .g{margin-left:auto;color:var(--text-tertiary);font-size:9.5px}
+.v1 .code pre{padding:9px;font-family:var(--mono);font-size:11px;line-height:1.6;color:var(--text-secondary);
+  overflow:hidden;white-space:pre;position:relative;max-height:88px}
+.v1 .code pre::after{content:'';position:absolute;left:0;right:0;bottom:0;height:34px;
+  background:linear-gradient(to top,#0d0d0f,transparent)}
+.v1 .code .more{border-top:1px solid var(--hairline);text-align:center;padding:6px;
+  font-size:10.5px;color:var(--text-tertiary)}
+
+/* ══════════ B · artifact block (bolt pattern) ══════════ */
+.grp{margin-bottom:18px}
+.who{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.av{width:18px;height:18px;border-radius:6px;display:grid;place-items:center;flex:none;
+  font-family:var(--mono);font-size:9px;font-weight:700;color:#09090b}
+.nm{font-size:12px;font-weight:600}
+.st{font-family:var(--mono);font-size:10px;color:var(--text-tertiary);margin-left:auto}
+.say{font-size:13.5px;line-height:1.6;color:var(--text-secondary);padding-left:26px}
+
+.art{margin:9px 0 0 26px;border:1px solid var(--hairline-strong);border-radius:11px;overflow:hidden;background:var(--bg-raised)}
+.art-hd{display:flex;align-items:center;gap:9px;padding:9px 11px;cursor:pointer;transition:background .15s var(--ease)}
+.art-hd:hover{background:var(--surface-hover)}
+.art-hd .ic{width:14px;flex:none;display:grid;place-items:center;font-size:11px}
+.art-hd .ti{font-size:12.5px;font-weight:500;color:var(--text-primary)}
+.art-hd .ct{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--text-tertiary)}
+.art-hd .cv{font-size:10px;color:var(--text-tertiary);transition:transform .2s var(--ease)}
+.art[data-open="1"] .art-hd .cv{transform:rotate(180deg)}
+.art-bd{display:none;border-top:1px solid var(--hairline);padding:6px}
+.art[data-open="1"] .art-bd{display:block}
+.act{display:flex;align-items:center;gap:9px;padding:5px 6px;border-radius:7px;font-size:12px;color:var(--text-secondary)}
+.act:hover{background:var(--surface-hover)}
+.act .s{width:13px;flex:none;text-align:center;font-size:11px;color:var(--text-tertiary)}
+.act .fp{font-family:var(--mono);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.act[data-st=queued]{color:var(--text-tertiary)}
+.act[data-st=running] .s{color:var(--architect)}
+.act[data-st=running] .fp{color:var(--text-primary)}
+.act[data-st=done] .s{color:var(--ok)}
+.act[data-st=fail] .s{color:var(--err)} .act[data-st=fail] .fp{color:#fca5a5}
+.spin{display:inline-block;animation:sp 1s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.pbar{height:2px;background:var(--surface-hover);overflow:hidden}
+.pbar i{display:block;height:100%;background:var(--architect);width:0%;transition:width .4s var(--ease)}
+.art[data-done="1"] .pbar i{background:var(--ok)}
+.cmd{margin:4px 6px 6px;padding:6px 9px;border-radius:7px;background:#0d0d0f;border:1px solid var(--hairline);
+  font-family:var(--mono);font-size:10.5px;color:var(--text-secondary)}
+.cmd b{color:var(--coder);font-weight:400}
+
+/* ══════════ C · minimal narration ══════════ */
+.v3 .line{font-size:13.5px;line-height:1.6;color:var(--text-secondary);margin-bottom:14px}
+.v3 .status{display:flex;align-items:center;gap:9px;font-size:12.5px;color:var(--text-secondary);
+  padding:9px 11px;border:1px solid var(--hairline);border-radius:11px;background:var(--surface)}
+.v3 .status .s{color:var(--architect);font-size:11px}
+.v3 .status .ct{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--text-tertiary)}
+.v3 .shimmer{background:linear-gradient(90deg,var(--text-tertiary) 20%,var(--text-primary) 50%,var(--text-tertiary) 80%);
+  background-size:200% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;
+  animation:sh 2s linear infinite}
+@keyframes sh{0%{background-position:200% 0}100%{background-position:-200% 0}}
+
+/* ══════════ D · compact log ══════════ */
+.v4{font-family:var(--mono);font-size:11.5px;line-height:1.65;display:flex;flex-direction:column;gap:1px}
+.v4 .r{display:flex;gap:9px;padding:2px 6px;border-radius:5px}
+.v4 .r:hover{background:var(--surface)}
+.v4 .tm{color:#4b4b55;flex:none;font-size:10.5px}
+.v4 .ag{flex:none;width:56px;font-size:10px;letter-spacing:.05em;text-transform:uppercase}
+.v4 .tx{color:var(--text-secondary);min-width:0}
+.v4 .ag.you{color:var(--text-tertiary)} .v4 .ag.architect{color:var(--architect)}
+.v4 .ag.coder{color:var(--coder)} .v4 .ag.tester{color:var(--tester)}
+.v4 .f{color:var(--text-tertiary)} .v4 .f b{color:var(--ok);font-weight:400}
+</style>
+</head>
+<body>
+
+<div class="bar">
+  <h1>DevForge <span>— chat UI directions</span></h1>
+  <button class="btn p" id="replay">↻ Replay the build</button>
+  <span class="lab" id="phase">idle</span>
+  <div class="sp"></div>
+  <span class="lab">column width</span>
+  <div class="seg">
+    <button data-w="300">300</button>
+    <button data-w="352" aria-pressed="true">352</button>
+    <button data-w="440">440</button>
+  </div>
+</div>
+
+<div class="grid" id="grid">
+
+  <!-- ══════ A ══════ -->
+  <section class="col">
+    <div class="hd">
+      <h2>A · What ships today <span class="tag now">current</span></h2>
+      <p>Code cards inline, in a 352px column: clipped horizontally mid-token, truncated at six lines behind a fade.</p>
+    </div>
+    <div class="scroll v1">
+      <div class="t" data-a="you"><div class="l">YOU <span class="ts">just now</span></div>
+        <div class="b">A task management app with drag-and-drop</div></div>
+      <div class="t" data-a="architect"><div class="l">ARCHITECT <span class="ts">● working 16s ago</span></div>
+        <div class="b">Three columns, drag between them, state in localStorage.</div></div>
+      <div class="t" data-a="coder"><div class="l">CODER <span class="ts">● working just now</span></div>
+        <div class="b">Wiring the board and the persistence hook.
+          <div class="code"><div class="ch">&lt;/&gt; package.json <span class="g">Generating…</span></div>
+<pre>{
+  "name": "task-manager",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "dependencies": { "@dnd-kit/co</pre>
+            <div class="more">⌄ Show full code block</div></div>
+          <div class="code"><div class="ch">&lt;/&gt; vite.config.ts <span class="g">Generating…</span></div>
+<pre>import { defineConfig } from 'vite
+import react from '@vitejs/plugin-
+
+export default defineConfig({
+  plugins: [react()],</pre></div>
+        </div></div>
+    </div>
+    <div class="foot"><ul>
+      <li class="b">Code clipped mid-token — <code>from 'vite</code>, <code>@dnd-kit/co</code>.</li>
+      <li class="b">Six lines then a fade. Unreadable in both axes.</li>
+      <li class="b">No product in this category does this.</li>
+    </ul></div>
+  </section>
+
+  <!-- ══════ B ══════ -->
+  <section class="col">
+    <div class="hd">
+      <h2>B · Artifact block <span class="tag rec">recommended</span></h2>
+      <p>Narration streams in, then one grouped block with a status line and a collapsed action list. Click a row to open the file.</p>
+      <div class="src">Pattern read from bolt.diy’s Artifact.tsx source.</div>
+    </div>
+    <div class="scroll" id="b"></div>
+    <div class="foot"><ul>
+      <li class="g">Four states per row: queued ○ · running ◌ · done ✓ · failed ✗</li>
+      <li class="g">Collapsed by default — the summary line is enough.</li>
+      <li class="g">Code never enters the chat. Shell commands do; they’re one line.</li>
+    </ul></div>
+  </section>
+
+  <!-- ══════ C ══════ -->
+  <section class="col">
+    <div class="hd">
+      <h2>C · Minimal narration <span class="tag">lovable-ish</span></h2>
+      <p>Text plus a single shimmering status line. No list at all — you watch the preview, not the chat.</p>
+    </div>
+    <div class="scroll v3" id="c"></div>
+    <div class="foot"><ul>
+      <li class="g">Calmest of the four. Nothing to read while it works.</li>
+      <li class="b">Nothing to click when it goes wrong, and no sense of scale.</li>
+      <li>Good fit for Simple mode if paired with the Build surface.</li>
+    </ul></div>
+  </section>
+
+  <!-- ══════ D ══════ -->
+  <section class="col">
+    <div class="hd">
+      <h2>D · Compact log <span class="tag">developer</span></h2>
+      <p>Maximum density for a long build. A Developer-mode option, wrong as the default.</p>
+    </div>
+    <div class="scroll v4" id="d"></div>
+    <div class="foot"><ul>
+      <li class="g">A 40-turn build stays on one screen.</li>
+      <li class="b">Mono everything is hostile to a non-technical user.</li>
+    </ul></div>
+  </section>
+</div>
+
+<script>
+const FILES = [
+  ['package.json','{}'], ['vite.config.ts','TS'], ['tsconfig.json','{}'],
+  ['src/main.tsx','TS'], ['src/App.tsx','TS'],
+  ['src/components/Board.tsx','TS'], ['src/components/Column.tsx','TS'],
+  ['src/hooks/useBoard.ts','TS'],
+];
+const SAY_A = "Three columns, drag between them, saved in your browser so it survives a refresh.";
+const SAY_C = "Wiring the board, the column and the persistence hook.";
+const ICON = { queued:'○', running:'<span class="spin">◌</span>', done:'✓', fail:'✗' };
+
+const $ = s => document.querySelector(s);
+const wait = ms => new Promise(r => setTimeout(r, ms));
+let run = 0;
+
+function typeInto(el, text, speed, token){
+  return new Promise(async resolve => {
+    el.innerHTML = '<span class="caret"></span>';
+    for (let i = 1; i <= text.length; i++){
+      if (token !== run) return resolve();
+      el.innerHTML = text.slice(0, i) + '<span class="caret"></span>';
+      await wait(speed);
+    }
+    el.textContent = text;
+    resolve();
+  });
+}
+
+async function build(){
+  const token = ++run;
+  const B = $('#b'), C = $('#c'), D = $('#d'), phase = $('#phase');
+  B.innerHTML = C.innerHTML = D.innerHTML = '';
+
+  // user turn
+  B.innerHTML = '<div class="you">A task management app with drag-and-drop</div>';
+  C.innerHTML = '<div class="you">A task management app with drag-and-drop</div>';
+  D.innerHTML = '<div class="r"><span class="tm">14:22</span><span class="ag you">you</span>' +
+                '<span class="tx">A task management app with drag-and-drop</span></div>';
+
+  phase.textContent = 'thinking';
+
+  // ── architect thinks, then speaks ──
+  const g1 = document.createElement('div'); g1.className = 'grp';
+  g1.innerHTML = '<div class="who"><span class="av" style="background:var(--architect)">A</span>' +
+                 '<span class="nm">Architect</span><span class="st">thinking…</span></div>' +
+                 '<div class="say"></div>';
+  B.appendChild(g1);
+
+  const c1 = document.createElement('div'); c1.className = 'line'; C.appendChild(c1);
+  await wait(700); if (token !== run) return;
+
+  phase.textContent = 'planning';
+  await Promise.all([
+    typeInto(g1.querySelector('.say'), SAY_A, 16, token),
+    typeInto(c1, SAY_A, 16, token),
+  ]);
+  if (token !== run) return;
+  g1.querySelector('.st').textContent = '16s';
+  D.insertAdjacentHTML('beforeend',
+    '<div class="r"><span class="tm">14:22</span><span class="ag architect">arch</span><span class="tx">' + SAY_A + '</span></div>');
+
+  await wait(350); if (token !== run) return;
+
+  // ── coder speaks, then the artifact block ──
+  const g2 = document.createElement('div'); g2.className = 'grp';
+  g2.innerHTML = '<div class="who"><span class="av" style="background:var(--coder)">C</span>' +
+                 '<span class="nm">Coder</span><span class="st">● now</span></div><div class="say"></div>';
+  B.appendChild(g2);
+  const c2 = document.createElement('div'); c2.className = 'line'; C.appendChild(c2);
+
+  phase.textContent = 'writing';
+  await Promise.all([
+    typeInto(g2.querySelector('.say'), SAY_C, 16, token),
+    typeInto(c2, SAY_C, 16, token),
+  ]);
+  if (token !== run) return;
+  D.insertAdjacentHTML('beforeend',
+    '<div class="r"><span class="tm">14:22</span><span class="ag coder">coder</span><span class="tx">' + SAY_C + '</span></div>');
+
+  // artifact scaffold — collapsed, exactly as bolt does it
+  const art = document.createElement('div');
+  art.className = 'art'; art.dataset.open = '0';
+  art.innerHTML =
+    '<div class="art-hd"><span class="ic"><span class="spin">◌</span></span>' +
+    '<span class="ti">Creating initial files</span>' +
+    '<span class="ct">0/' + FILES.length + '</span><span class="cv">⌄</span></div>' +
+    '<div class="pbar"><i></i></div>' +
+    '<div class="art-bd">' + FILES.map(([f, k]) =>
+      '<div class="act" data-st="queued"><span class="s">○</span>' +
+      '<span class="fp">Create ' + f + '</span></div>').join('') +
+    '</div>';
+  g2.appendChild(art);
+  art.querySelector('.art-hd').onclick = () =>
+    art.dataset.open = art.dataset.open === '1' ? '0' : '1';
+
+  // Lovable-style single status line
+  const cs = document.createElement('div'); cs.className = 'status';
+  cs.innerHTML = '<span class="s"><span class="spin">◌</span></span>' +
+                 '<span class="shimmer">Writing files…</span><span class="ct">0/' + FILES.length + '</span>';
+  C.appendChild(cs);
+
+  const rows = [...art.querySelectorAll('.act')];
+  const bar = art.querySelector('.pbar i');
+  const ct = art.querySelector('.ct');
+
+  for (let i = 0; i < rows.length; i++){
+    if (token !== run) return;
+    rows[i].dataset.st = 'running';
+    rows[i].querySelector('.s').innerHTML = ICON.running;
+    await wait(520); if (token !== run) return;
+    rows[i].dataset.st = 'done';
+    rows[i].querySelector('.s').innerHTML = ICON.done;
+
+    const n = i + 1;
+    bar.style.width = (n / rows.length * 100) + '%';
+    ct.textContent = n + '/' + rows.length;
+    cs.querySelector('.ct').textContent = n + '/' + rows.length;
+    D.insertAdjacentHTML('beforeend',
+      '<div class="r"><span class="tm"></span><span class="ag"></span>' +
+      '<span class="tx f">→ ' + FILES[i][0] + ' <b>+' + (12 + i * 17) + '</b></span></div>');
+    D.scrollTop = D.scrollHeight;
+  }
+
+  // install step — a shell command, which DOES get a code block
+  art.querySelector('.art-bd').insertAdjacentHTML('beforeend',
+    '<div class="act" data-st="running"><span class="s">' + ICON.running + '</span>' +
+    '<span class="fp">Run command</span></div>' +
+    '<div class="cmd">$ <b>npm install</b></div>');
+  phase.textContent = 'installing';
+  cs.querySelector('.shimmer').textContent = 'Installing dependencies…';
+  await wait(1400); if (token !== run) return;
+
+  // `.act:last-of-type` matched nothing here: the last <div> in the body is the
+  // .cmd block, and :last-of-type keys off element type, not class.
+  const acts = art.querySelectorAll('.act');
+  const last = acts[acts.length - 1];
+  last.dataset.st = 'done'; last.querySelector('.s').innerHTML = ICON.done;
+
+  // settle
+  art.dataset.done = '1';
+  art.querySelector('.ic').innerHTML = '<span style="color:var(--ok)">✓</span>';
+  art.querySelector('.ti').textContent = 'Initial files created';
+  g2.querySelector('.st').textContent = '31s';
+
+  cs.innerHTML = '<span class="s" style="color:var(--ok)">✓</span><span>Built and running</span>' +
+                 '<span class="ct">' + FILES.length + ' files</span>';
+  D.insertAdjacentHTML('beforeend',
+    '<div class="r"><span class="tm">14:23</span><span class="ag tester">test</span>' +
+    '<span class="tx" style="color:#6ee7b7">✓ build clean · drag works · state persists</span></div>');
+  phase.textContent = 'ready';
+}
+
+$('#replay').onclick = build;
+document.querySelector('.seg').addEventListener('click', e => {
+  const b = e.target.closest('button'); if(!b) return;
+  document.querySelectorAll('.seg button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+  document.querySelectorAll('.col').forEach(c => c.style.setProperty('--w', b.dataset.w + 'px'));
+});
+build();
+</script>
+</body>
+</html>

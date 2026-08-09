@@ -1,66 +1,35 @@
 import { createOpenAI } from '@ai-sdk/openai';
 import { generateText } from 'ai';
 import { NextRequest } from 'next/server';
-import { OPENROUTER_BASE_URL } from '@/lib/openrouter';
+import { OPENROUTER_BASE_URL, MODEL_IDS, resolveModelId } from '@/lib/openrouter';
+import { classifyLocally, isAgentRole, ROLE_MODEL } from '@/lib/agents/router';
 import { createClient } from '@/lib/supabase/server';
 import { requireAuth, checkCsrf, rateLimit } from '@/lib/api-auth';
 
-const VALID_ROLES = ['architect', 'assistant', 'coder', 'debugger', 'designer', 'tester'] as const;
-type Role = (typeof VALID_ROLES)[number];
-
-const CLASSIFIER_MODELS = [
-  'arcee-ai/trinity-large-preview:free',
-  'stepfun/step-3.5-flash:free',
-];
+// Cheapest/fastest first — classification is a tiny task.
+const CLASSIFIER_MODELS = [MODEL_IDS.ling, MODEL_IDS.laguna];
 
 const CLASSIFY_SYSTEM_PROMPT = `You are an intent classifier. Given a user message and context, classify the intent and pick the best model.
 
 Respond with ONLY a JSON object, no other text: {"role":"<role>","model":"<model>","reasoning":"<short reason>"}
 
 Roles and recommended models:
-- "debugger" (fix bugs, errors, crashes) → stepfun/step-3.5-flash:free
-- "designer" (UI, styling, visuals, images) → arcee-ai/trinity-large-preview:free
-- "tester" (tests, specs, coverage) → stepfun/step-3.5-flash:free
-- "architect" (planning, new project, architecture) → arcee-ai/trinity-large-preview:free
-- "assistant" (questions, explanations, search, informational) → stepfun/step-3.5-flash:free
-- "coder" (generate/write code, default) → arcee-ai/trinity-large-preview:free
+- "debugger" (fix bugs, errors, crashes) → ${ROLE_MODEL.debugger}
+- "designer" (UI, styling, visuals, images) → ${ROLE_MODEL.designer}
+- "tester" (tests, specs, coverage) → ${ROLE_MODEL.tester}
+- "architect" (planning, new project, architecture) → ${ROLE_MODEL.architect}
+- "assistant" (questions, explanations, search, informational) → ${ROLE_MODEL.assistant}
+- "coder" (generate/write code, default) → ${ROLE_MODEL.coder}
 
 Rules (first match wins):
-1. hasErrors=true OR message about fix/debug/bug/error/crash → debugger
-2. hasImages=true → designer
-3. Message about style/CSS/colors/animation/layout/UI → designer
-4. Message about tests/specs/coverage → tester
-5. hasProject=false OR message about architecture/planning → architect
+1. Message is only a greeting ("hi", "test") → coder if hasProject=true, else architect
+2. hasErrors=true OR message about fix/debug/bug/error/crash → debugger
+3. hasImages=true → designer
+4. Message about style/CSS/colors/animation/layout/UI → designer
+5. Message about tests/specs/coverage → tester
 6. Message is a question, search request, or asks to explain/describe something → assistant
-7. Otherwise → coder`;
-
-function classifyLocally(message: string, context: { hasProject: boolean; hasErrors: boolean; hasImages: boolean }): { role: Role; model: string; reasoning: string } {
-  const msg = message.toLowerCase();
-
-  if (context.hasErrors || /\b(fix|debug|bug|error|crash|broken|fail|issue|wrong|not working)\b/.test(msg)) {
-    return { role: 'debugger', model: 'stepfun/step-3.5-flash:free', reasoning: 'Error-related keywords detected' };
-  }
-  if (context.hasImages) {
-    return { role: 'designer', model: 'arcee-ai/trinity-large-preview:free', reasoning: 'Images attached' };
-  }
-  if (/\b(style|css|color|theme|animation|layout|ui|design|font|padding|margin|border|responsive|dark mode|light mode|icon|image|visual)\b/.test(msg)) {
-    return { role: 'designer', model: 'arcee-ai/trinity-large-preview:free', reasoning: 'Style/UI keywords detected' };
-  }
-  if (/\b(test|spec|coverage|jest|vitest|assert|expect|unit test|e2e)\b/.test(msg)) {
-    return { role: 'tester', model: 'stepfun/step-3.5-flash:free', reasoning: 'Testing keywords detected' };
-  }
-  if (!context.hasProject || /\b(architect|plan|scaffold|setup|init|create.*app|new.*project|from scratch)\b/.test(msg)) {
-    return { role: 'architect', model: 'arcee-ai/trinity-large-preview:free', reasoning: 'Architecture/planning or no project' };
-  }
-  // Informational questions, search requests, explanations
-  if (/\b(search|look up|find out|tell me about|explain|describe|define|what is|what does|what are|who is|why does|how does|difference between)\b/.test(msg)) {
-    return { role: 'assistant', model: 'stepfun/step-3.5-flash:free', reasoning: 'Informational question detected' };
-  }
-  if (/^(what|who|where|when|why|how)\s+(is|are|was|were|do|does|did|can|could|would|should)\b/.test(msg)) {
-    return { role: 'assistant', model: 'stepfun/step-3.5-flash:free', reasoning: 'Question detected' };
-  }
-  return { role: 'coder', model: 'arcee-ai/trinity-large-preview:free', reasoning: 'Default to code generation' };
-}
+7. hasProject=false OR message about architecture/planning → architect
+8. Otherwise → coder`;
 
 export async function POST(req: NextRequest) {
   // ── Security guards ──
@@ -73,7 +42,22 @@ export async function POST(req: NextRequest) {
   const { user, error: authErr } = await requireAuth();
   if (authErr) return authErr;
 
-  const { message, context, apiKey: clientKey } = await req.json();
+  // ── Input validation (untrusted body) ──
+  let body: Record<string, unknown> = {};
+  try {
+    body = (await req.json()) ?? {};
+  } catch {
+    return Response.json({ error: 'Invalid JSON body' }, { status: 400 });
+  }
+
+  const message = typeof body.message === 'string' ? body.message : '';
+  const raw = (body.context ?? {}) as Record<string, unknown>;
+  const context = {
+    hasProject: raw.hasProject === true,
+    fileCount: typeof raw.fileCount === 'number' ? raw.fileCount : 0,
+    hasErrors: raw.hasErrors === true,
+    hasImages: raw.hasImages === true,
+  };
 
   let resolvedKey = process.env.OPENROUTER_API_KEY || '';
 
@@ -93,12 +77,9 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  if (!resolvedKey) resolvedKey = clientKey || '';
-
   if (!resolvedKey) {
     // No key — use local classifier, still works
-    const local = classifyLocally(message, context);
-    return Response.json(local);
+    return Response.json(classifyLocally(message, context));
   }
 
   const openrouter = createOpenAI({
@@ -111,7 +92,7 @@ export async function POST(req: NextRequest) {
   });
 
   const userPrompt = `Context: hasProject=${context.hasProject}, fileCount=${context.fileCount}, hasErrors=${context.hasErrors}, hasImages=${context.hasImages}
-Message: "${String(message).slice(0, 300)}"`;
+Message: "${message.slice(0, 300)}"`;
 
   for (const classifierModel of CLASSIFIER_MODELS) {
     try {
@@ -131,12 +112,14 @@ Message: "${String(message).slice(0, 300)}"`;
       if (!jsonMatch) continue;
 
       const parsed = JSON.parse(jsonMatch[0]);
-      if (!VALID_ROLES.includes(parsed.role)) continue;
+      const role = parsed?.role;
+      if (!isAgentRole(role)) continue;
 
       return Response.json({
-        role: parsed.role,
-        model: parsed.model || 'arcee-ai/trinity-large-preview:free',
-        reasoning: parsed.reasoning || '',
+        role,
+        // Ignore a hallucinated model id; fall back to the role's own model.
+        model: resolveModelId(parsed.model) === parsed.model ? parsed.model : ROLE_MODEL[role],
+        reasoning: typeof parsed.reasoning === 'string' ? parsed.reasoning : '',
       });
     } catch {
       continue;
@@ -144,6 +127,5 @@ Message: "${String(message).slice(0, 300)}"`;
   }
 
   // All LLM attempts failed — deterministic fallback
-  const local = classifyLocally(message, context);
-  return Response.json(local);
+  return Response.json(classifyLocally(message, context));
 }
