@@ -2,54 +2,103 @@
 
 @plugin "tailwindcss-animate";
 
-@custom-variant dark (&:is(.dark *));
+/* ═══════════════════════════════════════════════════════════════════════════
+   DESIGN TOKENS — single source of truth
 
-/* ─── Design Tokens ─── */
+   The rule: no component hardcodes a hex value. Color exists in exactly two
+   places in this product — agent identity and status. Everything else is
+   neutral. That is what the landing page established and this file makes it
+   enforceable everywhere else.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
 :root {
-  --bg-primary: #09090b;
+  /* ─── Surfaces ─── */
+  --bg-base: #09090b;
+  /* page ground */
+  --bg-raised: #0a0a0d;
+  /* cards, panels, list rows */
+  --bg-overlay: #0d0d12;
+  /* hover on raised, modal bodies */
+
+  --surface: rgba(255, 255, 255, 0.03);
+  --surface-hover: rgba(255, 255, 255, 0.06);
+  --surface-active: rgba(255, 255, 255, 0.09);
+
+  --hairline: rgba(255, 255, 255, 0.06);
+  --hairline-strong: rgba(255, 255, 255, 0.12);
+
+  /* Legacy aliases — a lot of components spell these. Kept pointing at the
+     new tokens so the sweep does not have to touch every call site. */
+  --bg-primary: var(--bg-base);
   --bg-elevated: #111113;
-  --bg-surface: rgba(255, 255, 255, 0.03);
-  --border-subtle: rgba(255, 255, 255, 0.06);
-  --border-muted: rgba(255, 255, 255, 0.06);
-  --accent: oklch(0.97 0 0);
-  --accent-muted: rgba(124, 58, 237, 0.15);
-  --accent-glow: rgba(124, 58, 237, 0.35);
-  --cyan-accent: #06b6d4;
+  --bg-surface: var(--surface);
+  --border-subtle: var(--hairline);
+  --border-muted: var(--hairline);
+
+  /* ─── Text — every value clears WCAG AA on --bg-base ─── */
   --text-primary: #fafafa;
+  /* 18.9:1 */
   --text-secondary: #a1a1aa;
-  --text-muted: #52525b;
+  /*  7.2:1 */
+  --text-tertiary: #8b8b96;
+  /*  5.5:1 */
+  --text-muted: var(--text-tertiary);
+
+  /* ─── Interaction — monochrome. No hue lives here. ─── */
+  --focus-ring: rgba(255, 255, 255, 0.45);
+  --focus-halo: rgba(255, 255, 255, 0.08);
+  --cta-bg: #fafafa;
+  --cta-fg: #09090b;
+  --accent: #fafafa;
+
+  /* ─── Agent identity — the only color in the product ───
+     These mirror the `color` field on each agent in lib/agents/index.ts.
+     If one changes there, change it here; the badge and the wash must agree. */
+  --agent-architect: #60a5fa;
+  /* blue-400   */
+  --agent-assistant: #22d3ee;
+  /* cyan-400   */
+  --agent-coder: #4ade80;
+  /* green-400  */
+  --agent-debugger: #fb7185;
+  /* rose-400   */
+  --agent-designer: #c084fc;
+  /* purple-400 */
+  --agent-tester: #fbbf24;
+  /* amber-400  */
+
+  /* ─── Status ─── */
+  --ok: #34d399;
+  --warn: #fbbf24;
+  --err: #fb7185;
+
+  /* ─── Motion — three durations, one easing, everywhere ─── */
+  --dur-fast: 150ms;
+  --dur-base: 300ms;
+  --dur-slow: 700ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* ─── Geometry ─── */
   --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
 }
+
+/* Tailwind reads the radius scale from here. The color mappings that used to
+   live in this block fed shadcn utilities (bg-card, text-muted-foreground …)
+   that no component ever spelled — they were deleted along with the .dark
+   class, since the app is dark-only and ships no theme switch. */
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   BASE
+   ═══════════════════════════════════════════════════════════════════════════ */
 
 html {
   height: 100%;
@@ -64,14 +113,20 @@ body {
   margin: 0;
   padding: 0;
   overflow: hidden;
-  background: var(--bg-primary);
+  background: var(--bg-base);
   color: var(--text-primary);
   font-feature-settings: "ss01", "ss02", "cv01", "cv02";
   -webkit-font-smoothing: antialiased;
 }
 
+/* Next.js root wrapper */
+body>div:first-child {
+  height: 100%;
+  overflow: hidden;
+}
+
 ::selection {
-  background: rgba(124, 58, 237, 0.3);
+  background: rgba(255, 255, 255, 0.18);
   color: #fff;
 }
 
@@ -82,21 +137,270 @@ textarea:-webkit-autofill,
 textarea:-webkit-autofill:hover,
 textarea:-webkit-autofill:focus,
 select:-webkit-autofill,
-select:-webkit-autofill:hover,
 select:-webkit-autofill:focus {
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--hairline-strong);
   -webkit-text-fill-color: var(--text-primary);
-  -webkit-box-shadow: 0 0 0px 1000px #09090b inset;
+  -webkit-box-shadow: 0 0 0px 1000px var(--bg-base) inset;
   transition: background-color 5000s ease-in-out 0s;
 }
 
-/* Next.js root wrapper */
-body>div:first-child {
-  height: 100%;
-  overflow: hidden;
+select option {
+  background: var(--bg-base);
+  color: var(--text-secondary);
 }
 
-/* ─── Animated Gradient Mesh Background ─── */
+/* ═══════════════════════════════════════════════════════════════════════════
+   MOTION POLICY
+
+   Anyone who has asked their OS to stop animating things gets a product that
+   stops animating. GSAP honours this separately via REDUCED in lib/motion.ts;
+   this block covers the CSS half.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@media (prefers-reduced-motion: reduce) {
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  html,
+  #landing-scroller {
+    scroll-behavior: auto;
+  }
+
+  /* Indeterminate spinners are exempt. `animation-iteration-count: 1` stops a
+     spinner one turn in and parks it at a random angle, which reads as a hung
+     app rather than a calm one — the opposite of what the setting asks for.
+     They keep turning, slower. */
+  .animate-spin {
+    animation: reduced-spin 1.6s linear infinite !important;
+  }
+}
+
+@keyframes reduced-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PRIMITIVES — the shapes repeated across every surface
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.surface {
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+}
+
+.surface-raised {
+  background: var(--bg-raised);
+  border: 1px solid var(--hairline);
+}
+
+.hairline {
+  border-color: var(--hairline);
+}
+
+/* Glass — used by ~12 panels and dialogs. Neutral already; kept, retokenised. */
+.glass {
+  background: var(--surface);
+  backdrop-filter: blur(16px) saturate(1.2);
+  -webkit-backdrop-filter: blur(16px) saturate(1.2);
+  border: 1px solid var(--hairline);
+}
+
+.glass-strong {
+  background: var(--surface-hover);
+  backdrop-filter: blur(24px) saturate(1.3);
+  -webkit-backdrop-filter: blur(24px) saturate(1.3);
+  border: 1px solid var(--hairline);
+}
+
+/* The landing page scrolls inside this div, not the document. `html` carries
+   `overflow: hidden`, so the `scroll-behavior: smooth` declared on it applied
+   to an element that never scrolls — the nav's anchor links hard-jumped. It
+   belongs on the element doing the scrolling. */
+#landing-scroller {
+  scroll-behavior: smooth;
+}
+
+/* And without this an anchored section lands beneath the 56px sticky nav,
+   hiding its own heading. */
+#landing-scroller [id] {
+  scroll-margin-top: 5rem;
+}
+
+.panel-header {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  background: color-mix(in srgb, var(--bg-base) 80%, transparent);
+  border-bottom: 1px solid var(--hairline);
+}
+
+/* ─── Buttons ─── */
+.btn-premium,
+.btn-primary {
+  background: var(--cta-bg);
+  color: var(--cta-fg);
+  font-weight: 500;
+  border: none;
+  position: relative;
+  overflow: hidden;
+  transition: background var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-base) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
+}
+
+.btn-premium:hover,
+.btn-primary:hover {
+  background: #ffffff;
+  box-shadow: 0 0 40px -8px rgba(255, 255, 255, 0.35);
+  transform: translateY(-1px);
+}
+
+.btn-premium:active,
+.btn-primary:active {
+  transform: translateY(0) scale(0.98);
+}
+
+.btn-premium:disabled,
+.btn-primary:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--hairline-strong);
+  transition: color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    background var(--dur-fast) var(--ease-out);
+}
+
+.btn-ghost:hover {
+  color: var(--text-primary);
+  border-color: rgba(255, 255, 255, 0.2);
+  background: var(--surface);
+}
+
+/* ─── Fields ─── */
+.field {
+  background: var(--surface);
+  border: 1px solid var(--hairline-strong);
+  color: var(--text-primary);
+  border-radius: var(--radius);
+  transition: border-color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out);
+}
+
+.field::placeholder {
+  color: var(--text-tertiary);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   FOCUS — one ring, monochrome, on everything
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* One ring, drawn with `outline` and nothing else.
+
+   It used to also paint a box-shadow, which failed two ways. Tailwind's
+   `focus:outline-none` removes the outline but cannot remove a shadow, so a
+   control that had explicitly opted out still got a ring. And a box-shadow
+   traces the element's own border-radius — which a bare <textarea> does not
+   have — so a borderless textarea inside a rounded wrapper drew a square ring
+   inside a round box. `outline` follows the radius and honours `outline-none`. */
+*:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* Field focus styling is opt-in through `.field`. A blanket
+   `input:focus, textarea:focus` rule used to live here and stacked a second
+   ring onto every input that already styled its own focus state — which, after
+   the sweep, is nearly all of them. */
+.field:focus,
+.field:focus-visible {
+  border-color: var(--focus-ring);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
+  outline: none;
+}
+
+.glow-border {
+  transition: box-shadow var(--dur-base) var(--ease-out),
+    border-color var(--dur-base) var(--ease-out);
+}
+
+/* A wrapper that shows focus on behalf of the control inside it. */
+.glow-border:focus-within {
+  border-color: var(--focus-ring);
+  box-shadow: 0 0 0 1px var(--focus-halo),
+    0 0 24px -8px rgba(255, 255, 255, 0.16);
+}
+
+/* …and the control's own ring stands down, so the two never stack. */
+.glow-border :focus-visible {
+  outline: none;
+}
+
+.glow-hover {
+  transition: box-shadow var(--dur-base) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
+}
+
+.glow-hover:hover {
+  box-shadow: 0 0 24px -8px rgba(255, 255, 255, 0.22);
+  transform: translateY(-1px);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   INTERACTION DEFAULTS
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Enumerated, not `all`. `all` at --dur-base put a 300ms ease on every
+   property of every control — including `background-image`, which `.btn-shimmer`
+   animates, and which is expensive to interpolate. Hover feedback also wants
+   to be quick: this was `0.2s` before being retokenised, and 300ms reads as lag. */
+button,
+a,
+select,
+input,
+textarea {
+  transition:
+    color var(--dur-fast) var(--ease-out),
+    background-color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out),
+    opacity var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
+}
+
+button:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+/* Was `opacity: 0.4` plus `saturate(0.3)` — two dimmers compounding, which on
+   a near-black ground pushed disabled controls to the edge of visible and made
+   them read as broken rather than unavailable. One dimmer, less of it.
+   A control that styles its own disabled state opts out with
+   `disabled:opacity-100`. */
+button:disabled,
+button[disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   BACKGROUND — animated mesh + noise
+   ═══════════════════════════════════════════════════════════════════════════ */
+
 .gradient-mesh {
   position: fixed;
   inset: 0;
@@ -113,11 +417,44 @@ body>div:first-child {
   top: -25%;
   left: -25%;
   background:
-    radial-gradient(ellipse 600px 600px at 20% 30%, rgba(124, 58, 237, 0.12), transparent),
-    radial-gradient(ellipse 500px 500px at 70% 60%, rgba(6, 182, 212, 0.08), transparent),
-    radial-gradient(ellipse 800px 400px at 50% 80%, rgba(168, 85, 247, 0.06), transparent),
-    radial-gradient(ellipse 400px 400px at 80% 20%, rgba(59, 130, 246, 0.06), transparent);
+    radial-gradient(ellipse 900px 700px at 22% 24%, rgba(255, 255, 255, 0.035), transparent),
+    radial-gradient(ellipse 700px 600px at 78% 68%, rgba(255, 255, 255, 0.022), transparent);
   animation: gradient-shift 20s ease-in-out infinite alternate;
+}
+
+.gradient-mesh::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+  opacity: 0.4;
+  mix-blend-mode: overlay;
+  pointer-events: none;
+}
+
+/* The agent-hue wash behind the hero and the login panel. Same five hues in
+   both places so the two surfaces read as one product.
+
+   Two variants because the geometry differs, not the palette: the hero is a
+   wide band where the wash lives in the right third, while the login panel is
+   a tall half-width column where those same coordinates would shove every
+   radial off the edge and leave the panel looking empty. */
+.agent-wash {
+  background:
+    radial-gradient(60% 42% at 62% 34%, color-mix(in srgb, var(--agent-architect) 20%, transparent), transparent 70%),
+    radial-gradient(52% 38% at 78% 52%, color-mix(in srgb, var(--agent-coder) 16%, transparent), transparent 70%),
+    radial-gradient(46% 34% at 88% 30%, color-mix(in srgb, var(--agent-designer) 14%, transparent), transparent 70%),
+    radial-gradient(42% 30% at 70% 66%, color-mix(in srgb, var(--agent-tester) 10%, transparent), transparent 70%),
+    radial-gradient(38% 28% at 92% 66%, color-mix(in srgb, var(--agent-assistant) 12%, transparent), transparent 70%);
+}
+
+.agent-wash-panel {
+  background:
+    radial-gradient(70% 34% at 58% 26%, color-mix(in srgb, var(--agent-architect) 26%, transparent), transparent 72%),
+    radial-gradient(62% 30% at 34% 52%, color-mix(in srgb, var(--agent-coder) 20%, transparent), transparent 72%),
+    radial-gradient(58% 28% at 74% 60%, color-mix(in srgb, var(--agent-designer) 20%, transparent), transparent 72%),
+    radial-gradient(50% 24% at 44% 80%, color-mix(in srgb, var(--agent-tester) 14%, transparent), transparent 72%),
+    radial-gradient(54% 26% at 78% 34%, color-mix(in srgb, var(--agent-assistant) 16%, transparent), transparent 72%);
 }
 
 @keyframes gradient-shift {
@@ -142,62 +479,13 @@ body>div:first-child {
   }
 }
 
-/* Noise overlay for texture */
-.gradient-mesh::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
-  opacity: 0.4;
-  mix-blend-mode: overlay;
-  pointer-events: none;
-}
+/* ═══════════════════════════════════════════════════════════════════════════
+   TYPE
+   ═══════════════════════════════════════════════════════════════════════════ */
 
-/* ─── Glassmorphism ─── */
-.glass {
-  background: rgba(255, 255, 255, 0.03);
-  backdrop-filter: blur(16px) saturate(1.2);
-  -webkit-backdrop-filter: blur(16px) saturate(1.2);
-  border: 1px solid var(--border-subtle);
-}
-
-.glass-strong {
-  background: rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(24px) saturate(1.3);
-  -webkit-backdrop-filter: blur(24px) saturate(1.3);
-  border: 1px solid var(--border-muted);
-}
-
-/* ─── Glow Effects ─── */
-.glow-border {
-  transition: box-shadow 0.3s ease, border-color 0.3s ease;
-}
-
-.glow-border:focus-within {
-  border-color: rgba(124, 58, 237, 0.4);
-  box-shadow:
-    0 0 0 1px rgba(124, 58, 237, 0.15),
-    0 0 20px -5px rgba(124, 58, 237, 0.2),
-    0 0 40px -10px rgba(124, 58, 237, 0.1);
-}
-
-.glow-hover {
-  transition: box-shadow 0.3s ease, transform 0.2s ease;
-}
-
-.glow-hover:hover {
-  box-shadow: 0 0 20px -5px var(--accent-glow);
-  transform: translateY(-1px);
-}
-
-/* ─── Gradient Text ─── */
-.gradient-text {
-  background: linear-gradient(135deg, #e4e4e7 0%, #a78bfa 50%, #7c3aed 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
+/* Was violet→purple, the last visible trace of the old theme on the login
+   page. Neutral now, matching the landing headlines. */
+.gradient-text,
 .gradient-text-subtle {
   background: linear-gradient(135deg, #fafafa 0%, #d4d4d8 50%, #a1a1aa 100%);
   -webkit-background-clip: text;
@@ -205,7 +493,61 @@ body>div:first-child {
   -webkit-text-fill-color: transparent;
 }
 
-/* ─── Entry Animations ─── */
+.terminal-output {
+  font-family: 'Geist Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
+  font-size: 12px;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* Visually hidden but announced — used by the split-text headings. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SCROLLBAR
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Firefox ignores the ::-webkit- rules below entirely and was rendering full
+   chunky OS scrollbars against a design tuned for 5px ones. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--surface-hover) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--surface-hover);
+  border-radius: 4px;
+  transition: background var(--dur-fast) var(--ease-out);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--hairline-strong);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ENTRY ANIMATIONS
+   ═══════════════════════════════════════════════════════════════════════════ */
+
 @keyframes fade-up {
   from {
     opacity: 0;
@@ -252,23 +594,40 @@ body>div:first-child {
   }
 }
 
+@keyframes stagger-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .animate-fade-up {
-  animation: fade-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: fade-up var(--dur-slow) var(--ease-out) forwards;
   opacity: 0;
 }
 
 .animate-fade-in {
-  animation: fade-in 0.5s ease forwards;
+  animation: fade-in var(--dur-base) var(--ease-out) forwards;
   opacity: 0;
 }
 
 .animate-slide-in-left {
-  animation: slide-in-left 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: slide-in-left var(--dur-base) var(--ease-out) forwards;
   opacity: 0;
 }
 
 .animate-scale-in {
-  animation: scale-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: scale-in var(--dur-base) var(--ease-out) forwards;
+  opacity: 0;
+}
+
+.stagger-item {
+  animation: stagger-fade-in var(--dur-base) var(--ease-out) forwards;
   opacity: 0;
 }
 
@@ -305,7 +664,10 @@ body>div:first-child {
   animation-delay: 600ms;
 }
 
-/* ─── Pulse Dot (Status Indicator) ─── */
+/* ═══════════════════════════════════════════════════════════════════════════
+   STATE INDICATORS
+   ═══════════════════════════════════════════════════════════════════════════ */
+
 @keyframes pulse-dot {
 
   0%,
@@ -324,36 +686,22 @@ body>div:first-child {
   animation: pulse-dot 2s ease-in-out infinite;
 }
 
-/* ─── Premium Scrollbar ─── */
-::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
+@keyframes ring-expand {
+  0% {
+    box-shadow: 0 0 0 0 currentColor;
+    opacity: 0.6;
+  }
+
+  100% {
+    box-shadow: 0 0 0 6px transparent;
+    opacity: 0;
+  }
 }
 
-::-webkit-scrollbar-track {
-  background: transparent;
+.status-ring {
+  animation: ring-expand 0.6s ease-out forwards;
 }
 
-::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.08);
-  border-radius: 4px;
-  transition: background 0.2s ease;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.15);
-}
-
-/* ─── Terminal output ─── */
-.terminal-output {
-  font-family: 'Geist Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
-  font-size: 12px;
-  line-height: 1.65;
-  white-space: pre-wrap;
-  word-break: break-all;
-}
-
-/* ─── Blinking cursor (streaming) ─── */
 @keyframes blink {
 
   0%,
@@ -370,206 +718,12 @@ body>div:first-child {
   display: inline-block;
   width: 2px;
   height: 1em;
-  background: var(--accent);
+  background: var(--text-primary);
   margin-left: 1px;
   vertical-align: text-bottom;
   animation: blink 1s step-start infinite;
 }
 
-/* ─── Focus ring — refined ─── */
-*:focus-visible {
-  outline: 1px solid rgba(124, 58, 237, 0.3);
-  outline-offset: -1px;
-  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
-}
-
-/* ─── Select dropdown ─── */
-select option {
-  background: var(--bg-primary);
-  color: var(--text-secondary);
-}
-
-/* ─── Gradient Border Utility ─── */
-.gradient-border {
-  position: relative;
-}
-
-.gradient-border::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  padding: 1px;
-  background: linear-gradient(135deg, rgba(124, 58, 237, 0.2), rgba(6, 182, 212, 0.1), transparent);
-  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  pointer-events: none;
-}
-
-/* ─── Resize Handle Glow ─── */
-.resize-handle {
-  transition: background-color 0.2s ease, box-shadow 0.2s ease;
-}
-
-.resize-handle:hover {
-  background-color: rgba(124, 58, 237, 0.3) !important;
-  box-shadow: 0 0 8px rgba(124, 58, 237, 0.2);
-}
-
-/* ─── Smooth Interactions ─── */
-button,
-a,
-select,
-input,
-textarea {
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-button:active:not(:disabled) {
-  transform: scale(0.97);
-}
-
-button:disabled,
-button[disabled] {
-  opacity: 0.4;
-  filter: saturate(0.3);
-  cursor: not-allowed;
-}
-
-input[type="text"]:focus,
-input[type="password"]:focus,
-textarea:focus {
-  border-color: rgba(124, 58, 237, 0.4);
-  box-shadow:
-    inset 0 1px 3px rgba(0, 0, 0, 0.2),
-    0 0 0 3px rgba(124, 58, 237, 0.1);
-}
-
-/* ─── Premium Button ─── */
-.btn-premium {
-  background: linear-gradient(135deg, #fafafa 0%, #e4e4e7 100%);
-  color: #09090b;
-  font-weight: 500;
-  border: none;
-  position: relative;
-  overflow: hidden;
-  transition: all 0.2s ease;
-}
-
-.btn-premium:hover {
-  background: linear-gradient(135deg, #ffffff 0%, #f4f4f5 100%);
-  box-shadow: 0 0 20px -5px rgba(255, 255, 255, 0.3);
-  transform: translateY(-1px);
-}
-
-.btn-premium:active {
-  transform: translateY(0) scale(0.98);
-}
-
-.btn-premium:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-  transform: none;
-  box-shadow: none;
-}
-
-/* ─── Panel Header ─── */
-.panel-header {
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  background: rgba(9, 9, 11, 0.8);
-  border-bottom: 1px solid var(--border-subtle);
-}
-
-/* ─── Tab Active Gradient Underline ─── */
-.tab-active {
-  position: relative;
-}
-
-.tab-active::after {
-  content: '';
-  position: absolute;
-  bottom: -1px;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: linear-gradient(90deg, var(--accent), var(--cyan-accent));
-  border-radius: 2px 2px 0 0;
-}
-
-/* ─── Floating Particles (Welcome Screen) ─── */
-@keyframes float-particle {
-
-  0%,
-  100% {
-    transform: translate(0, 0) scale(1);
-    opacity: 0.3;
-  }
-
-  33% {
-    transform: translate(10px, -20px) scale(1.1);
-    opacity: 0.6;
-  }
-
-  66% {
-    transform: translate(-5px, -10px) scale(0.9);
-    opacity: 0.4;
-  }
-}
-
-/* ─── Spin once (refresh button) ─── */
-@keyframes spin-once {
-  from {
-    transform: rotate(0deg);
-  }
-
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.spin-once {
-  animation: spin-once 0.5s ease;
-}
-
-/* ─── Writing Pulse (File Tree Active Write Indicator) ─── */
-@keyframes writing-pulse {
-
-  0%,
-  100% {
-    background-color: rgba(124, 58, 237, 0.05);
-  }
-
-  50% {
-    background-color: rgba(124, 58, 237, 0.12);
-  }
-}
-
-.writing-pulse {
-  animation: writing-pulse 1.5s ease-in-out infinite;
-}
-
-/* ─── Skeleton Shimmer ─── */
-@keyframes shimmer {
-  0% {
-    background-position: -200% 0;
-  }
-
-  100% {
-    background-position: 200% 0;
-  }
-}
-
-.skeleton {
-  background: linear-gradient(90deg, rgba(255, 255, 255, 0.03) 25%, rgba(255, 255, 255, 0.06) 50%, rgba(255, 255, 255, 0.03) 75%);
-  background-size: 200% 100%;
-  animation: shimmer 1.8s ease-in-out infinite;
-  border-radius: 6px;
-}
-
-/* ─── Streaming Dots Bounce ─── */
 @keyframes dot-bounce {
 
   0%,
@@ -588,16 +742,74 @@ textarea:focus {
   animation: dot-bounce 1.2s ease-in-out infinite;
 }
 
-/* ─── Send Button Pulse Glow ─── */
+/* The file tree's "an agent is writing this file right now" tint. This is a
+   legitimate use of color: it is the coder agent's identity hue. */
+@keyframes writing-pulse {
+
+  0%,
+  100% {
+    background-color: color-mix(in srgb, var(--agent-coder) 6%, transparent);
+  }
+
+  50% {
+    background-color: color-mix(in srgb, var(--agent-coder) 14%, transparent);
+  }
+}
+
+.writing-pulse {
+  animation: writing-pulse 1.5s ease-in-out infinite;
+}
+
+/* Text that reads as working without a spinner beside it — a highlight
+   travelling through the glyphs. Used by the chat's live status line, which is
+   the only thing standing in for the file cards that used to fill the
+   transcript, so it has to carry the sense of activity on its own.
+
+   The gradient is clipped to the text, so it needs a real color fallback for
+   anything that cannot do background-clip — hence `color` set first. */
+.shimmer-text {
+  color: var(--text-secondary);
+  background: linear-gradient(90deg,
+      var(--text-tertiary) 20%,
+      var(--text-primary) 50%,
+      var(--text-tertiary) 80%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: shimmer-text 2.2s linear infinite;
+}
+
+@keyframes shimmer-text {
+  0% {
+    background-position: 200% 0;
+  }
+
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Reduced motion: keep it legible, just stop it moving. */
+@media (prefers-reduced-motion: reduce) {
+  .shimmer-text {
+    animation: none;
+    -webkit-text-fill-color: var(--text-secondary);
+  }
+}
+
+/* Send button, mid-stream. Was a violet halo; monochrome now. */
 @keyframes pulse-glow {
 
   0%,
   100% {
-    box-shadow: 0 0 0 0 rgba(124, 58, 237, 0.4), 0 4px 12px -2px rgba(124, 58, 237, 0.2);
+    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.25),
+      0 4px 12px -2px rgba(255, 255, 255, 0.12);
   }
 
   50% {
-    box-shadow: 0 0 0 6px rgba(124, 58, 237, 0), 0 4px 20px -2px rgba(124, 58, 237, 0.35);
+    box-shadow: 0 0 0 6px rgba(255, 255, 255, 0),
+      0 4px 20px -2px rgba(255, 255, 255, 0.2);
   }
 }
 
@@ -605,25 +817,44 @@ textarea:focus {
   animation: pulse-glow 2s ease-in-out infinite;
 }
 
-/* ─── Staggered List Fade-In ─── */
-@keyframes stagger-fade-in {
+@keyframes spin-once {
   from {
-    opacity: 0;
-    transform: translateY(6px);
+    transform: rotate(0deg);
   }
 
   to {
-    opacity: 1;
-    transform: translateY(0);
+    transform: rotate(360deg);
   }
 }
 
-.stagger-item {
-  animation: stagger-fade-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  opacity: 0;
+.spin-once {
+  animation: spin-once 0.5s ease;
 }
 
-/* ─── Preview Loading Gradient ─── */
+/* ═══════════════════════════════════════════════════════════════════════════
+   LOADING
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton {
+  background: linear-gradient(90deg,
+      var(--surface) 25%,
+      var(--surface-hover) 50%,
+      var(--surface) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.8s ease-in-out infinite;
+  border-radius: 6px;
+}
+
 @keyframes gradient-placeholder {
   0% {
     background-position: 0% 50%;
@@ -639,12 +870,14 @@ textarea:focus {
 }
 
 .gradient-placeholder {
-  background: linear-gradient(135deg, rgba(124, 58, 237, 0.08), rgba(6, 182, 212, 0.06), rgba(124, 58, 237, 0.08));
+  background: linear-gradient(135deg,
+      rgba(255, 255, 255, 0.05),
+      rgba(255, 255, 255, 0.02),
+      rgba(255, 255, 255, 0.05));
   background-size: 200% 200%;
   animation: gradient-placeholder 3s ease infinite;
 }
 
-/* ─── Deploy Button Shimmer ─── */
 @keyframes btn-shimmer {
   0% {
     background-position: -200% center;
@@ -656,29 +889,45 @@ textarea:focus {
 }
 
 .btn-shimmer:hover {
-  background-image: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.08) 50%, transparent 100%);
+  background-image: linear-gradient(90deg,
+      transparent 0%,
+      var(--surface-hover) 50%,
+      transparent 100%);
   background-size: 200% 100%;
   animation: btn-shimmer 1.5s ease-in-out infinite;
 }
 
-/* ─── Status Ring Expansion ─── */
-@keyframes ring-expand {
-  0% {
-    box-shadow: 0 0 0 0 currentColor;
-    opacity: 0.6;
-  }
+/* ═══════════════════════════════════════════════════════════════════════════
+   CHROME
+   ═══════════════════════════════════════════════════════════════════════════ */
 
-  100% {
-    box-shadow: 0 0 0 6px transparent;
-    opacity: 0;
-  }
+/* Was a violet→cyan gradient underline. A solid neutral bar is the same
+   affordance without importing a second theme's palette. */
+.tab-active {
+  position: relative;
 }
 
-.status-ring {
-  animation: ring-expand 0.6s ease-out forwards;
+.tab-active::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--text-primary);
+  border-radius: 2px 2px 0 0;
 }
 
-/* ─── Marquee ─── */
+.resize-handle {
+  transition: background-color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out);
+}
+
+.resize-handle:hover {
+  background-color: var(--hairline-strong) !important;
+  box-shadow: 0 0 8px var(--surface-hover);
+}
+
 @keyframes marquee {
   0% {
     transform: translateX(0);
@@ -701,9 +950,29 @@ textarea:focus {
   animation-play-state: paused;
 }
 
-/* ─── Landing Page Loader Animations ─── */
+/* ═══════════════════════════════════════════════════════════════════════════
+   LANDING LOADER
+   ═══════════════════════════════════════════════════════════════════════════ */
 
-/* Logo entrance - scale and fade in */
+@keyframes float-particle {
+
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.3;
+  }
+
+  33% {
+    transform: translate(10px, -20px) scale(1.1);
+    opacity: 0.6;
+  }
+
+  66% {
+    transform: translate(-5px, -10px) scale(0.9);
+    opacity: 0.4;
+  }
+}
+
 @keyframes logo-entrance {
   from {
     opacity: 0;
@@ -716,8 +985,8 @@ textarea:focus {
   }
 }
 
-/* Logo breathing - subtle pulsing */
 @keyframes logo-breathe {
+
   0%,
   100% {
     transform: scale(1);
@@ -728,7 +997,6 @@ textarea:focus {
   }
 }
 
-/* Logo exit - scale up and fade out */
 @keyframes logo-exit {
   from {
     opacity: 1;
@@ -741,7 +1009,6 @@ textarea:focus {
   }
 }
 
-/* Hero heading morph entrance */
 @keyframes hero-morph-entrance {
   from {
     opacity: 0;
@@ -754,7 +1021,6 @@ textarea:focus {
   }
 }
 
-/* Loader fade out */
 @keyframes loader-fade-out {
   from {
     opacity: 1;
@@ -765,9 +1031,8 @@ textarea:focus {
   }
 }
 
-/* Animation utility classes */
 .animate-logo-entrance {
-  animation: logo-entrance 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: logo-entrance 0.6s var(--ease-out) forwards;
 }
 
 .animate-logo-breathe {
@@ -775,90 +1040,15 @@ textarea:focus {
 }
 
 .animate-logo-exit {
-  animation: logo-exit 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: logo-exit 0.6s var(--ease-out) forwards;
 }
 
 .animate-hero-morph {
-  animation: hero-morph-entrance 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: hero-morph-entrance 0.6s var(--ease-out) forwards;
   animation-delay: 0.3s;
   opacity: 0;
 }
 
 .animate-loader-fade-out {
-  animation: loader-fade-out 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
-@theme inline {
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-  --radius-2xl: calc(var(--radius) + 8px);
-  --radius-3xl: calc(var(--radius) + 12px);
-  --radius-4xl: calc(var(--radius) + 16px);
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
-  --color-chart-1: var(--chart-1);
-  --color-chart-2: var(--chart-2);
-  --color-chart-3: var(--chart-3);
-  --color-chart-4: var(--chart-4);
-  --color-chart-5: var(--chart-5);
-  --color-sidebar: var(--sidebar);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-ring: var(--sidebar-ring);
-}
-
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  animation: loader-fade-out 0.8s var(--ease-out) forwards;
 }

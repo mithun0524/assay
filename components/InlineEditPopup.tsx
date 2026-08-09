@@ -73,11 +73,11 @@ export function InlineEditPopup({
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="bg-[#18181b] border border-violet-500/30 rounded-xl shadow-2xl overflow-hidden">
+            <div className="bg-[#18181b] border border-white/[0.12] rounded-xl shadow-2xl overflow-hidden">
               {/* Header */}
-              <div className="flex items-center gap-2 px-3 py-2 bg-violet-500/10 border-b border-violet-500/20">
-                <Sparkles className="w-3.5 h-3.5 text-violet-400" />
-                <span className="text-xs font-medium text-violet-300">AI Edit</span>
+              <div className="flex items-center gap-2 px-3 py-2 bg-white/[0.04] border-b border-white/[0.08]">
+                <Sparkles className="w-3.5 h-3.5 text-zinc-300" />
+                <span className="text-xs font-medium text-zinc-200">AI Edit</span>
                 {selectedText && (
                   <span className="ml-auto text-[10px] text-zinc-500">
                     {selectedText.split('\n').length} lines selected
@@ -105,7 +105,7 @@ export function InlineEditPopup({
                   className={cn(
                     'w-full px-3 py-2 rounded-lg text-xs text-zinc-200',
                     'bg-white/[0.04] border border-white/[0.06]',
-                    'focus:outline-none focus:border-violet-500/40 focus:shadow-[0_0_0_1px_rgba(124,58,237,0.15)]',
+                    'focus:outline-none focus:border-white/45 focus:shadow-[0_0_0_3px_rgba(255,255,255,0.08)]',
                     'placeholder:text-zinc-600',
                     'transition-all',
                     'disabled:opacity-50 disabled:cursor-not-allowed'
@@ -122,7 +122,7 @@ export function InlineEditPopup({
                     disabled={!instruction.trim() || isLoading}
                     className={cn(
                       'px-3 py-1.5 text-xs font-medium rounded-lg transition-all',
-                      'bg-violet-600 text-white hover:bg-violet-500',
+                      'bg-zinc-50 text-zinc-950 hover:bg-white',
                       'disabled:opacity-50 disabled:cursor-not-allowed',
                       'flex items-center gap-1.5'
                     )}

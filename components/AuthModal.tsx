@@ -107,7 +107,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
               {/* OAuth buttons */}
               <button
                 onClick={() => signInWithGitHub()}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-violet-600/90 text-white hover:bg-violet-500 transition-all"
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-zinc-50 text-zinc-950 hover:bg-white transition-all"
               >
                 <RiGithubLine size={18} />
                 Continue with GitHub
@@ -138,7 +138,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
                   className={cn(
                     'w-full px-3 py-2.5 rounded-xl text-sm text-zinc-200',
                     'bg-white/[0.04] border border-white/[0.06]',
-                    'focus:outline-none focus:border-violet-500/40',
+                    'focus:outline-none focus:border-white/45',
                     'placeholder:text-zinc-600 transition-all'
                   )}
                 />
@@ -151,7 +151,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
                   className={cn(
                     'w-full px-3 py-2.5 rounded-xl text-sm text-zinc-200',
                     'bg-white/[0.04] border border-white/[0.06]',
-                    'focus:outline-none focus:border-violet-500/40',
+                    'focus:outline-none focus:border-white/45',
                     'placeholder:text-zinc-600 transition-all'
                   )}
                 />
@@ -186,7 +186,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
                     Don&apos;t have an account?{' '}
                     <button
                       onClick={() => { setMode('signup'); setError(null); }}
-                      className="text-violet-400 hover:text-violet-300 transition-colors"
+                      className="text-zinc-300 hover:text-zinc-50 transition-colors"
                     >
                       Sign Up
                     </button>
@@ -196,7 +196,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
                     Already have an account?{' '}
                     <button
                       onClick={() => { setMode('signin'); setError(null); }}
-                      className="text-violet-400 hover:text-violet-300 transition-colors"
+                      className="text-zinc-300 hover:text-zinc-50 transition-colors"
                     >
                       Sign In
                     </button>

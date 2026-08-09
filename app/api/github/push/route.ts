@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { pushToRepository } from '@/lib/github-server';
-import { requireAuth, checkCsrf, rateLimit, safeError } from '@/lib/api-auth';
+import { pushToRepository, githubErrorResponse } from '@/lib/github-server';
+import { requireAuth, checkCsrf, rateLimit } from '@/lib/api-auth';
 
 const SAFE_NAME = /^[a-zA-Z0-9._-]{1,100}$/;
 const MAX_FILES = 500;
@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: `Too many files (max ${MAX_FILES})` }, { status: 400 });
   }
   for (const [, entry] of fileEntries) {
-    const content = (entry as any)?.content;
+    const content = (entry as { content?: unknown } | null)?.content;
     if (typeof content === 'string' && content.length > MAX_FILE_SIZE) {
       return NextResponse.json({ error: 'File too large (max 1 MB per file)' }, { status: 400 });
     }
@@ -54,10 +54,6 @@ export async function POST(request: NextRequest) {
     await pushToRepository(owner, repo, files, commitMessage, branch);
     return NextResponse.json({ success: true });
   } catch (err) {
-    const msg = err instanceof Error && err.message?.includes('not linked')
-      ? 'GitHub account not linked'
-      : safeError(err, 'Failed to push to repository');
-    const status = msg.includes('not linked') ? 403 : 500;
-    return NextResponse.json({ error: msg }, { status });
+    return githubErrorResponse(err, 'Failed to push to repository');
   }
 }

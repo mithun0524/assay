@@ -82,7 +82,7 @@ export function DiffViewer() {
                   'w-full p-3 mb-1 rounded-lg text-left transition-all',
                   'border border-white/[0.06]',
                   selectedFile === change.filePath
-                    ? 'bg-zinc-800 border-violet-500/50'
+                    ? 'bg-zinc-800 border-white/20'
                     : 'hover:bg-zinc-800/50'
                 )}
               >

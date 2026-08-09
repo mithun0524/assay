@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid JSON body.' }, { status: 400 });
   }
 
-  const query = body.query?.trim();
+  const query = typeof body.query === 'string' ? body.query.trim().slice(0, 400) : '';
   if (!query) {
     return NextResponse.json({ error: 'Missing "query" field.' }, { status: 400 });
   }
@@ -37,6 +37,8 @@ export async function POST(req: NextRequest) {
   try {
     const res = await fetch('https://api.tavily.com/search', {
       method: 'POST',
+      // Without this a hung upstream holds the function open until it times out.
+      signal: AbortSignal.timeout(15_000),
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         api_key: apiKey,

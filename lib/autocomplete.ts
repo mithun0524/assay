@@ -72,9 +72,6 @@ export function registerAutocompleteProvider(
           }
 
           const language = model.getLanguageId();
-          const apiKey = typeof window !== 'undefined'
-            ? localStorage.getItem('openrouter-api-key')
-            : null;
 
           abortController = new AbortController();
 
@@ -86,7 +83,6 @@ export function registerAutocompleteProvider(
                 prefix: textUntilPosition,
                 suffix: textAfterPosition,
                 language,
-                apiKey,
               }),
               signal: abortController.signal,
             });

@@ -10,7 +10,8 @@ import { SYSTEM_PROMPT } from '@/lib/systemPrompt';
 import { buildFileContext } from '@/lib/contextBuilder';
 import { routeToAgent, getAgent, getAgentReasoning, AgentContext, classifyWithLLM } from '@/lib/agents';
 import type { AgentRole } from '@/lib/agents';
-import { stripAnsi, detectTerminalErrors } from '@/lib/terminalErrorDetector';
+import { planExecution, decideAfterQa, shouldRunQa } from '@/lib/agents/orchestrator';
+import { isValidModelId, resolveModelId } from '@/lib/openrouter';
 
 function estimateTokens(text: string) {
   return Math.ceil(text.length / 4);
@@ -33,24 +34,27 @@ function getLanguageFromPath(path: string): string {
 }
 
 
-function extractTerminalErrors(output: string): string | null {
-  const errors = detectTerminalErrors(stripAnsi(output));
-  return errors ? errors.join('\n') : null;
-}
-
 export function useChat() {
   const abortRef = useRef<AbortController | null>(null);
   const retryCountRef = useRef(0);
   const searchRetryRef = useRef(0);
-  const submitRef = useRef<((text: string, images?: string[]) => Promise<void>) | null>(null);
+  const inspectRetryRef = useRef(0);
+  const submitRef = useRef<((text: string, images?: string[], opts?: { kind?: 'qa' | 'inspect' | 'search' }) => Promise<void>) | null>(null);
   const MAX_AUTO_RETRIES = 2;
   const MAX_SEARCH_RETRIES = 2;
+  const MAX_INSPECT_ROUNDS = 3;
 
   // Read store actions/state on demand — no reactive subscription
   const gs = useStore.getState;
 
-  const submit = useCallback(async (userText: string, images: string[] = []) => {
+  const submit = useCallback(async (
+    userText: string,
+    images: string[] = [],
+    opts: { kind?: 'qa' | 'inspect' | 'search' } = {}
+  ) => {
     if ((!userText.trim() && images.length === 0) || gs().isStreaming) return;
+
+    const isQaRun = opts.kind === 'qa';
 
     const userMsg: Message = {
       id: crypto.randomUUID(),
@@ -59,6 +63,7 @@ export function useChat() {
       images,
       displayContent: userText,
       timestamp: Date.now(),
+      kind: opts.kind,
     };
     gs().addMessage(userMsg);
     gs().clearTerminalErrors();
@@ -76,14 +81,15 @@ export function useChat() {
     gs().clearPreviewErrors();
     abortRef.current = new AbortController();
 
-    // Reset retry counter on real user messages (not auto-retries)
-    if (
-      !userText.startsWith('The dev server encountered errors') &&
-      !userText.startsWith("I'm getting the following error") &&
-      !userText.startsWith('Here are the web search results you requested')
-    ) {
+    // Reset retry counters on real user messages (not QA/search continuations)
+    const isContinuation =
+      userText.startsWith('Here are the web search results you requested') ||
+      userText.startsWith('Here is the current state of the sandbox');
+    if (!isQaRun && !isContinuation) {
       retryCountRef.current = 0;
       searchRetryRef.current = 0;
+      inspectRetryRef.current = 0;
+      gs().setQaStatus(null);
     }
 
     // Snapshot current files before AI writes — enables undo
@@ -92,6 +98,9 @@ export function useChat() {
     let fullContent = '';
     const pendingShells: string[] = [];
     const pendingSearches: string[] = [];
+    const pendingReads: string[] = [];
+    const pendingLists: string[] = [];
+    const pendingDeletes: string[] = [];
     let pendingStart: string | null = null;
     let firstFileWritten = false;
     const collectedFileActions: Array<{ filePath: string; content: string }> = [];
@@ -121,13 +130,21 @@ export function useChat() {
         pendingStart = action.command;
       } else if (action.type === 'search') {
         pendingSearches.push(action.query);
+      } else if (action.type === 'read') {
+        pendingReads.push(action.filePath);
+      } else if (action.type === 'list') {
+        pendingLists.push(action.pattern);
+      } else if (action.type === 'delete') {
+        pendingDeletes.push(action.filePath);
       }
     });
 
     try {
       // User-triggered web search: prepend results to the user message
       let searchPrefix = '';
-      if (gs().webSearchEnabled && userText.trim() && !userText.startsWith('Here are the web search results you requested')) {
+      // Toggle = "always research first". With it off the agent can still emit its
+      // own <boltAction type="search"> whenever it doesn't know something.
+      if (gs().webSearchEnabled && !isQaRun && userText.trim() && !userText.startsWith('Here are the web search results you requested')) {
         try {
           gs().setIsSearching(true);
           gs().setGenerationPhase('searching');
@@ -170,7 +187,7 @@ export function useChat() {
       const agentContext: AgentContext = {
         hasProject: gs().hasProject,
         fileCount: Object.keys(gs().files).length,
-        hasErrors: gs().previewErrors.length > 0,
+        hasErrors: gs().previewErrors.length > 0 || gs().terminalErrors.length > 0,
         lastMessage: userText,
         hasImages: images.length > 0,
       };
@@ -178,7 +195,7 @@ export function useChat() {
       // LLM-based classification with regex fallback
       let agentRole: AgentRole;
       let agentModel: string | undefined;
-      const classification = await classifyWithLLM(userText, agentContext, gs().apiKey);
+      const classification = await classifyWithLLM(userText, agentContext);
       if (classification) {
         agentRole = classification.role;
         agentModel = classification.model;
@@ -191,6 +208,12 @@ export function useChat() {
 
       // Set active agent in store
       gs().setActiveAgent(agentRole);
+      gs().setLastAssistantAgent(agentRole);
+      gs().setActiveAgentReasoning(agentReasoning);
+
+      // An explicit model pick in the UI wins; 'auto' defers to the router.
+      const userModel = gs().selectedModel;
+      const model = isValidModelId(userModel) ? userModel : resolveModelId(agentModel || agent.model);
 
       // Use agent's system prompt combined with base prompt
       // If there's a project loaded, emphasize we're editing existing code
@@ -204,8 +227,8 @@ export function useChat() {
       const historyTokens = history.reduce((acc, m) => {
         let contentTokens = 0;
         if (Array.isArray(m.content)) {
-          contentTokens = m.content.reduce((subAcc: number, item: any) => {
-            if (item.type === 'text') return subAcc + estimateTokens(item.text);
+          contentTokens = m.content.reduce((subAcc: number, item: { type: string; text?: string }) => {
+            if (item.type === 'text') return subAcc + estimateTokens(item.text ?? '');
             if (item.type === 'image_url') return subAcc + 1000;
             return subAcc;
           }, 0);
@@ -214,7 +237,7 @@ export function useChat() {
         }
         return acc + contentTokens;
       }, 0);
-      let baseUsage = systemTokens + historyTokens;
+      const baseUsage = systemTokens + historyTokens;
       gs().setTokenUsage(baseUsage);
 
       const res = await fetch('/api/chat', {
@@ -222,8 +245,7 @@ export function useChat() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages: history,
-          model: agentModel || agent.model, // LLM-picked model or agent default
-          apiKey: gs().apiKey,
+          model, // user pick, else LLM/agent choice
           fileContext,
           systemPrompt, // Pass custom system prompt
           temperature: agent.temperature, // Use agent's temperature
@@ -282,7 +304,8 @@ export function useChat() {
       gs().updateLastAssistantMessage(fullContent, formatForDisplay(fullContent));
       gs().setTokenUsage(baseUsage + estimateTokens(fullContent));
 
-      parser.flush();
+      // Wait for every queued file write to land before running shell commands.
+      await parser.flush();
 
       // AI-requested search: execute pending searches and auto-continue
       if (pendingSearches.length > 0 && searchRetryRef.current < MAX_SEARCH_RETRIES) {
@@ -305,13 +328,46 @@ export function useChat() {
             const searchResultsMsg = `Here are the web search results you requested:\n\n${results.join('\n\n')}\n\nPlease continue with the task using this information.`;
             gs().setIsSearching(false);
             gs().setIsStreaming(false);
-            submitRef.current?.(searchResultsMsg);
+            submitRef.current?.(searchResultsMsg, [], { kind: 'search' });
             return;
           }
         } catch (e) {
           console.warn('AI-requested search failed:', e);
         } finally {
           gs().setIsSearching(false);
+        }
+      }
+
+      // ── Sandbox inspection ──
+      // The agent asked to read/list/delete. Deletions apply immediately; reads
+      // and lists are answered with ground truth and the turn continues.
+      if (pendingReads.length > 0 || pendingLists.length > 0 || pendingDeletes.length > 0) {
+        const { buildInspectionReport, hasInspection, matchFiles } = await import('@/lib/agents/inspector');
+        const { readFileFromSandbox, deleteFileFromSandbox } = await import('@/lib/fileSystem');
+
+        const deletes = [] as Array<{ path: string; ok: boolean }>;
+        for (const path of pendingDeletes.slice(0, 20)) {
+          deletes.push({ path, ok: await deleteFileFromSandbox(path) });
+        }
+
+        const reads = [] as Array<{ path: string; content: string | null }>;
+        for (const path of pendingReads.slice(0, 5)) {
+          const fromSandbox = await readFileFromSandbox(path);
+          reads.push({ path, content: fromSandbox ?? gs().files[path]?.content ?? null });
+        }
+
+        const allPaths = Object.keys(gs().files);
+        const lists = pendingLists.slice(0, 3).map((pattern) => ({
+          pattern,
+          matches: matchFiles(allPaths, pattern),
+        }));
+
+        const result = { reads, lists, deletes };
+        if (hasInspection(result) && inspectRetryRef.current < MAX_INSPECT_ROUNDS) {
+          inspectRetryRef.current++;
+          gs().setIsStreaming(false);
+          await submitRef.current?.(buildInspectionReport(result), [], { kind: 'inspect' });
+          return;
         }
       }
 
@@ -335,82 +391,51 @@ export function useChat() {
         return;
       }
 
-      // Run shell commands sequentially after all file writes.
-      // Dev-server-like commands (npm run dev, npm start, vite, etc.) are
-      // long-running and never exit, so route them through startDevServerInSandbox
-      // instead of runShellInSandbox which awaits process.exit.
-      const DEV_SERVER_RE = /^(npm\s+(run\s+dev|start)|yarn\s+(dev|start)|pnpm\s+(dev|start)|npx\s+vite|vite)\b/;
-      const INSTALL_CMD_RE = /^(npm\s+(install|i|ci)\b|yarn(\s+install)?\b|pnpm\s+(install|i)\b)/;
-      let shellTriggeredServer = false;
+      // ── Execute what the model asked for ──
+      // The plan (what to run, whether to install, whether to (re)start the
+      // server) is decided by a pure function so it can be tested directly.
+      const { readPackageJson } = await import('@/lib/sandboxUtils');
+      const pkg = readPackageJson();
+      const plan = planExecution({
+        shells: pendingShells,
+        start: pendingStart,
+        wroteFiles: firstFileWritten,
+        serverWasRunning: gs().sandboxStatus === 'ready' || !!gs().previewUrl,
+        hasRunnableProject: Boolean(pkg?.scripts?.dev || pkg?.scripts?.start),
+      });
 
-      if (pendingShells.length > 0) {
-        const hasInstallCmd = pendingShells.some((cmd) => INSTALL_CMD_RE.test(cmd.trim()));
-        const prevSandboxStatus = gs().sandboxStatus;
-        const wasServerRunning = prevSandboxStatus === 'ready' || !!gs().previewUrl;
+      if (plan.stopServerFirst) {
+        const { stopDevServer } = await import('@/lib/fileSystem');
+        await stopDevServer();
+      }
 
-        // Stop dev server before running shell commands (like Ctrl+C)
-        if (wasServerRunning) {
-          const { stopDevServer } = await import('@/lib/fileSystem');
-          await stopDevServer();
-        }
-
+      if (plan.shellCommands.length > 0) {
         gs().setGenerationPhase('installing');
-        if (hasInstallCmd) {
-          gs().setSandboxStatus('installing');
-        }
-        for (const cmd of pendingShells) {
-          if (DEV_SERVER_RE.test(cmd.trim())) {
-            // Will be handled as a server start below
-            shellTriggeredServer = true;
-          } else {
-            await runShellInSandbox(cmd);
-          }
-        }
-
-        // If an install command ran but no dev server start follows,
-        // automatically restart the dev server if one was previously running.
-        if (hasInstallCmd && !shellTriggeredServer && pendingStart === null) {
-          if (wasServerRunning) {
-            shellTriggeredServer = true;
-          } else {
-            const currentStatus = gs().sandboxStatus;
-            if (currentStatus === 'installing' || currentStatus === 'starting') {
-              gs().setSandboxStatus('idle');
-            }
-          }
-        } else if (!shellTriggeredServer && pendingStart === null) {
-          // If server was running before shell commands, restart it
-          if (wasServerRunning) {
-            shellTriggeredServer = true;
-          } else {
-            // Restore sandboxStatus if no dev server start follows and status is still transitional
-            const currentStatus = gs().sandboxStatus;
-            if (currentStatus === 'installing' || currentStatus === 'starting') {
-              gs().setSandboxStatus('idle');
-            }
-          }
+        if (plan.hasInstallCommand) gs().setSandboxStatus('installing');
+        for (const cmd of plan.shellCommands) {
+          await runShellInSandbox(cmd);
         }
       }
 
-      // Start dev server last — always install dependencies first
-      if (pendingStart !== null || shellTriggeredServer) {
-        // Check if npm install was already run as a shell command
-        const alreadyInstalled = pendingShells.some(
-          (cmd) => /npm\s+install|npm\s+i\b|yarn\s+install|pnpm\s+install/.test(cmd)
-        );
-        if (!alreadyInstalled && firstFileWritten) {
-          gs().setGenerationPhase('installing');
-          const { installDependencies } = await import('@/lib/fileSystem');
-          await installDependencies();
-        }
+      if (plan.runInstall) {
+        gs().setGenerationPhase('installing');
+        const { installDependencies } = await import('@/lib/fileSystem');
+        await installDependencies();
+      }
+
+      if (plan.startServer) {
         gs().setGenerationPhase('starting');
-        await startDevServerInSandbox();
+        await startDevServerInSandbox().catch((err) => {
+          // The sandbox already recorded the failure; let QA pick it up
+          // instead of aborting the whole turn.
+          console.warn('[useChat] dev server failed to start:', err);
+        });
+      } else if (plan.resetStatusToIdle) {
+        const currentStatus = gs().sandboxStatus;
+        if (currentStatus === 'installing' || currentStatus === 'starting') {
+          gs().setSandboxStatus('idle');
+        }
       }
-
-      gs().setGenerationPhase('done');
-
-      // After a brief moment, reset to idle
-      setTimeout(() => gs().setGenerationPhase('idle'), 3000);
 
       // Persist to IndexedDB
       let projectId = gs().currentProjectId;
@@ -426,42 +451,57 @@ export function useChat() {
         await saveProject(projectId, gs().files, gs().messages).catch(console.error);
       }
 
-      // Auto-forward errors to AI (terminal + preview) with retry limit
-      // Wait for terminal output to settle, then check for errors
-      setTimeout(() => {
-        const currentState = gs();
-        const { terminalOutput, sandboxStatus, previewErrors, isStreaming: stillStreaming } = currentState;
-        if (stillStreaming) return;
-        if (retryCountRef.current >= MAX_AUTO_RETRIES) return;
+      // ── QA gate ──
+      // Verify the app actually builds and runs before handing it over. Any
+      // failure is delegated back to the debugger agent automatically.
+      if (shouldRunQa({ wroteFiles: firstFileWritten, shells: pendingShells, start: pendingStart, awaitingReview: false })) {
+        gs().setGenerationPhase('verifying');
+        const { runQaCheck, buildQaFixPrompt, summarizeQaIssues } = await import('@/lib/qaGate');
+        const issues = await runQaCheck(abortRef.current?.signal);
+        const decision = decideAfterQa(issues, retryCountRef.current, MAX_AUTO_RETRIES);
 
-        // Check terminal errors
-        if (sandboxStatus === 'error' && terminalOutput) {
-          const errors = extractTerminalErrors(terminalOutput);
-          if (errors) {
-            retryCountRef.current++;
-            const errorMsg = `The dev server encountered errors (auto-retry ${retryCountRef.current}/${MAX_AUTO_RETRIES}). Please fix them:\n\n\`\`\`\n${errors}\n\`\`\``;
-            submitRef.current?.(errorMsg);
-            return;
-          }
-        }
-
-        // Check preview iframe errors
-        if (previewErrors.length > 0) {
-          retryCountRef.current++;
-          const errorText = previewErrors.join('\n');
+        if (decision.action === 'fix') {
+          retryCountRef.current = decision.attempt;
+          gs().setQaStatus({
+            state: 'fixing',
+            summary: summarizeQaIssues(issues),
+            attempt: retryCountRef.current,
+            maxAttempts: MAX_AUTO_RETRIES,
+          });
           gs().clearPreviewErrors();
-          const errorMsg = `I'm getting the following error(s) in my app preview (auto-retry ${retryCountRef.current}/${MAX_AUTO_RETRIES}). Please fix them:\n\n\`\`\`\n${errorText}\n\`\`\``;
-          submitRef.current?.(errorMsg);
+          gs().clearTerminalErrors();
+          gs().setIsStreaming(false);
+          await submitRef.current?.(
+            buildQaFixPrompt(issues, retryCountRef.current, MAX_AUTO_RETRIES),
+            [],
+            { kind: 'qa' }
+          );
+          return;
         }
-      }, 3000);
+
+        gs().setQaStatus(
+          decision.action === 'pass'
+            ? { state: 'passed', summary: 'QA passed — the app builds and runs', attempt: retryCountRef.current, maxAttempts: MAX_AUTO_RETRIES }
+            : { state: 'failed', summary: summarizeQaIssues(issues), attempt: retryCountRef.current, maxAttempts: MAX_AUTO_RETRIES }
+        );
+      }
+
+      gs().setGenerationPhase('done');
+      setTimeout(() => gs().setGenerationPhase('idle'), 3000);
 
     } catch (err: unknown) {
       if ((err as Error).name !== 'AbortError') {
         const msg = (err as Error).message;
-        gs().updateLastAssistantMessage(
-          `Error: ${msg}`,
-          `❌ **Error:** ${msg}\n\nPlease check your OpenRouter API key and try again.`
-        );
+        // Say what happened and what to do about it — the old copy blamed the
+        // API key even when the real cause was a signed-out session.
+        const hint = /not authenticated|authentication failed|401|sign in/i.test(msg)
+          ? 'Your session expired. Sign in again to keep building.'
+          : /no api key|api key/i.test(msg)
+            ? 'Add your OpenRouter key in Settings to continue.'
+            : /rate limit|429/i.test(msg)
+              ? 'Wait for the countdown in the composer, then send again.'
+              : 'Send the message again, or rephrase it if this keeps happening.';
+        gs().updateLastAssistantMessage(`Error: ${msg}`, `**${msg}**\n\n${hint}`);
         gs().setSandboxStatus('error');
       }
       gs().setGenerationPhase('idle');

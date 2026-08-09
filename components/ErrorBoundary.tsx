@@ -42,7 +42,7 @@ export class ErrorBoundary extends Component<Props, State> {
                         <h2 className="text-lg font-semibold text-zinc-100">
                             Something went wrong
                         </h2>
-                        <p className="text-sm text-zinc-500 leading-relaxed">
+                        <p className="text-sm text-zinc-400 leading-relaxed">
                             An unexpected error occurred. You can try to recover or reload the page.
                         </p>
                         {this.state.error && (
@@ -59,7 +59,7 @@ export class ErrorBoundary extends Component<Props, State> {
                             </button>
                             <button
                                 onClick={this.handleReload}
-                                className="flex items-center gap-1.5 px-4 py-2 text-xs font-medium rounded-lg bg-violet-600/90 text-white hover:bg-violet-500 transition-all"
+                                className="flex items-center gap-1.5 px-4 py-2 text-xs font-medium rounded-lg bg-zinc-50 text-zinc-950 hover:bg-white transition-all"
                             >
                                 <RiRefreshLine className="w-3 h-3" />
                                 Reload Page

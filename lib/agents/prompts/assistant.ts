@@ -23,4 +23,10 @@ Guidelines:
 - Use markdown formatting (headings, lists, bold) for readability
 - If the question relates to the user's current project, reference relevant files
 - If the user actually wants code changes, tell them to rephrase as a code request
+
+When the question is about the user's own project, answer from the real files:
+<boltAction type="read" filePath="src/App.tsx"></boltAction> or
+<boltAction type="list">**</boltAction>.
+When it is about the wider world and you are not certain, search first:
+<boltAction type="search">specific query</boltAction>. Never guess at facts.
 `;

@@ -27,7 +27,7 @@ function getFileIcon(filename: string) {
     case 'json':
       return <RiFileSettingsLine className="w-4 h-4 text-amber-400" />;
     case 'css':
-      return <RiFileTextLine className="w-4 h-4 text-purple-400" />;
+      return <RiFileTextLine className="w-4 h-4 text-zinc-400" />;
     case 'html':
       return <RiFileTextLine className="w-4 h-4 text-orange-400" />;
     default:
@@ -238,10 +238,10 @@ function TreeNodeComponent({
         className={cn(
           'flex items-center gap-1.5 px-2 py-1 cursor-pointer rounded-md text-sm transition-all duration-150',
           isActive
-            ? 'bg-violet-500/10 text-zinc-200 border-l-2 border-violet-500 ml-0'
+            ? 'bg-white/[0.06] text-zinc-200 border-l-2 border-white/40 ml-0'
             : 'hover:bg-white/[0.04] text-zinc-400 hover:text-zinc-200 border-l-2 border-transparent hover:translate-x-0.5',
           isWriting && 'writing-pulse',
-          isDragTarget && 'bg-violet-500/20 border-l-2 border-violet-400'
+          isDragTarget && 'bg-white/[0.1] border-l-2 border-white/60'
         )}
         style={{ paddingLeft: depth * 12 + 8 }}
         onClick={handleClick}
@@ -267,7 +267,7 @@ function TreeNodeComponent({
         ) : (
           <>
             {isWriting && (
-              <span className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-pulse shrink-0" />
+              <span className="w-1.5 h-1.5 rounded-full bg-zinc-400 animate-pulse shrink-0" />
             )}
             {getFileIcon(node.name)}
           </>
@@ -278,7 +278,7 @@ function TreeNodeComponent({
             defaultValue={node.name}
             onKeyDown={handleRenameKeyDown}
             onBlur={onRenameCancel}
-            className="flex-1 bg-white/[0.06] border border-violet-500/40 rounded px-1 py-0.5 text-xs text-zinc-200 focus:outline-none min-w-0"
+            className="flex-1 bg-white/[0.06] border border-white/45 rounded px-1 py-0.5 text-xs text-zinc-200 focus:outline-none min-w-0"
             onClick={(e) => e.stopPropagation()}
           />
         ) : (
@@ -295,7 +295,7 @@ function TreeNodeComponent({
             placeholder="filename..."
             onKeyDown={handleCreateKeyDown}
             onBlur={onCreateCancel}
-            className="flex-1 bg-white/[0.06] border border-violet-500/40 rounded px-1 py-0.5 text-xs text-zinc-200 focus:outline-none min-w-0"
+            className="flex-1 bg-white/[0.06] border border-white/45 rounded px-1 py-0.5 text-xs text-zinc-200 focus:outline-none min-w-0"
           />
         </div>
       )}
@@ -309,7 +309,7 @@ function TreeNodeComponent({
             placeholder="folder name..."
             onKeyDown={handleCreateFolderKeyDown}
             onBlur={onCreateFolderCancel}
-            className="flex-1 bg-white/[0.06] border border-violet-500/40 rounded px-1 py-0.5 text-xs text-zinc-200 focus:outline-none min-w-0"
+            className="flex-1 bg-white/[0.06] border border-white/45 rounded px-1 py-0.5 text-xs text-zinc-200 focus:outline-none min-w-0"
           />
         </div>
       )}
@@ -626,7 +626,7 @@ export function FileTree({ tree }: FileTreeProps) {
             className={cn(
               'w-full pl-7 pr-7 py-1.5 rounded-lg text-xs text-zinc-200',
               'bg-white/[0.04] border border-white/[0.06]',
-              'focus:outline-none focus:border-violet-500/40',
+              'focus:outline-none focus:border-white/45',
               'placeholder:text-zinc-600',
               'transition-all'
             )}

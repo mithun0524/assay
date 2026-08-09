@@ -61,7 +61,7 @@ Please update the relevant CSS or Tailwind classes in the appropriate file to ma
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06]">
           <div className="flex items-center gap-2">
-            <RiPaletteLine className="w-4 h-4 text-violet-400" />
+            <RiPaletteLine className="w-4 h-4 text-zinc-400" />
             <h3 className="text-sm font-semibold text-zinc-100">Style Inspector</h3>
           </div>
           <button

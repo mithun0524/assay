@@ -116,8 +116,10 @@ export function WelcomeScreen({ onOpenProjects }: WelcomeScreenProps) {
         <div className="h-screen w-screen flex flex-col relative overflow-hidden bg-[#09090b]">
             {/* Aurora background */}
             <div className="absolute inset-0 z-[1] overflow-hidden pointer-events-none opacity-40">
+                {/* Neutral wash. Was a violet→cyan aurora; color in this
+                    product is reserved for agent identity and status. */}
                 <Aurora
-                    colorStops={['#7c3aed', '#06b6d4', '#7c3aed']}
+                    colorStops={['#3f3f46', '#a1a1aa', '#3f3f46']}
                     amplitude={1.2}
                     blend={0.6}
                     speed={0.3}

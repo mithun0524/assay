@@ -201,7 +201,7 @@ export function DeployModal({ isOpen, onClose }: DeployModalProps) {
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06]">
           <div className="flex items-center gap-2">
-            <RiRocketLine className="w-4 h-4 text-violet-400" />
+            <RiRocketLine className="w-4 h-4 text-zinc-400" />
             <h2 className="text-sm font-semibold text-zinc-100">Deploy to Vercel</h2>
           </div>
           <button
@@ -230,7 +230,7 @@ export function DeployModal({ isOpen, onClose }: DeployModalProps) {
                       onChange={(e) => setTokenInput(e.target.value)}
                       onKeyDown={(e) => e.key === 'Enter' && handleSaveToken()}
                       placeholder="Enter your Vercel token..."
-                      className="w-full pl-9 pr-3 py-2 text-xs bg-zinc-900/50 border border-white/[0.08] rounded-lg text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/20"
+                      className="w-full pl-9 pr-3 py-2 text-xs bg-zinc-900/50 border border-white/[0.08] rounded-lg text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-white/45 focus:ring-1 focus:ring-white/[0.08]"
                     />
                   </div>
                 </div>
@@ -241,7 +241,7 @@ export function DeployModal({ isOpen, onClose }: DeployModalProps) {
                     href="https://vercel.com/account/tokens"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-violet-400 hover:text-violet-300 underline underline-offset-2"
+                    className="text-zinc-100 hover:text-white underline underline-offset-2"
                   >
                     vercel.com/account/tokens
                   </a>
@@ -255,7 +255,7 @@ export function DeployModal({ isOpen, onClose }: DeployModalProps) {
                 className={cn(
                   'w-full py-2 text-xs font-medium rounded-lg transition-all',
                   tokenInput.trim() && !tokenLoading
-                    ? 'bg-violet-600/90 text-white hover:bg-violet-500 border border-violet-500/30'
+                    ? 'bg-zinc-50 text-zinc-950 hover:bg-white border border-white/[0.08]'
                     : 'bg-zinc-800 text-zinc-600 cursor-not-allowed'
                 )}
               >
@@ -288,9 +288,9 @@ export function DeployModal({ isOpen, onClose }: DeployModalProps) {
                   <span className="text-xs font-medium text-zinc-200">{fileCount} files</span>
                 </div>
                 {storedProjectId && (
-                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-500/10 border border-blue-500/20">
-                    <RiRefreshLine className="w-3 h-3 text-blue-400" />
-                    <span className="text-xs text-blue-400">Redeployment — same project URL</span>
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.08]">
+                    <RiRefreshLine className="w-3 h-3 text-zinc-300" />
+                    <span className="text-xs text-zinc-300">Redeployment — same project URL</span>
                   </div>
                 )}
               </div>
@@ -301,7 +301,7 @@ export function DeployModal({ isOpen, onClose }: DeployModalProps) {
                 className={cn(
                   'w-full py-2.5 text-xs font-medium rounded-lg transition-all',
                   fileCount > 0
-                    ? 'bg-violet-600/90 text-white hover:bg-violet-500 hover:shadow-[0_0_20px_-5px_rgba(124,58,237,0.4)] active:scale-[0.98] border border-violet-500/30'
+                    ? 'bg-zinc-50 text-zinc-950 hover:bg-white hover:shadow-[0_0_20px_-5px_rgba(255,255,255,0.35)] active:scale-[0.98] border border-white/[0.08]'
                     : 'bg-zinc-800 text-zinc-600 cursor-not-allowed'
                 )}
               >
@@ -325,12 +325,12 @@ export function DeployModal({ isOpen, onClose }: DeployModalProps) {
                 <div className="flex items-center gap-3">
                   <div className={cn(
                     'w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0',
-                    deployStatus !== 'QUEUED' ? 'bg-green-500/20' : 'bg-violet-500/20'
+                    deployStatus !== 'QUEUED' ? 'bg-green-500/20' : 'bg-white/[0.08]'
                   )}>
                     {deployStatus !== 'QUEUED' ? (
                       <RiCheckLine className="w-3 h-3 text-green-400" />
                     ) : (
-                      <RiLoader4Line className="w-3 h-3 text-violet-400 animate-spin" />
+                      <RiLoader4Line className="w-3 h-3 text-zinc-200 animate-spin" />
                     )}
                   </div>
                   <span className={cn(
@@ -346,13 +346,13 @@ export function DeployModal({ isOpen, onClose }: DeployModalProps) {
                   <div className={cn(
                     'w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0',
                     deployStatus === 'READY' ? 'bg-green-500/20' :
-                    deployStatus === 'BUILDING' ? 'bg-violet-500/20' :
+                    deployStatus === 'BUILDING' ? 'bg-white/[0.08]' :
                     'bg-zinc-800'
                   )}>
                     {deployStatus === 'READY' ? (
                       <RiCheckLine className="w-3 h-3 text-green-400" />
                     ) : deployStatus === 'BUILDING' ? (
-                      <RiLoader4Line className="w-3 h-3 text-violet-400 animate-spin" />
+                      <RiLoader4Line className="w-3 h-3 text-zinc-200 animate-spin" />
                     ) : (
                       <span className="w-2 h-2 rounded-full bg-zinc-600" />
                     )}
@@ -431,7 +431,7 @@ export function DeployModal({ isOpen, onClose }: DeployModalProps) {
                   href={`https://${deployment.url}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium rounded-lg bg-violet-600/90 text-white hover:bg-violet-500 border border-violet-500/30 transition-all"
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium rounded-lg bg-zinc-50 text-zinc-950 hover:bg-white border border-white/[0.08] transition-all"
                 >
                   <RiExternalLinkLine className="w-3.5 h-3.5" />
                   Visit Site
@@ -462,7 +462,7 @@ export function DeployModal({ isOpen, onClose }: DeployModalProps) {
 
               <button
                 onClick={() => setState('ready')}
-                className="w-full py-2 text-xs font-medium rounded-lg bg-violet-600/90 text-white hover:bg-violet-500 border border-violet-500/30 transition-all"
+                className="w-full py-2 text-xs font-medium rounded-lg bg-zinc-50 text-zinc-950 hover:bg-white border border-white/[0.08] transition-all"
               >
                 Try Again
               </button>

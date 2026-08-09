@@ -1,10 +1,12 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { RiCodeLine, RiComputerLine, RiTerminalLine, RiRefreshLine, RiDeleteBinLine, RiLoader4Line, RiErrorWarningLine, RiSparklingLine, RiCloseLine, RiShutDownLine, RiPlayLine } from '@remixicon/react';
 import { Smartphone, Tablet, Monitor, ExternalLink, Minus, Plus, AlertTriangle, Sparkles, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { useStore } from '@/lib/store';
+import { visibleSurfaces, surfaceToFocus, type SurfaceId, type SurfaceState } from '@/lib/surfaces';
+import { BuildSurface } from './BuildSurface';
 import { useChat } from '@/hooks/useChat';
 import { EditorPanel } from './EditorPanel';
 import { cn } from '@/lib/utils';
@@ -12,7 +14,13 @@ import { Terminal as TerminalComponent } from './Terminal';
 import { TerminalToolbar } from './TerminalToolbar';
 import { restartDevServer } from '@/lib/fileSystem';
 
-type WorkspaceTab = 'code' | 'preview' | 'terminal';
+/** Static map so Tailwind/Turbopack can see every icon at build time. */
+const SURFACE_ICON: Record<SurfaceId, React.ComponentType<{ className?: string }>> = {
+    build: RiLoader4Line,
+    app: RiComputerLine,
+    code: RiCodeLine,
+    logs: RiTerminalLine,
+};
 type DevicePreset = 'mobile' | 'tablet' | 'desktop';
 
 const DEVICE_WIDTHS: Record<DevicePreset, number | null> = {
@@ -22,39 +30,69 @@ const DEVICE_WIDTHS: Record<DevicePreset, number | null> = {
 };
 
 export function WorkspacePanel() {
-    const { previewUrl, sandboxStatus, terminalOutput, clearTerminal, previewErrors, addPreviewError, clearPreviewErrors, terminalErrors, clearTerminalErrors, generationPhase, activelyWritingFile, isStreaming } = useStore();
+    const { previewUrl, sandboxStatus, terminalOutput, clearTerminal, previewErrors, addPreviewError, clearPreviewErrors, terminalErrors, clearTerminalErrors, generationPhase, activelyWritingFile, isStreaming, openTab } = useStore();
     const { submit } = useChat();
-    const [activeTab, setActiveTab] = useState<WorkspaceTab>('code');
+
+    // The visible surface is chosen by lib/surfaces, not by this component.
+    // `picked` is the user's manual choice and wins while it is still offered;
+    // auto-focus is a starting position, not a leash.
+    const [picked, setPicked] = useState<SurfaceId | null>(null);
+    const viewTier = useStore(s => s.viewTier);
+    const fileCount = useStore(s => Object.keys(s.files).length);
+
+    const hasError = sandboxStatus === 'error' || terminalErrors.length > 0 || previewErrors.length > 0;
+
+    const surfaceState: SurfaceState = useMemo(() => ({
+        fileCount,
+        hasPreview: !!previewUrl,
+        hasOutput: terminalOutput.length > 0,
+        isStreaming,
+        phase: generationPhase,
+        hasError,
+    }), [fileCount, previewUrl, terminalOutput.length, isStreaming, generationPhase, hasError]);
+
+    const surfaces = useMemo(() => visibleSurfaces(viewTier, surfaceState), [viewTier, surfaceState]);
+    const auto = useMemo(
+        () => surfaceToFocus(viewTier, surfaceState, picked),
+        [viewTier, surfaceState, picked],
+    );
+
+    // A manual pick holds until it stops being offered (tier change, file
+    // deleted); otherwise the registry decides.
+    const activeSurface: SurfaceId | null =
+        picked && surfaces.some((s) => s.id === picked) ? picked : (auto ?? surfaces[0]?.id ?? null);
+
+    // Once the turn ends, drop the manual pick so the next build can auto-focus
+    // again rather than being pinned to wherever the user last was.
+    useEffect(() => {
+        if (!isStreaming) setPicked(null);
+    }, [isStreaming]);
+
     const [iframeKey, setIframeKey] = useState(0);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [isRestarting, setIsRestarting] = useState(false);
     const [devicePreset, setDevicePreset] = useState<DevicePreset>('desktop');
     const [zoomLevel, setZoomLevel] = useState(100);
 
-    // Auto-switch to code when file writing starts
+    // Follow the agent: open the file it is writing, so the editor shows the
+    // code the transcript no longer does. Surface choice is handled by the
+    // registry below, so this only opens the tab.
     useEffect(() => {
-        if (activelyWritingFile && activeTab !== 'code') {
-            setActiveTab('code');
-        }
+        if (activelyWritingFile) openTab(activelyWritingFile);
     }, [activelyWritingFile]); // eslint-disable-line react-hooks/exhaustive-deps
-
-    // Auto-switch to preview when URL becomes available
-    useEffect(() => {
-        if (previewUrl && (activeTab === 'code' || activeTab === 'terminal')) {
-            setActiveTab('preview');
-        }
-    }, [previewUrl]); // eslint-disable-line react-hooks/exhaustive-deps
-
-    // Auto-switch to terminal during install/start
-    useEffect(() => {
-        if (generationPhase === 'installing' || generationPhase === 'starting') {
-            setActiveTab('terminal');
-        }
-    }, [generationPhase]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Listen for errors from preview iframe via postMessage
     useEffect(() => {
         const handler = (e: MessageEvent) => {
+            // Only trust messages coming from the sandbox preview itself —
+            // otherwise any page could inject fake errors straight into the
+            // agent's auto-fix loop.
+            if (!previewUrl) return;
+            try {
+                if (e.origin !== new URL(previewUrl).origin) return;
+            } catch {
+                return;
+            }
             if (e.data && typeof e.data === 'object') {
                 // Handle our custom preview-error events
                 if (e.data.type === 'preview-error') {
@@ -69,7 +107,7 @@ export function WorkspacePanel() {
         };
         window.addEventListener('message', handler);
         return () => window.removeEventListener('message', handler);
-    }, [addPreviewError]);
+    }, [addPreviewError, previewUrl]);
 
     // Clear preview errors when iframe refreshes
     const handleRefresh = () => {
@@ -104,12 +142,9 @@ export function WorkspacePanel() {
         submit(`I'm getting the following terminal error(s). Please fix them:\n\n\`\`\`\n${errorText}\n\`\`\``);
     }, [terminalErrors, clearTerminalErrors, submit]);
 
-    // Auto-switch to terminal when errors are detected
-    useEffect(() => {
-        if (terminalErrors.length > 0 && activeTab !== 'terminal') {
-            setActiveTab('terminal');
-        }
-    }, [terminalErrors.length]); // eslint-disable-line react-hooks/exhaustive-deps
+    // Errors used to force the terminal open here. That is now the `logs`
+    // surface's own `focusWhen`, so it only happens for someone in the
+    // developer tier — a beginner is not thrown into a stack trace.
 
     const handleOpenInNewWindow = () => {
         if (previewUrl) {
@@ -157,7 +192,7 @@ export function WorkspacePanel() {
                             {hasErrors && (
                                 <button
                                     onClick={handleFixErrors}
-                                    className="flex items-center gap-1.5 px-4 py-2 bg-violet-600/90 hover:bg-violet-500 text-white rounded-lg text-xs font-medium transition-all active:scale-[0.97] btn-shimmer"
+                                    className="flex items-center gap-1.5 px-4 py-2 bg-zinc-50 hover:bg-white text-zinc-950 rounded-lg text-xs font-medium transition-all active:scale-[0.97] btn-shimmer"
                                 >
                                     <RiSparklingLine className="w-3.5 h-3.5" />
                                     Fix with AI
@@ -180,16 +215,16 @@ export function WorkspacePanel() {
                 <div className="h-full flex items-center justify-center bg-[#09090b] gradient-placeholder">
                     <div className="text-center animate-fade-up">
                         <div className="relative mb-4">
-                            <RiLoader4Line className="w-6 h-6 mx-auto text-violet-400 animate-spin" />
-                            <div className="absolute inset-0 w-6 h-6 mx-auto rounded-full bg-violet-500/20 blur-lg" />
+                            <RiLoader4Line className="w-6 h-6 mx-auto text-zinc-400 animate-spin" />
+                            <div className="absolute inset-0 w-6 h-6 mx-auto rounded-full bg-white/10 blur-lg" />
                         </div>
                         <p className="text-zinc-300 text-sm font-medium">
                             {sandboxStatus === 'installing' ? 'Installing dependencies' : 'Starting dev server'}
                         </p>
                         <div className="mt-2 flex items-center justify-center gap-1.5">
-                            <span className="w-1.5 h-1.5 rounded-full bg-violet-400/60 dot-bounce" style={{ animationDelay: '0ms' }} />
-                            <span className="w-1.5 h-1.5 rounded-full bg-violet-400/60 dot-bounce" style={{ animationDelay: '200ms' }} />
-                            <span className="w-1.5 h-1.5 rounded-full bg-violet-400/60 dot-bounce" style={{ animationDelay: '400ms' }} />
+                            <span className="w-1.5 h-1.5 rounded-full bg-white/40 dot-bounce" style={{ animationDelay: '0ms' }} />
+                            <span className="w-1.5 h-1.5 rounded-full bg-white/40 dot-bounce" style={{ animationDelay: '200ms' }} />
+                            <span className="w-1.5 h-1.5 rounded-full bg-white/40 dot-bounce" style={{ animationDelay: '400ms' }} />
                         </div>
                     </div>
                 </div>
@@ -208,7 +243,7 @@ export function WorkspacePanel() {
                         <button
                             onClick={handleRestartServer}
                             disabled={isRestarting}
-                            className="mt-4 flex items-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-500 text-white rounded-lg text-xs font-medium transition-all"
+                            className="mt-4 flex items-center gap-2 px-4 py-2 bg-zinc-50 hover:bg-white text-zinc-950 rounded-lg text-xs font-medium transition-all"
                         >
                             <RiPlayLine className="w-3.5 h-3.5 fill-current" />
                             Start Preview
@@ -265,7 +300,7 @@ export function WorkspacePanel() {
                             className={cn(
                                 'p-1.5 rounded-lg transition-all text-xs',
                                 devicePreset === 'mobile'
-                                    ? 'bg-violet-500/15 text-violet-300'
+                                    ? 'bg-white/[0.06] text-zinc-100'
                                     : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.06]'
                             )}
                             title="Mobile (375px)"
@@ -277,7 +312,7 @@ export function WorkspacePanel() {
                             className={cn(
                                 'p-1.5 rounded-lg transition-all text-xs',
                                 devicePreset === 'tablet'
-                                    ? 'bg-violet-500/15 text-violet-300'
+                                    ? 'bg-white/[0.06] text-zinc-100'
                                     : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.06]'
                             )}
                             title="Tablet (768px)"
@@ -289,7 +324,7 @@ export function WorkspacePanel() {
                             className={cn(
                                 'p-1.5 rounded-lg transition-all text-xs',
                                 devicePreset === 'desktop'
-                                    ? 'bg-violet-500/15 text-violet-300'
+                                    ? 'bg-white/[0.06] text-zinc-100'
                                     : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.06]'
                             )}
                             title="Desktop (100%)"
@@ -339,7 +374,7 @@ export function WorkspacePanel() {
                         </span>
                         <button
                             onClick={handleFixWithAI}
-                            className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-lg bg-violet-600/90 text-white hover:bg-violet-500 transition-all active:scale-[0.97] btn-shimmer"
+                            className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-lg bg-zinc-50 text-zinc-950 hover:bg-white transition-all active:scale-[0.97] btn-shimmer"
                         >
                             <RiSparklingLine className="w-3 h-3" />
                             Fix with AI
@@ -391,54 +426,36 @@ export function WorkspacePanel() {
 
     return (
         <div className="flex flex-col h-full bg-[#09090b]">
-            {/* Tab bar */}
+            {/* Tab bar — rendered from lib/surfaces, not hardcoded. Which tabs
+                exist here is a function of tier and state; see SURFACES. */}
             <div className="flex items-center border-b border-white/[0.06] panel-header px-1">
-                <button
-                    onClick={() => setActiveTab('code')}
-                    className={cn(
-                        'flex items-center gap-1.5 px-3 py-2 text-xs transition-all relative',
-                        activeTab === 'code'
-                            ? 'text-zinc-200 tab-active'
-                            : 'text-zinc-500 hover:text-zinc-300'
-                    )}
-                >
-                    <RiCodeLine className="w-3.5 h-3.5" />
-                    Code
-                </button>
-                <button
-                    onClick={() => setActiveTab('preview')}
-                    className={cn(
-                        'flex items-center gap-1.5 px-3 py-2 text-xs transition-all relative',
-                        activeTab === 'preview'
-                            ? 'text-zinc-200 tab-active'
-                            : 'text-zinc-500 hover:text-zinc-300'
-                    )}
-                >
-                    <RiComputerLine className="w-3.5 h-3.5" />
-                    Preview
-                </button>
-                <button
-                    onClick={() => setActiveTab('terminal')}
-                    className={cn(
-                        'flex items-center gap-1.5 px-3 py-2 text-xs transition-all relative',
-                        activeTab === 'terminal'
-                            ? 'text-zinc-200 tab-active'
-                            : 'text-zinc-500 hover:text-zinc-300'
-                    )}
-                >
-                    <RiTerminalLine className="w-3.5 h-3.5" />
-                    Terminal
-                    {terminalErrors.length > 0 && (
-                        <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                    )}
-                </button>
+                {surfaces.map((surface) => {
+                    const Icon = SURFACE_ICON[surface.id];
+                    const isActive = surface.id === activeSurface;
+                    return (
+                        <button
+                            key={surface.id}
+                            onClick={() => setPicked(surface.id)}
+                            aria-current={isActive ? 'page' : undefined}
+                            className={cn(
+                                'flex items-center gap-1.5 px-3 py-1.5 text-xs transition-all relative',
+                                isActive ? 'text-zinc-200 tab-active' : 'text-zinc-500 hover:text-zinc-300'
+                            )}
+                        >
+                            <Icon className="w-3.5 h-3.5" />
+                            {surface.label}
+                            {surface.id === 'logs' && terminalErrors.length > 0 && (
+                                <span className="w-2 h-2 rounded-full bg-rose-400 animate-pulse" />
+                            )}
+                        </button>
+                    );
+                })}
 
                 {/* Right side actions */}
                 <div className="ml-auto flex items-center gap-1.5 pr-1">
-                    {/* Generation phase indicator */}
                     {isStreaming && generationPhase !== 'idle' && generationPhase !== 'done' && (
-                        <div className="flex items-center gap-1.5 px-2 py-0.5 text-[10px] text-violet-300/80 bg-violet-500/10 rounded-md border border-violet-500/20">
-                            <span className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-pulse" />
+                        <div className="flex items-center gap-1.5 px-2 py-0.5 text-[10px] text-zinc-300 bg-white/[0.04] rounded-md border border-white/[0.08]">
+                            <span className="w-1.5 h-1.5 rounded-full bg-zinc-400 animate-pulse" />
                             <span className="truncate max-w-[150px]">
                                 {getPhaseLabel(generationPhase, activelyWritingFile)}
                             </span>
@@ -450,24 +467,31 @@ export function WorkspacePanel() {
                             Done
                         </div>
                     )}
-
                 </div>
             </div>
 
             {/* Content */}
             <div className="flex-1 min-h-0 overflow-hidden">
                 {/* Code tab */}
-                <div className={cn('h-full', activeTab === 'code' ? 'animate-fade-in' : 'hidden')} style={activeTab === 'code' ? { animationDuration: '0.15s' } : undefined}>
+                {/* Build — only rendered for its own surface, so the pipeline
+                    and skeleton are not running behind a hidden pane. */}
+                {activeSurface === 'build' && (
+                    <div className="h-full animate-fade-in" style={{ animationDuration: '0.15s' }}>
+                        <BuildSurface phase={generationPhase} hasError={hasError} previewUrl={previewUrl} />
+                    </div>
+                )}
+
+                <div className={cn('h-full', activeSurface === 'code' ? 'animate-fade-in' : 'hidden')} style={activeSurface === 'code' ? { animationDuration: '0.15s' } : undefined}>
                     <EditorPanel />
                 </div>
 
                 {/* Preview tab */}
-                <div className={cn('h-full', activeTab === 'preview' ? 'animate-fade-in' : 'hidden')} style={activeTab === 'preview' ? { animationDuration: '0.15s' } : undefined}>
+                <div className={cn('h-full', activeSurface === 'app' ? 'animate-fade-in' : 'hidden')} style={activeSurface === 'app' ? { animationDuration: '0.15s' } : undefined}>
                     {renderPreviewContent()}
                 </div>
 
                 {/* Terminal tab */}
-                <div className={cn('h-full flex flex-col', activeTab === 'terminal' ? 'animate-fade-in' : 'hidden')} style={activeTab === 'terminal' ? { animationDuration: '0.15s' } : undefined}>
+                <div className={cn('h-full flex flex-col', activeSurface === 'logs' ? 'animate-fade-in' : 'hidden')} style={activeSurface === 'logs' ? { animationDuration: '0.15s' } : undefined}>
                     {terminalErrors.length > 0 && (
                         <div className="px-3 py-2 bg-red-500/10 border-b border-red-500/20 flex items-center gap-2 shrink-0">
                             <AlertTriangle className="w-3.5 h-3.5 text-red-400 shrink-0" />
@@ -476,7 +500,7 @@ export function WorkspacePanel() {
                             </span>
                             <button
                                 onClick={handleFixTerminalErrors}
-                                className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-lg bg-violet-600/90 text-white hover:bg-violet-500 transition-all active:scale-[0.97] btn-shimmer"
+                                className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-lg bg-zinc-50 text-zinc-950 hover:bg-white transition-all active:scale-[0.97] btn-shimmer"
                             >
                                 <Sparkles className="w-3 h-3" />
                                 Fix with AI

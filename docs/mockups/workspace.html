@@ -1,0 +1,701 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>DevForge — Workspace UX mockups</title>
+<style>
+/* ═══════════════════════════════════════════════════════════════════
+   Tokens — mirrored from app/globals.css so the mockup and the product
+   cannot drift. Agent hues match lib/agents/index.ts exactly.
+   ═══════════════════════════════════════════════════════════════════ */
+:root{
+  --bg-base:#09090b; --bg-raised:#0a0a0d; --bg-overlay:#0d0d12;
+  --surface:rgba(255,255,255,.03); --surface-hover:rgba(255,255,255,.06);
+  --hairline:rgba(255,255,255,.06); --hairline-strong:rgba(255,255,255,.12);
+  --text-primary:#fafafa; --text-secondary:#a1a1aa; --text-tertiary:#8b8b96;
+  --cta-bg:#fafafa; --cta-fg:#09090b; --focus-ring:rgba(255,255,255,.45);
+
+  --architect:#60a5fa; --assistant:#22d3ee; --coder:#4ade80;
+  --debugger:#fb7185;  --designer:#c084fc;  --tester:#fbbf24;
+  --ok:#34d399; --warn:#fbbf24; --err:#fb7185;
+
+  --ease:cubic-bezier(.16,1,.3,1);
+  --mono:ui-monospace,"SF Mono",SFMono-Regular,"Cascadia Code",Menlo,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,system-ui,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  background:var(--bg-base); color:var(--text-primary);
+  font-family:var(--sans); -webkit-font-smoothing:antialiased;
+  display:grid; grid-template-rows:auto 1fr; overflow:hidden;
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+}
+
+/* ─── Chrome of the mockup tool itself ─── */
+.tool-bar{
+  height:52px; display:flex; align-items:center; gap:20px; padding:0 20px;
+  border-bottom:1px solid var(--hairline); background:var(--bg-raised);
+}
+.tool-title{font-size:13px;font-weight:600;letter-spacing:-.01em}
+.tool-title span{color:var(--text-tertiary);font-weight:400}
+.spacer{flex:1}
+.seg{display:flex;border:1px solid var(--hairline-strong);border-radius:8px;overflow:hidden}
+.seg button{
+  background:transparent;border:0;color:var(--text-secondary);
+  font:inherit;font-size:12px;padding:5px 12px;cursor:pointer;
+  transition:background .15s var(--ease),color .15s var(--ease);
+}
+.seg button[aria-pressed="true"]{background:var(--cta-bg);color:var(--cta-fg);font-weight:500}
+.hint{font-family:var(--mono);font-size:10px;color:var(--text-tertiary);letter-spacing:.06em;text-transform:uppercase}
+
+.shell{display:grid;grid-template-columns:210px 1fr 300px;min-height:0}
+.rail{border-right:1px solid var(--hairline);padding:14px 10px;overflow-y:auto;background:var(--bg-raised)}
+.rail h3{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--text-tertiary);padding:0 8px;margin:14px 0 6px}
+.rail h3:first-child{margin-top:0}
+.rail button{
+  display:flex;align-items:center;gap:8px;width:100%;text-align:left;
+  background:transparent;border:1px solid transparent;border-radius:8px;
+  color:var(--text-secondary);font:inherit;font-size:12.5px;padding:7px 8px;cursor:pointer;
+  transition:background .15s var(--ease),color .15s var(--ease);
+}
+.rail button:hover{background:var(--surface-hover);color:var(--text-primary)}
+.rail button[aria-current="true"]{background:var(--surface-hover);color:var(--text-primary);border-color:var(--hairline-strong)}
+.rail .dot{width:6px;height:6px;border-radius:50%;flex:none}
+
+.stage{display:grid;place-items:center;padding:24px;min-height:0;overflow:auto;background:
+  radial-gradient(1200px 600px at 50% -10%, rgba(255,255,255,.025), transparent 70%), var(--bg-base);}
+.notes{border-left:1px solid var(--hairline);padding:18px 16px;overflow-y:auto;background:var(--bg-raised)}
+.notes h4{font-size:12.5px;margin-bottom:8px;letter-spacing:-.01em}
+.notes p{font-size:12.5px;line-height:1.6;color:var(--text-secondary);margin-bottom:12px}
+.notes ul{list-style:none;display:flex;flex-direction:column;gap:8px;margin-bottom:14px}
+.notes li{font-size:12px;line-height:1.5;color:var(--text-secondary);padding-left:16px;position:relative}
+.notes li::before{content:'';position:absolute;left:0;top:7px;width:5px;height:5px;border-radius:50%;background:var(--text-tertiary)}
+.notes li.good::before{background:var(--ok)} .notes li.bad::before{background:var(--err)}
+.notes code{font-family:var(--mono);font-size:11px;background:var(--surface-hover);padding:1px 4px;border-radius:4px;color:var(--text-primary)}
+.eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--text-tertiary);margin-bottom:10px}
+
+/* ═══════════════════════════════════════════════════════════════════
+   The mock app window
+   ═══════════════════════════════════════════════════════════════════ */
+.win{
+  width:1120px;height:660px;flex:none;
+  border:1px solid var(--hairline-strong);border-radius:12px;overflow:hidden;
+  background:var(--bg-base);display:flex;flex-direction:column;
+  box-shadow:0 30px 80px -20px rgba(0,0,0,.8);
+}
+.screen{display:none;flex-direction:column;height:100%}
+.screen.on{display:flex}
+
+/* header */
+.hdr{height:40px;flex:none;display:flex;align-items:center;gap:10px;padding:0 12px;
+  border-bottom:1px solid var(--hairline);background:var(--surface)}
+.logo{display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600}
+.logo b{width:15px;height:15px;border-radius:4px;background:linear-gradient(135deg,#fafafa,#a1a1aa);display:inline-block}
+.crumb{font-size:12px;color:var(--text-secondary)}
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:11px;padding:3px 8px;border-radius:7px;
+  border:1px solid transparent;color:var(--text-secondary)}
+.pill .dot{width:6px;height:6px;border-radius:50%}
+.pill.err{border-color:rgba(251,113,133,.3);background:rgba(251,113,133,.07);color:var(--err);cursor:pointer}
+.pill.ok{color:var(--ok)}
+.hdr .ico{width:26px;height:26px;display:grid;place-items:center;border-radius:7px;color:var(--text-tertiary);font-size:12px}
+.hdr .ico:hover{background:var(--surface-hover);color:var(--text-primary)}
+.btn{font:inherit;font-size:11.5px;padding:5px 11px;border-radius:8px;border:1px solid var(--hairline-strong);
+  background:transparent;color:var(--text-secondary);cursor:pointer}
+.btn.primary{background:var(--cta-bg);color:var(--cta-fg);border-color:transparent;font-weight:500}
+.btn.ghostdash{border-style:dashed;color:var(--text-tertiary)}
+/* Declared with a body-scoped selector so later element rules like `.tab`
+   (same specificity, defined further down) cannot silently re-show these. */
+body:not([data-mode="dev"]) .dev-only{display:none !important}
+
+/* body split */
+.body{flex:1;display:flex;min-height:0}
+.chat{width:330px;flex:none;border-right:1px solid var(--hairline);display:flex;flex-direction:column;min-height:0}
+.chat-hd{height:32px;flex:none;display:flex;align-items:center;gap:8px;padding:0 12px;border-bottom:1px solid var(--hairline)}
+.chat-hd .who{font-family:var(--mono);font-size:10px;letter-spacing:.14em;color:var(--text-tertiary)}
+.stream{flex:1;overflow-y:auto;padding:12px;min-height:0}
+.turn{display:flex;flex-direction:column;gap:5px;animation:rise .3s var(--ease) both}
+@keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.turn .label{font-family:var(--mono);font-size:10px;letter-spacing:.14em;display:flex;align-items:center;gap:6px}
+.turn .label .t{color:var(--text-tertiary);letter-spacing:0;font-size:10px}
+.turn .body-txt{border-left:2px solid var(--hairline-strong);padding-left:10px;font-size:12.5px;line-height:1.55;color:var(--text-secondary)}
+.turn[data-a="architect"] .label{color:var(--architect)} .turn[data-a="architect"] .body-txt{border-color:rgba(96,165,250,.55)}
+.turn[data-a="coder"] .label{color:var(--coder)}          .turn[data-a="coder"] .body-txt{border-color:rgba(74,222,128,.55)}
+.turn[data-a="tester"] .label{color:var(--tester)}        .turn[data-a="tester"] .body-txt{border-color:rgba(251,191,36,.55)}
+.turn[data-a="debugger"] .label{color:var(--debugger)}    .turn[data-a="debugger"] .body-txt{border-color:rgba(251,113,133,.55)}
+.turn[data-a="you"] .label{color:var(--text-tertiary)}
+
+.filerow{display:flex;align-items:center;gap:8px;padding:5px 9px;margin-top:5px;border-radius:8px;
+  border:1px solid var(--hairline);background:rgba(255,255,255,.02);cursor:pointer;transition:background .15s var(--ease)}
+.filerow:hover{background:var(--surface-hover)}
+.filerow .p{font-family:var(--mono);font-size:11px;color:var(--text-secondary);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.filerow .n{font-family:var(--mono);font-size:10px;color:var(--ok)}
+.filerow .w{font-family:var(--mono);font-size:10px;color:var(--text-tertiary)}
+.disclose{margin-top:6px;font-size:11.5px;color:var(--text-tertiary);cursor:pointer;display:flex;align-items:center;gap:5px}
+.disclose:hover{color:var(--text-secondary)}
+.note{margin-top:6px;padding:6px 9px;border-radius:8px;font-family:var(--mono);font-size:10.5px;line-height:1.5}
+.note.pass{border:1px solid rgba(52,211,153,.25);background:rgba(52,211,153,.06);color:#6ee7b7}
+.note.fail{border:1px solid rgba(251,113,133,.25);background:rgba(251,113,133,.06);color:#fca5a5}
+
+.composer{flex:none;padding:10px;border-top:1px solid var(--hairline)}
+.composer .box{border:1px solid var(--hairline-strong);border-radius:12px;padding:10px;background:var(--surface)}
+.composer .ph{font-size:12.5px;color:var(--text-tertiary);margin-bottom:22px}
+.composer .row{display:flex;align-items:center;gap:8px}
+.chip{font-size:11px;color:var(--text-secondary);border:1px solid var(--hairline);border-radius:8px;padding:3px 9px}
+.send{margin-left:auto;width:26px;height:26px;border-radius:8px;display:grid;place-items:center;background:var(--cta-bg);color:var(--cta-fg);font-size:12px}
+.send.stop{background:var(--err);color:#fff}
+.kbd{margin-top:7px;font-family:var(--mono);font-size:10px;color:var(--text-tertiary);display:flex;justify-content:space-between}
+
+
+/* ─── transcript, direction C: narration only ─── */
+.you-said{background:var(--surface);border:1px solid var(--hairline);border-radius:12px;
+  padding:9px 11px;font-size:13px;line-height:1.55;color:var(--text-primary);margin-bottom:15px}
+.grp{margin-bottom:16px;animation:rise .3s var(--ease) both}
+.who{display:flex;align-items:center;gap:8px;margin-bottom:5px}
+.av{width:17px;height:17px;border-radius:5px;display:grid;place-items:center;flex:none;
+  font-family:var(--mono);font-size:8.5px;font-weight:700;color:#09090b}
+.nm{font-size:11.5px;font-weight:600}
+.tm{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--text-tertiary)}
+.say{font-size:13px;line-height:1.6;color:var(--text-secondary);padding-left:25px}
+.say .note{margin-top:7px}
+.statusline{flex:none;display:flex;align-items:center;gap:8px;margin:0 10px 9px;padding:7px 10px;
+  border:1px solid var(--hairline);border-radius:10px;background:var(--surface);font-size:12px}
+.statusline .ic{font-size:11px;color:var(--text-tertiary)}
+.statusline .ct{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--text-tertiary)}
+.shimmer-text{background:linear-gradient(90deg,var(--text-tertiary) 20%,var(--text-primary) 50%,var(--text-tertiary) 80%);
+  background-size:200% 100%;-webkit-background-clip:text;background-clip:text;
+  -webkit-text-fill-color:transparent;animation:shtx 2.2s linear infinite}
+@keyframes shtx{0%{background-position:200% 0}100%{background-position:-200% 0}}
+@media (prefers-reduced-motion:reduce){.shimmer-text{animation:none;-webkit-text-fill-color:var(--text-secondary)}}
+
+/* right: surfaces */
+.right{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0}
+.tabs{height:32px;flex:none;display:flex;align-items:center;gap:2px;padding:0 8px;border-bottom:1px solid var(--hairline)}
+.tab{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--text-tertiary);padding:6px 10px;border-radius:7px 7px 0 0;position:relative;cursor:pointer}
+.tab[aria-selected="true"]{color:var(--text-primary)}
+.tab[aria-selected="true"]::after{content:'';position:absolute;left:0;right:0;bottom:-1px;height:2px;background:var(--text-primary);border-radius:2px 2px 0 0}
+.tab .g{width:5px;height:5px;border-radius:50%;background:var(--text-tertiary)}
+.surface{flex:1;min-height:0;overflow:auto;padding:18px;display:flex;flex-direction:column;gap:16px}
+
+/* pipeline rail */
+.rail-pipe{display:flex;align-items:flex-start;gap:0;padding:2px 4px 0}
+.node{flex:1;display:flex;flex-direction:column;align-items:center;gap:7px;position:relative}
+.node .k{width:11px;height:11px;border-radius:50%;background:var(--bg-overlay);border:1.5px solid var(--hairline-strong);z-index:1}
+.node .nm{font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--text-tertiary)}
+.node::before{content:'';position:absolute;top:5px;left:-50%;width:100%;height:1.5px;background:var(--hairline-strong)}
+.node:first-child::before{display:none}
+.node[data-s="done"] .k{background:var(--ok);border-color:var(--ok)}
+.node[data-s="done"] .nm{color:var(--text-secondary)}
+.node[data-s="done"]::before{background:var(--ok)}
+.node[data-s="now"] .k{background:var(--architect);border-color:var(--architect);animation:beat 1.6s ease-in-out infinite}
+.node[data-s="now"] .nm{color:var(--text-primary)}
+.node[data-s="now"]::before{background:linear-gradient(90deg,var(--ok),var(--architect))}
+.node[data-s="fail"] .k{background:var(--err);border-color:var(--err)}
+.node[data-s="fail"] .nm{color:var(--err)}
+.node[data-s="fail"]::before{background:linear-gradient(90deg,var(--ok),var(--err))}
+@keyframes beat{0%,100%{box-shadow:0 0 0 0 rgba(96,165,250,.5)}50%{box-shadow:0 0 0 5px rgba(96,165,250,0)}}
+
+/* preview frame */
+.frame{flex:1;min-height:220px;border:1px solid var(--hairline);border-radius:12px;overflow:hidden;background:var(--bg-raised);display:flex;flex-direction:column}
+.frame-bar{height:28px;flex:none;display:flex;align-items:center;gap:8px;padding:0 10px;border-bottom:1px solid var(--hairline)}
+.frame-bar .u{font-family:var(--mono);font-size:10px;color:var(--text-tertiary);background:var(--surface);padding:2px 8px;border-radius:5px}
+.frame-in{flex:1;display:grid;place-items:center;position:relative;overflow:hidden}
+
+/* skeleton */
+.skel{width:78%;display:flex;flex-direction:column;gap:11px}
+.skel i{display:block;height:9px;border-radius:5px;background:linear-gradient(90deg,rgba(255,255,255,.03) 25%,rgba(255,255,255,.07) 50%,rgba(255,255,255,.03) 75%);background-size:200% 100%;animation:sh 1.8s ease-in-out infinite}
+@keyframes sh{0%{background-position:-200% 0}100%{background-position:200% 0}}
+.skel .r{display:flex;gap:11px}.skel .r i{flex:1}
+.skel-cap{margin-top:12px;font-size:11.5px;color:var(--text-tertiary);text-align:center}
+
+/* the real fake app */
+.app{width:100%;height:100%;background:#0f0f12;padding:14px;display:flex;flex-direction:column;gap:11px;animation:fadein .35s var(--ease)}
+@keyframes fadein{from{opacity:0}to{opacity:1}}
+.app-top{display:flex;align-items:center}
+.app-top h5{font-size:13px;color:#e8e8ea}
+.app-top .add{margin-left:auto;font-size:10.5px;background:#e8e8ea;color:#111;padding:3px 9px;border-radius:6px}
+.cols{flex:1;display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
+.col{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.05);border-radius:9px;padding:8px;display:flex;flex-direction:column;gap:7px}
+.col h6{font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:#7a7a85;font-family:var(--mono)}
+.card{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.06);border-radius:7px;padding:7px 8px;font-size:11px;color:#d4d4d8}
+.card .tag{display:inline-block;margin-top:5px;font-size:9px;padding:1px 6px;border-radius:4px}
+
+/* progress */
+
+
+
+
+
+to{width:82%}}
+
+
+/* error card */
+.fixcard{border:1px solid rgba(251,113,133,.28);background:rgba(251,113,133,.05);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:9px}
+.fixcard h5{font-size:13.5px;color:#fecdd3;display:flex;align-items:center;gap:7px}
+.fixcard p{font-size:12.5px;line-height:1.55;color:var(--text-secondary)}
+.fixcard .acts{display:flex;gap:8px;margin-top:2px}
+.fixcard .work{display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--text-secondary)}
+.mini{width:70px;height:4px;border-radius:2px;background:var(--surface-hover);overflow:hidden}
+.mini i{display:block;height:100%;background:var(--debugger);width:40%;animation:mini-grow 2s ease-in-out infinite alternate}
+@keyframes mini-grow{from{width:30%}to{width:75%}}
+
+/* code */
+.codewrap{flex:1;display:flex;min-height:0;border:1px solid var(--hairline);border-radius:12px;overflow:hidden}
+.tree{width:170px;flex:none;border-right:1px solid var(--hairline);padding:9px;font-family:var(--mono);font-size:10.5px;display:flex;flex-direction:column;gap:3px;background:var(--bg-raised)}
+.tree .h{font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--text-tertiary);margin-bottom:4px}
+.tree div.f{padding:3px 6px;border-radius:5px;color:var(--text-secondary);display:flex;align-items:center;gap:6px}
+.tree div.f.sel{background:var(--surface-hover);color:var(--text-primary)}
+.tree div.f .w{width:5px;height:5px;border-radius:50%;background:var(--coder);margin-left:auto;animation:beat2 1.4s ease-in-out infinite}
+@keyframes beat2{0%,100%{opacity:.4}50%{opacity:1}}
+.ed{flex:1;display:flex;flex-direction:column;min-width:0}
+.ed-tabs{height:28px;flex:none;display:flex;align-items:center;gap:1px;padding:0 6px;border-bottom:1px solid var(--hairline)}
+.ed-tab{font-family:var(--mono);font-size:10.5px;color:var(--text-tertiary);padding:5px 9px;border-radius:6px 6px 0 0}
+.ed-tab.sel{background:var(--surface);color:var(--text-primary)}
+.ed-body{flex:1;overflow:auto;padding:10px 0;font-family:var(--mono);font-size:11.5px;line-height:1.75}
+.ln{display:flex;gap:12px;padding:0 12px}
+.ln .g{width:22px;text-align:right;color:#4b4b55;flex:none}
+.ln.add{background:rgba(52,211,153,.07)}
+.ln.add .g{color:var(--ok)}
+.kw{color:#c084fc}.st{color:#4ade80}.fn{color:#60a5fa}.cm{color:#6b6b76}.nu{color:#fbbf24}
+
+/* logs */
+.logs{display:flex;flex-direction:column;gap:2px}
+.ev{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;font-size:12px;color:var(--text-secondary)}
+.ev:hover{background:var(--surface)}
+.ev .s{width:14px;flex:none;text-align:center;font-size:11px}
+.ev .ms{margin-left:auto;font-family:var(--mono);font-size:10.5px;color:var(--text-tertiary)}
+.ev.ok .s{color:var(--ok)} .ev.bad .s{color:var(--err)}
+.ev .sub{font-family:var(--mono);font-size:10.5px;color:var(--text-tertiary)}
+.raw{margin-top:8px;font-size:11.5px;color:var(--text-tertiary);cursor:pointer;display:flex;gap:6px;align-items:center;padding:8px 10px;border-top:1px solid var(--hairline)}
+
+/* empty state */
+.empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;padding:20px}
+.constel{display:flex;gap:9px;margin-bottom:22px}
+.constel span{width:9px;height:9px;border-radius:50%;animation:float 3.4s ease-in-out infinite}
+.constel span:nth-child(1){background:var(--architect);animation-delay:0s}
+.constel span:nth-child(2){background:var(--assistant);animation-delay:.25s}
+.constel span:nth-child(3){background:var(--coder);animation-delay:.5s}
+.constel span:nth-child(4){background:var(--debugger);animation-delay:.75s}
+.constel span:nth-child(5){background:var(--designer);animation-delay:1s}
+.constel span:nth-child(6){background:var(--tester);animation-delay:1.25s}
+@keyframes float{0%,100%{transform:translateY(0);opacity:.55}50%{transform:translateY(-6px);opacity:1}}
+.empty .sub{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--text-tertiary);margin-bottom:20px}
+.empty h2{font-size:27px;font-weight:600;letter-spacing:-.03em;margin-bottom:22px}
+.bigbox{width:560px;border:1px solid var(--hairline-strong);border-radius:14px;padding:14px;background:var(--surface)}
+.bigbox .ph{font-size:13px;color:var(--text-tertiary);margin-bottom:34px}
+.sugg{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:18px;max-width:560px}
+.sugg span{font-size:11.5px;color:var(--text-secondary);border:1px solid var(--hairline);border-radius:999px;padding:5px 12px;cursor:pointer}
+.sugg span:hover{background:var(--surface-hover);color:var(--text-primary)}
+.orline{margin-top:22px;font-size:11.5px;color:var(--text-tertiary);display:flex;gap:10px;align-items:center}
+</style>
+</head>
+<body data-mode="simple">
+
+<div class="tool-bar">
+  <div class="tool-title">DevForge <span>— workspace UX mockups</span></div>
+  <span class="hint" id="screenName">building</span>
+  <div class="spacer"></div>
+  <span class="hint">view mode</span>
+  <div class="seg" role="group" aria-label="View mode">
+    <button id="mSimple" aria-pressed="true">Simple</button>
+    <button id="mDev" aria-pressed="false">Developer</button>
+  </div>
+</div>
+
+<div class="shell">
+  <!-- ─────────── screen picker ─────────── -->
+  <nav class="rail" id="rail">
+    <h3>Lifecycle</h3>
+    <button data-s="empty"><span class="dot" style="background:var(--text-tertiary)"></span>Empty</button>
+    <button data-s="building" aria-current="true"><span class="dot" style="background:var(--architect)"></span>Building</button>
+    <button data-s="ready"><span class="dot" style="background:var(--ok)"></span>Ready</button>
+    <button data-s="failed"><span class="dot" style="background:var(--err)"></span>Failed &amp; self-healing</button>
+    <h3>Surfaces</h3>
+    <button data-s="code"><span class="dot" style="background:var(--coder)"></span>Code</button>
+    <button data-s="logs"><span class="dot" style="background:var(--tester)"></span>Logs</button>
+  </nav>
+
+  <!-- ─────────── stage ─────────── -->
+  <main class="stage">
+    <div class="win">
+
+      <!-- ══════════════ EMPTY ══════════════ -->
+      <section class="screen" data-screen="empty">
+        <div class="hdr">
+          <div class="logo"><b></b>Devforge</div>
+          <div class="spacer"></div>
+          <div class="ico">⚙</div>
+        </div>
+        <div class="empty">
+          <div class="constel"><span></span><span></span><span></span><span></span><span></span><span></span></div>
+          <div class="sub">six agents · standing by</div>
+          <h2>What do you want to build?</h2>
+          <div class="bigbox">
+            <div class="ph">Describe your app…</div>
+            <div class="row" style="display:flex;align-items:center;gap:8px">
+              <span class="chip">Auto (Agent picks) ▾</span>
+              <button class="btn primary" style="margin-left:auto">Start →</button>
+            </div>
+          </div>
+          <div class="sugg">
+            <span>A task board with drag-and-drop</span>
+            <span>A weather dashboard</span>
+            <span>A markdown notes app</span>
+            <span>A finance tracker</span>
+          </div>
+          <div class="orline">Or <span class="chip">▦ Browse templates</span> <span class="chip">⬇ Clone from GitHub</span></div>
+        </div>
+      </section>
+
+      <!-- ══════════════ BUILDING ══════════════ -->
+      <section class="screen on" data-screen="building">
+        <div class="hdr">
+          <div class="logo"><b></b>Devforge</div>
+          <div class="crumb">task-manager ▾</div>
+          <div class="spacer"></div>
+          <div class="pill"><span class="dot" style="background:var(--architect)"></span>Building</div>
+          <div class="spacer"></div>
+          <div class="ico dev-only">↶</div><div class="ico dev-only">↷</div>
+          <div class="ico">⚙</div>
+          <button class="btn ghostdash">Deploy</button>
+        </div>
+        <div class="body">
+          <div class="chat">
+            <div class="chat-hd"><span class="who">TRANSCRIPT</span><div class="spacer"></div><span class="who">+ New</span></div>
+            <div class="stream"><div class="you-said">A task management app with drag-and-drop</div><div class="grp"><div class="who"><span class="av" style="background:var(--architect)">A</span><span class="nm">Architect</span><span class="tm">16s</span></div><div class="say">Three columns, drag between them, saved in your browser so it survives a refresh.</div></div><div class="grp"><div class="who"><span class="av" style="background:var(--coder)">C</span><span class="nm">Coder</span><span class="tm">now</span></div><div class="say">Wiring the board, the column and the persistence hook.</div></div></div><div class="statusline"><span class="ic">⬥</span><span class="shimmer-text">Writing Board.tsx</span><span class="ct">6 files</span></div><div class="composer">
+              <div class="box"><div class="ph">Describe a change…</div>
+                <div class="row"><span class="chip">Auto ▾</span><span class="send stop">■</span></div></div>
+              <div class="kbd"><span>Enter send · ⇧Enter newline</span><span>Esc to stop</span></div>
+            </div>
+          </div>
+
+          <div class="right">
+            <div class="tabs">
+              <div class="tab" aria-selected="true">◐ Build</div>
+              <div class="tab">▷ App</div>
+              <div class="tab dev-only">{} Code</div>
+              <div class="tab dev-only">≡ Logs</div>
+            </div>
+            <div class="surface">
+              <div class="rail-pipe">
+                <div class="node" data-s="done"><span class="k"></span><span class="nm">Plan</span></div>
+                <div class="node" data-s="done"><span class="k"></span><span class="nm">Write</span></div>
+                <div class="node" data-s="now"><span class="k"></span><span class="nm">Install</span></div>
+                <div class="node"><span class="k"></span><span class="nm">Test</span></div>
+                <div class="node"><span class="k"></span><span class="nm">Run</span></div>
+              </div>
+              <div class="frame">
+                <div class="frame-bar"><span class="u">localhost:5173</span></div>
+                <div class="frame-in">
+                  <div>
+                    <div class="skel">
+                      <i style="width:38%"></i>
+                      <div class="r"><i></i><i></i><i></i></div>
+                      <div class="r"><i style="height:44px"></i><i style="height:44px"></i><i style="height:44px"></i></div>
+                      <i style="width:22%"></i>
+                    </div>
+                    <div class="skel-cap">Your app appears here</div>
+                  </div>
+                </div>
+              </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ══════════════ READY ══════════════ -->
+      <section class="screen" data-screen="ready">
+        <div class="hdr">
+          <div class="logo"><b></b>Devforge</div>
+          <div class="crumb">task-manager ▾</div>
+          <div class="spacer"></div>
+          <div class="pill ok"><span class="dot" style="background:var(--ok)"></span>Live</div>
+          <div class="spacer"></div>
+          <div class="ico dev-only">↶</div><div class="ico dev-only">↷</div>
+          <div class="ico">⚙</div>
+          <button class="btn">Share</button>
+          <button class="btn primary">Deploy</button>
+        </div>
+        <div class="body">
+          <div class="chat">
+            <div class="chat-hd"><span class="who">TRANSCRIPT</span><div class="spacer"></div><span class="who">+ New</span></div>
+            <div class="stream"><div class="you-said">A task management app with drag-and-drop</div><div class="grp"><div class="who"><span class="av" style="background:var(--coder)">C</span><span class="nm">Coder</span><span class="tm">31s</span></div><div class="say">Wiring the board, the column and the persistence hook.</div></div><div class="grp"><div class="who"><span class="av" style="background:var(--tester);color:#3f2d00">T</span><span class="nm">Tester</span><span class="tm">4s</span></div><div class="say">Ran it. Drag works and the state survives a reload.<div class="note pass">✓ Build clean · no console errors</div></div></div></div><div class="composer">
+              <div class="box"><div class="ph">Describe a change…</div>
+                <div class="row"><span class="chip">Auto ▾</span><span class="chip">🌐</span><span class="send">➤</span></div></div>
+              <div class="kbd"><span>Enter send · ⇧Enter newline</span><span></span></div>
+            </div>
+          </div>
+          <div class="right">
+            <div class="tabs">
+              <div class="tab">◐ Build</div>
+              <div class="tab" aria-selected="true">▷ App</div>
+              <div class="tab dev-only">{} Code</div>
+              <div class="tab dev-only">≡ Logs</div>
+              <div class="spacer"></div>
+              <div class="tab">⟳</div><div class="tab">▭ Desktop ▾</div><div class="tab">↗</div>
+            </div>
+            <div class="surface" style="padding:12px">
+              <div class="frame">
+                <div class="frame-bar"><span class="u">localhost:5173</span></div>
+                <div class="frame-in">
+                  <div class="app">
+                    <div class="app-top"><h5>My Tasks</h5><span class="add">+ Add</span></div>
+                    <div class="cols">
+                      <div class="col"><h6>To do</h6>
+                        <div class="card">Buy groceries<span class="tag" style="background:rgba(96,165,250,.16);color:#93c5fd">errand</span></div>
+                        <div class="card">Book flights</div></div>
+                      <div class="col"><h6>Doing</h6>
+                        <div class="card">Ship the landing page<span class="tag" style="background:rgba(251,191,36,.16);color:#fcd34d">urgent</span></div></div>
+                      <div class="col"><h6>Done</h6>
+                        <div class="card">Write tests<span class="tag" style="background:rgba(52,211,153,.16);color:#6ee7b7">done</span></div></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ══════════════ FAILED ══════════════ -->
+      <section class="screen" data-screen="failed">
+        <div class="hdr">
+          <div class="logo"><b></b>Devforge</div>
+          <div class="crumb">task-manager ▾</div>
+          <div class="spacer"></div>
+          <div class="pill err"><span class="dot" style="background:var(--err)"></span>Needs a fix ›</div>
+          <div class="spacer"></div>
+          <div class="ico">⚙</div>
+          <button class="btn ghostdash">Deploy</button>
+        </div>
+        <div class="body">
+          <div class="chat">
+            <div class="chat-hd"><span class="who">TRANSCRIPT</span></div>
+            <div class="stream"><div class="grp"><div class="who"><span class="av" style="background:var(--tester);color:#3f2d00">T</span><span class="nm">Tester</span><span class="tm">2s</span></div><div class="say">Ran it. The board crashes on the first drag.<div class="note fail">TypeError: can't read property 'id'<br>Board.tsx:42</div></div></div><div class="grp"><div class="who"><span class="av" style="background:var(--debugger)">D</span><span class="nm">Debugger</span><span class="tm">now</span></div><div class="say">The drop handler read the card before the column resolved. Fixing it now.</div></div></div><div class="statusline"><span class="ic">⬥</span><span class="shimmer-text">Rewriting Board.tsx</span><span class="ct">8 files</span></div><div class="composer">
+              <div class="box"><div class="ph">Describe a change…</div>
+                <div class="row"><span class="chip">Auto ▾</span><span class="send stop">■</span></div></div>
+              <div class="kbd"><span>Enter send · ⇧Enter newline</span><span>Esc to stop</span></div>
+            </div>
+          </div>
+          <div class="right">
+            <div class="tabs">
+              <div class="tab" aria-selected="true">◐ Build</div>
+              <div class="tab">▷ App</div>
+              <div class="tab dev-only">{} Code</div>
+              <div class="tab dev-only">≡ Logs</div>
+            </div>
+            <div class="surface">
+              <div class="rail-pipe">
+                <div class="node" data-s="done"><span class="k"></span><span class="nm">Plan</span></div>
+                <div class="node" data-s="done"><span class="k"></span><span class="nm">Write</span></div>
+                <div class="node" data-s="done"><span class="k"></span><span class="nm">Install</span></div>
+                <div class="node" data-s="fail"><span class="k"></span><span class="nm">Test</span></div>
+                <div class="node"><span class="k"></span><span class="nm">Run</span></div>
+              </div>
+              <div class="fixcard">
+                <h5>⚠ The app didn’t start</h5>
+                <p>The board tries to read a card before its column exists, so the very first drag throws. This is the kind of thing the debugger fixes on its own — no action needed from you.</p>
+                <div class="work">The debugger is on it <span class="mini"><i></i></span></div>
+                <div class="acts">
+                  <button class="btn">↗ Open Board.tsx</button>
+                  <button class="btn">≡ See logs</button>
+                </div>
+              </div>
+              <div class="frame" style="opacity:.5">
+                <div class="frame-bar"><span class="u">localhost:5173</span></div>
+                <div class="frame-in"><div class="skel-cap">Preview paused while the fix lands</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ══════════════ CODE ══════════════ -->
+      <section class="screen" data-screen="code">
+        <div class="hdr">
+          <div class="logo"><b></b>Devforge</div>
+          <div class="crumb">task-manager ▾</div>
+          <div class="spacer"></div>
+          <div class="pill"><span class="dot" style="background:var(--coder)"></span>Writing</div>
+          <div class="spacer"></div>
+          <div class="ico">↶</div><div class="ico">↷</div><div class="ico">⚙</div>
+          <button class="btn ghostdash">Deploy</button>
+        </div>
+        <div class="body">
+          <div class="chat" style="width:270px">
+            <div class="chat-hd"><span class="who">TRANSCRIPT</span></div>
+            <div class="stream"><div class="grp"><div class="who"><span class="av" style="background:var(--coder)">C</span><span class="nm">Coder</span><span class="tm">now</span></div><div class="say">Wiring the board, the column and the persistence hook.</div></div></div><div class="statusline"><span class="ic">⬥</span><span class="shimmer-text">Writing Board.tsx</span><span class="ct">6 files</span></div><div class="composer"><div class="box"><div class="ph">Describe a change…</div>
+              <div class="row"><span class="chip">Auto ▾</span><span class="send stop">■</span></div></div></div>
+          </div>
+          <div class="right">
+            <div class="tabs">
+              <div class="tab">◐ Build</div><div class="tab">▷ App</div>
+              <div class="tab" aria-selected="true">{} Code</div><div class="tab">≡ Logs</div>
+              <div class="spacer"></div><div class="tab">⌥ Diff</div>
+            </div>
+            <div class="surface" style="padding:12px">
+              <div class="codewrap">
+                <div class="tree">
+                  <div class="h">Files</div>
+                  <div class="f">▾ src</div>
+                  <div class="f" style="padding-left:16px">▾ components</div>
+                  <div class="f sel" style="padding-left:26px">Board.tsx <span class="w"></span></div>
+                  <div class="f" style="padding-left:26px">Column.tsx</div>
+                  <div class="f" style="padding-left:16px">▾ hooks</div>
+                  <div class="f" style="padding-left:26px">useBoard.ts</div>
+                  <div class="f" style="padding-left:16px">App.tsx</div>
+                  <div class="f">package.json</div>
+                </div>
+                <div class="ed">
+                  <div class="ed-tabs"><span class="ed-tab sel">Board.tsx</span><span class="ed-tab">useBoard.ts</span></div>
+                  <div class="ed-body">
+                    <div class="ln"><span class="g">36</span><span><span class="cm">// move a card between columns</span></span></div>
+                    <div class="ln"><span class="g">37</span><span><span class="kw">const</span> <span class="fn">onDrop</span> = (e) =&gt; {</span></div>
+                    <div class="ln add"><span class="g">38</span><span>&nbsp;&nbsp;<span class="kw">const</span> col = columns[e.over?.id];</span></div>
+                    <div class="ln add"><span class="g">39</span><span>&nbsp;&nbsp;<span class="kw">if</span> (!col) <span class="kw">return</span>;</span></div>
+                    <div class="ln"><span class="g">40</span><span>&nbsp;&nbsp;<span class="kw">const</span> card = cards[e.active.id];</span></div>
+                    <div class="ln"><span class="g">41</span><span></span></div>
+                    <div class="ln"><span class="g">42</span><span>&nbsp;&nbsp;<span class="fn">move</span>(card, col.id);</span></div>
+                    <div class="ln"><span class="g">43</span><span>};</span></div>
+                    <div class="ln"><span class="g">44</span><span></span></div>
+                    <div class="ln"><span class="g">45</span><span><span class="kw">export default</span> <span class="kw">function</span> <span class="fn">Board</span>() {</span></div>
+                    <div class="ln"><span class="g">46</span><span>&nbsp;&nbsp;<span class="kw">const</span> { columns, cards } = <span class="fn">useBoard</span>();</span></div>
+                    <div class="ln"><span class="g">47</span><span>&nbsp;&nbsp;<span class="kw">return</span> (</span></div>
+                    <div class="ln"><span class="g">48</span><span>&nbsp;&nbsp;&nbsp;&nbsp;&lt;<span class="fn">DndContext</span> onDragEnd={onDrop}&gt;</span></div>
+                    <div class="ln"><span class="g">49</span><span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{columns.<span class="fn">map</span>(<span class="nu">c</span> =&gt; &lt;<span class="fn">Column</span> key={c.id} /&gt;)}</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ══════════════ LOGS ══════════════ -->
+      <section class="screen" data-screen="logs">
+        <div class="hdr">
+          <div class="logo"><b></b>Devforge</div>
+          <div class="crumb">task-manager ▾</div>
+          <div class="spacer"></div>
+          <div class="pill ok"><span class="dot" style="background:var(--ok)"></span>Live</div>
+          <div class="spacer"></div>
+          <div class="ico">⚙</div><button class="btn primary">Deploy</button>
+        </div>
+        <div class="body">
+          <div class="chat" style="width:270px">
+            <div class="chat-hd"><span class="who">TRANSCRIPT</span></div>
+            <div class="stream"><div class="grp"><div class="who"><span class="av" style="background:var(--tester);color:#3f2d00">T</span><span class="nm">Tester</span><span class="tm">4s</span></div><div class="say">Ran it again.<div class="note pass">✓ Build clean · no errors</div></div></div></div><div class="composer"><div class="box"><div class="ph">Describe a change…</div>
+              <div class="row"><span class="chip">Auto ▾</span><span class="send">➤</span></div></div></div>
+          </div>
+          <div class="right">
+            <div class="tabs">
+              <div class="tab">◐ Build</div><div class="tab">▷ App</div>
+              <div class="tab">{} Code</div><div class="tab" aria-selected="true">≡ Logs</div>
+              <div class="spacer"></div>
+              <div class="seg" style="height:22px">
+                <button aria-pressed="true">Readable</button><button aria-pressed="false">Raw</button>
+              </div>
+            </div>
+            <div class="surface">
+              <div class="logs">
+                <div class="ev ok"><span class="s">✓</span><span>Installed 47 packages</span><span class="ms">12.4s</span></div>
+                <div class="ev ok"><span class="s">✓</span><span>Dev server started</span><span class="sub">localhost:5173</span><span class="ms">1.1s</span></div>
+                <div class="ev bad"><span class="s">✗</span><span>Build failed</span><span class="sub">Board.tsx:42 · TypeError</span><span class="ms">0.4s</span></div>
+                <div class="ev ok"><span class="s">✓</span><span>Rebuilt after the debugger's fix</span><span class="ms">1.2s</span></div>
+                <div class="ev ok"><span class="s">✓</span><span>All checks passed</span><span class="ms">4.0s</span></div>
+              </div>
+              <div class="raw">⌄ Show raw output (312 lines)</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- ─────────── annotations ─────────── -->
+  <aside class="notes" id="notes"></aside>
+</div>
+
+<script>
+const NOTES = {
+  empty: {
+    t:'Empty — the promise, stated once',
+    p:'The six agent dots are the illustration, in their real identity hues, and they are the same six from the landing roster. On submit they translate into the pipeline rail: the constellation <em>becomes</em> the progress bar. One motion ties the marketing promise to the product.',
+    l:[['good','No file tree, no terminal, no empty-state boxes. Nothing to dismiss.'],
+       ['good','Suggestions are concrete apps, not feature names.'],
+       ['','Templates and GitHub demoted to a quiet line — they are the minority path.']]
+  },
+  building: {
+    t:'Building — the default surface',
+    p:'Research is blunt about this: <em>separate the conversation from the activity stream.</em> The chat is where you set goals; the Build surface is where the agents work. Today both jobs are crammed into the chat while the editor sits empty.',
+    l:[['bad','<code>npm install</code> output is 200 lines nobody reads. The rail already says INSTALL and the chat already shimmers — a third indicator is noise, so there is none.'],
+       ['good','Skeleton sits exactly where the app will render, so the eye never relocates.'],
+       ['good','The pipeline rail is the landing page\'s own visual language, finally used in the product.'],
+       ['','Code and Logs tabs are hidden in Simple mode — flip the toggle above to see them appear.'],
+       ['bad','No context %, no token counts. That is developer telemetry.']]
+  },
+  ready: {
+    t:'Ready — get out of the way',
+    p:'The moment it runs, the app is the whole right side. Device presets and refresh live in the tab row rather than a second toolbar.',
+    l:[['good','QA\'s pass lands as a green note in the transcript — same component as the landing transcript.'],
+       ['good','Deploy turns solid only now. Before this it is a dashed outline, not a ghost.'],
+       ['','Share appears once there is something worth sharing.']]
+  },
+  failed: {
+    t:'Failed — the moment that decides retention',
+    p:'Plain language first, stack trace second. The rail turns rose at the exact step that broke, so you see <em>where</em> without reading anything.',
+    l:[['good','"The app didn\'t start" beats "TypeError: cannot read property".'],
+       ['good','The card says the debugger is already on it — the product is visibly self-healing, not dead.'],
+       ['bad','Logs never auto-vomit. "See logs" is the only door, and it is right there.'],
+       ['','Status pill in the header becomes a button — the only red thing on screen should be clickable.']]
+  },
+  code: {
+    t:'Code — where code actually belongs',
+    p:'Full width, no clipping, no six-line fade. The editor follows the agent: the file being written is open and scrolled to the write point, with green gutter marks on the new lines.',
+    l:[['good','Chat keeps only file rows; the code renders once, here.'],
+       ['','Diff toggle for reviewing a turn before accepting it.'],
+       ['','Developer mode only — a Simple user gets here by clicking a file row, which promotes them permanently.']]
+  },
+  logs: {
+    t:'Logs — events by default, firehose on request',
+    p:'Even the Logs surface leads with what happened. A non-technical user can read this list and understand the build. The 312 raw lines are one disclosure away.',
+    l:[['good','Each event carries a duration — the cheapest way to make a build feel legible.'],
+       ['good','The failure row links straight to the file and line.'],
+       ['','Readable/Raw is a segmented control, not a hidden setting.']]
+  }
+};
+
+const win = document.querySelector('.win');
+const notes = document.getElementById('notes');
+const screenName = document.getElementById('screenName');
+
+function render(id){
+  document.querySelectorAll('.screen').forEach(s => s.classList.toggle('on', s.dataset.screen === id));
+  document.querySelectorAll('#rail button').forEach(b => b.setAttribute('aria-current', String(b.dataset.s === id)));
+  screenName.textContent = id;
+  const n = NOTES[id];
+  notes.innerHTML =
+    '<div class="eyebrow">Design notes</div><h4>' + n.t + '</h4><p>' + n.p + '</p><ul>' +
+    n.l.map(([k, txt]) => '<li class="' + k + '">' + txt + '</li>').join('') + '</ul>';
+}
+
+document.getElementById('rail').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (b) render(b.dataset.s);
+});
+
+const mS = document.getElementById('mSimple'), mD = document.getElementById('mDev');
+function setMode(m){
+  document.body.dataset.mode = m;
+  mS.setAttribute('aria-pressed', String(m === 'simple'));
+  mD.setAttribute('aria-pressed', String(m === 'dev'));
+}
+mS.onclick = () => setMode('simple');
+mD.onclick = () => setMode('dev');
+
+render('building');
+</script>
+</body>
+</html>

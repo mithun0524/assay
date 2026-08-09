@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { listRepositories, createRepository } from '@/lib/github-server';
-import { requireAuth, checkCsrf, rateLimit, safeError } from '@/lib/api-auth';
+import { listRepositories, createRepository, githubErrorResponse } from '@/lib/github-server';
+import { requireAuth, checkCsrf, rateLimit } from '@/lib/api-auth';
 
 export async function GET(request: NextRequest) {
   const rl = rateLimit(request, { windowMs: 60_000, max: 30 });
@@ -10,21 +10,19 @@ export async function GET(request: NextRequest) {
   if (authErr) return authErr;
 
   const { searchParams } = new URL(request.url);
-  const sort = searchParams.get('sort') as any;
+  const SORTS = ['created', 'updated', 'pushed', 'full_name'] as const;
+  const rawSort = searchParams.get('sort');
+  const sort = SORTS.find((s) => s === rawSort);
   const per_page = searchParams.get('per_page');
 
   try {
     const repos = await listRepositories({
-      sort: sort || undefined,
+      sort,
       per_page: per_page ? Math.min(parseInt(per_page) || 30, 100) : undefined,
     });
     return NextResponse.json(repos);
   } catch (err) {
-    const msg = err instanceof Error && err.message?.includes('not linked')
-      ? 'GitHub account not linked'
-      : safeError(err, 'Failed to list repositories');
-    const status = msg.includes('not linked') ? 403 : 500;
-    return NextResponse.json({ error: msg }, { status });
+    return githubErrorResponse(err, 'Failed to list repositories');
   }
 }
 
@@ -51,10 +49,6 @@ export async function POST(request: NextRequest) {
     const repo = await createRepository(name, description, isPrivate);
     return NextResponse.json(repo);
   } catch (err) {
-    const msg = err instanceof Error && err.message?.includes('not linked')
-      ? 'GitHub account not linked'
-      : safeError(err, 'Failed to create repository');
-    const status = msg.includes('not linked') ? 403 : 500;
-    return NextResponse.json({ error: msg }, { status });
+    return githubErrorResponse(err, 'Failed to create repository');
   }
 }

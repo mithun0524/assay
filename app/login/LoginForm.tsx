@@ -39,7 +39,7 @@ export function LoginForm() {
   if (loading) {
     return (
       <div className="min-h-screen bg-[#09090b] flex items-center justify-center">
-        <RiLoader4Line className="w-6 h-6 text-violet-400 animate-spin" />
+        <RiLoader4Line className="w-6 h-6 text-zinc-300 animate-spin" />
       </div>
     );
   }
@@ -59,8 +59,11 @@ export function LoginForm() {
         // Navigate immediately — don't wait for onAuthStateChange to propagate
         router.replace('/app');
       } else {
-        await signUpWithEmail(email, password);
-        setEmailSent(true);
+        const signedInAlready = await signUpWithEmail(email, password);
+        // With email confirmation disabled, signUp returns a live session —
+        // showing "check your email" would strand a signed-in user.
+        if (signedInAlready) router.replace('/app');
+        else setEmailSent(true);
       }
     } catch (err: any) {
       setError(err.message || 'Authentication failed');
@@ -82,14 +85,14 @@ export function LoginForm() {
           <div className="w-full max-w-[360px]">
             {emailSent ? (
               <div className="space-y-5 animate-fade-up">
-                <div className="w-11 h-11 rounded-full bg-violet-500/15 flex items-center justify-center">
-                  <Mail className="w-5 h-5 text-violet-400" />
+                <div className="w-11 h-11 rounded-full bg-white/[0.06] flex items-center justify-center">
+                  <Mail className="w-5 h-5 text-zinc-200" />
                 </div>
                 <div>
                   <h1 className="text-2xl font-semibold text-zinc-100 tracking-tight">
                     Check your email
                   </h1>
-                  <p className="mt-2 text-sm text-zinc-500 leading-relaxed">
+                  <p className="mt-2 text-sm text-zinc-400 leading-relaxed">
                     We sent a confirmation link to{' '}
                     <span className="text-zinc-300">{email}</span>.
                     Click the link to complete your sign up.
@@ -97,7 +100,7 @@ export function LoginForm() {
                 </div>
                 <button
                   onClick={() => { setEmailSent(false); setMode('signin'); }}
-                  className="text-sm text-violet-400 hover:text-violet-300 transition-colors cursor-pointer"
+                  className="text-sm text-zinc-100 hover:text-white transition-colors cursor-pointer"
                 >
                   Back to sign in
                 </button>
@@ -109,12 +112,12 @@ export function LoginForm() {
                   <h1 className="text-[28px] font-semibold text-zinc-100 tracking-tight leading-tight">
                     {mode === 'signin' ? 'Welcome back' : 'Create your account'}
                   </h1>
-                  <p className="text-sm text-zinc-500">
+                  <p className="text-sm text-zinc-400">
                     {mode === 'signin'
                       ? <>Don&apos;t have an account?{' '}
                           <button
                             onClick={() => { setMode('signup'); setError(null); }}
-                            className="text-violet-400 hover:text-violet-300 transition-colors cursor-pointer"
+                            className="text-zinc-100 hover:text-white transition-colors cursor-pointer"
                           >
                             Sign up for free
                           </button>
@@ -122,7 +125,7 @@ export function LoginForm() {
                       : <>Already have an account?{' '}
                           <button
                             onClick={() => { setMode('signin'); setError(null); }}
-                            className="text-violet-400 hover:text-violet-300 transition-colors cursor-pointer"
+                            className="text-zinc-100 hover:text-white transition-colors cursor-pointer"
                           >
                             Log in
                           </button>
@@ -134,7 +137,7 @@ export function LoginForm() {
                 {/* OAuth Buttons */}
                 <div className="space-y-2.5 animate-fade-up delay-75">
                   <button
-                    onClick={() => signInWithGoogle()}
+                    onClick={() => signInWithGoogle().catch((e) => setError(e.message ?? 'Google sign-in unavailable'))}
                     className="w-full flex items-center justify-center gap-2.5 px-4 py-2.5 rounded-xl text-[13px] font-medium bg-white/[0.04] text-zinc-300 hover:bg-white/[0.08] border border-white/[0.08] hover:border-white/[0.12] transition-all cursor-pointer"
                   >
                     <RiGoogleLine size={17} className="text-zinc-400" />
@@ -142,7 +145,7 @@ export function LoginForm() {
                   </button>
 
                   <button
-                    onClick={() => signInWithGitHub()}
+                    onClick={() => signInWithGitHub().catch((e) => setError(e.message ?? 'GitHub sign-in unavailable'))}
                     className="w-full flex items-center justify-center gap-2.5 px-4 py-2.5 rounded-xl text-[13px] font-medium bg-white/[0.04] text-zinc-300 hover:bg-white/[0.08] border border-white/[0.08] hover:border-white/[0.12] transition-all cursor-pointer"
                   >
                     <RiGithubLine size={17} className="text-zinc-400" />
@@ -153,7 +156,7 @@ export function LoginForm() {
                 {/* Divider */}
                 <div className="flex items-center gap-3 animate-fade-up delay-100">
                   <div className="flex-1 h-px bg-white/[0.06]" />
-                  <span className="text-[11px] text-zinc-600 uppercase tracking-widest">
+                  <span className="text-[11px] text-zinc-400 uppercase tracking-widest">
                     Or log in with email
                   </span>
                   <div className="flex-1 h-px bg-white/[0.06]" />
@@ -171,7 +174,7 @@ export function LoginForm() {
                       className={cn(
                         'w-full px-3.5 py-2.5 rounded-xl text-sm text-zinc-200',
                         'bg-white/[0.03] border border-white/[0.08]',
-                        'focus:outline-none focus:border-violet-500/40 focus:ring-1 focus:ring-violet-500/10',
+                        'focus:outline-none focus:border-white/45 focus:ring-1 focus:ring-white/[0.08]',
                         'placeholder:text-zinc-600 transition-all'
                       )}
                     />
@@ -187,7 +190,7 @@ export function LoginForm() {
                       className={cn(
                         'w-full px-3.5 py-2.5 rounded-xl text-sm text-zinc-200',
                         'bg-white/[0.03] border border-white/[0.08]',
-                        'focus:outline-none focus:border-violet-500/40 focus:ring-1 focus:ring-violet-500/10',
+                        'focus:outline-none focus:border-white/45 focus:ring-1 focus:ring-white/[0.08]',
                         'placeholder:text-zinc-600 transition-all'
                       )}
                     />
@@ -216,21 +219,23 @@ export function LoginForm() {
         </div>
 
         {/* Footer */}
-        <p className="text-[11px] text-zinc-700 animate-fade-in delay-300">
+        <p className="text-[11px] text-zinc-400 animate-fade-in delay-300">
           By continuing, you agree to our Terms of Service and Privacy Policy.
         </p>
       </div>
 
       {/* ── Right Panel: Visual Hero ── */}
       <div className="hidden lg:flex w-1/2 relative overflow-hidden items-center justify-center">
-        {/* Gradient mesh background */}
+        {/* The same agent-hue wash the landing hero uses, so signing in does not
+            look like a different product. Was a violet/cyan blur mesh — three
+            stacked 100px-blur circles, which is also three extra layers for the
+            compositor. `.agent-wash` is one paint. */}
         <div className="absolute inset-0">
-          <div className="absolute inset-0 bg-gradient-to-br from-violet-950/80 via-[#09090b] to-cyan-950/50" />
-          <div className="absolute inset-0 opacity-60">
-            <div className="absolute top-[10%] left-[20%] w-[500px] h-[500px] rounded-full bg-violet-600/20 blur-[120px]" />
-            <div className="absolute bottom-[10%] right-[10%] w-[400px] h-[400px] rounded-full bg-cyan-500/15 blur-[100px]" />
-            <div className="absolute top-[50%] left-[50%] w-[300px] h-[300px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-violet-500/10 blur-[80px]" />
-          </div>
+          <div className="absolute inset-0 bg-[#09090b]" />
+          <div className="absolute inset-0 opacity-70 agent-wash-panel" />
+          {/* Fades the wash out toward the form so the seam between the two
+              halves is a gradient, not a hard edge. */}
+          <div className="absolute inset-0 bg-[linear-gradient(260deg,transparent_0%,rgba(9,9,11,0.12)_34%,rgba(9,9,11,0.5)_62%,#09090b_100%)]" />
           {/* Noise overlay */}
           <div
             className="absolute inset-0 opacity-[0.35] mix-blend-overlay pointer-events-none"
@@ -255,7 +260,7 @@ export function LoginForm() {
 
           {/* Floating mock UI card */}
           <div className="relative animate-fade-up delay-400">
-            <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] backdrop-blur-md p-5 space-y-4 shadow-2xl shadow-violet-500/5">
+            <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] backdrop-blur-md p-5 space-y-4 shadow-2xl shadow-black/40">
               {/* Mock header bar */}
               <div className="flex items-center gap-2">
                 <div className="flex gap-1.5">
@@ -273,35 +278,37 @@ export function LoginForm() {
               {/* Mock code lines */}
               <div className="space-y-2 font-mono text-[11px]">
                 <div className="flex items-center gap-2">
-                  <RiCodeSSlashLine className="w-3.5 h-3.5 text-violet-400 shrink-0" />
-                  <span className="text-zinc-500">app/page.tsx</span>
+                  <RiCodeSSlashLine className="w-3.5 h-3.5 text-[var(--agent-coder)] shrink-0" />
+                  <span className="text-zinc-400">app/page.tsx</span>
                 </div>
+                {/* Decorative, not a real highlighter — so it uses the neutral
+                    ramp rather than inventing a third syntax palette. */}
                 <div className="pl-5 space-y-1">
-                  <div className="text-cyan-400/70">export default <span className="text-violet-400/80">function</span> <span className="text-zinc-300">Home</span>() {'{'}</div>
-                  <div className="text-zinc-600 pl-3">return {'<'}Dashboard /{'>'}</div>
-                  <div className="text-cyan-400/70">{'}'}</div>
+                  <div className="text-zinc-400">export default <span className="text-zinc-200">function</span> <span className="text-zinc-300">Home</span>() {'{'}</div>
+                  <div className="text-zinc-500 pl-3">return {'<'}Dashboard /{'>'}</div>
+                  <div className="text-zinc-400">{'}'}</div>
                 </div>
               </div>
 
               {/* Mock feature pills */}
               <div className="flex flex-wrap gap-2">
-                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-violet-500/10 border border-violet-500/15">
-                  <RiTerminalBoxLine className="w-3 h-3 text-violet-400" />
-                  <span className="text-[10px] text-violet-300 font-medium">AI Chat</span>
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/[0.04] border border-white/[0.08]">
+                  <RiTerminalBoxLine className="w-3 h-3 text-zinc-400" />
+                  <span className="text-[10px] text-zinc-300 font-medium">AI Chat</span>
                 </div>
-                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-cyan-500/10 border border-cyan-500/15">
-                  <RiLayoutGridLine className="w-3 h-3 text-cyan-400" />
-                  <span className="text-[10px] text-cyan-300 font-medium">Live Preview</span>
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/[0.04] border border-white/[0.08]">
+                  <RiLayoutGridLine className="w-3 h-3 text-zinc-400" />
+                  <span className="text-[10px] text-zinc-300 font-medium">Live Preview</span>
                 </div>
-                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/15">
-                  <span className="text-[10px]">&#9650;</span>
-                  <span className="text-[10px] text-emerald-300 font-medium">Deploy</span>
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/[0.04] border border-white/[0.08]">
+                  <span className="text-[10px] text-zinc-400">&#9650;</span>
+                  <span className="text-[10px] text-zinc-300 font-medium">Deploy</span>
                 </div>
               </div>
             </div>
 
             {/* Subtle glow behind card */}
-            <div className="absolute -inset-6 -z-10 rounded-3xl bg-violet-500/5 blur-2xl" />
+            <div className="absolute -inset-6 -z-10 rounded-3xl bg-white/[0.04] blur-2xl" />
           </div>
         </div>
       </div>

@@ -14,6 +14,9 @@ import {
   RiCheckboxCircleLine,
   RiSideBarLine,
   RiGlobalLine,
+  RiShieldCheckLine,
+  RiLoader4Line,
+  RiErrorWarningLine,
 } from '@remixicon/react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -21,12 +24,12 @@ import { useStore } from '@/lib/store';
 import { useChat } from '@/hooks/useChat';
 import { MessageBubble } from './MessageBubble';
 import { CustomDropdown } from './CustomDropdown';
-import { FREE_MODELS } from '@/lib/openrouter';
+import { FREE_MODELS, VISION_SUPPORTED } from '@/lib/openrouter';
 import { cn } from '@/lib/utils';
 import { ImageUpload } from './ImageUpload';
 import { ImagePreview } from './ImagePreview';
 import { AgentBadge } from './AgentBadge';
-import { AgentRole } from '@/lib/agents';
+import { AGENTS } from '@/lib/agents';
 import { Tooltip } from './Tooltip';
 
 interface ChatPanelProps {
@@ -60,7 +63,12 @@ export function ChatPanel({ onCollapse }: ChatPanelProps) {
   const tokenUsage = useStore(s => s.tokenUsage);
   const generationPhase = useStore(s => s.generationPhase);
   const activelyWritingFile = useStore(s => s.activelyWritingFile);
+  // Selector returns a number, not the files object, so this does not re-render
+  // the whole panel on every keystroke the agent writes into a file.
+  const fileCount = useStore(s => Object.keys(s.files).length);
   const activeAgent = useStore(s => s.activeAgent);
+  const activeAgentReasoning = useStore(s => s.activeAgentReasoning);
+  const qaStatus = useStore(s => s.qaStatus);
   const webSearchEnabled = useStore(s => s.webSearchEnabled);
   const setWebSearchEnabled = useStore(s => s.setWebSearchEnabled);
 
@@ -68,6 +76,7 @@ export function ChatPanel({ onCollapse }: ChatPanelProps) {
   const [input, setInput] = useState('');
   const [images, setImages] = useState<string[]>([]);
   const [rateLimitSeconds, setRateLimitSeconds] = useState(0);
+  const [queued, setQueued] = useState<{ text: string; images: string[] } | null>(null);
   const [showScrollFab, setShowScrollFab] = useState(false);
   const [placeholderIdx, setPlaceholderIdx] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -75,7 +84,7 @@ export function ChatPanel({ onCollapse }: ChatPanelProps) {
   const isStreamingRef = useRef(isStreaming);
   isStreamingRef.current = isStreaming;
 
-  const modelLimit = FREE_MODELS.find(m => m.id === selectedModel)?.contextLength || 131072;
+  const modelLimit = FREE_MODELS.find(m => m.id === selectedModel)?.contextLength ?? 131072;
   const usagePercent = Math.min(100, (tokenUsage / modelLimit) * 100);
   const isNearLimit = usagePercent > 80;
   const isAtLimit = usagePercent > 95;
@@ -171,22 +180,44 @@ export function ChatPanel({ onCollapse }: ChatPanelProps) {
 
   const isRateLimited = rateLimitSeconds > 0;
 
+  // Flush a queued message once the current turn (including QA fixes) is done.
+  useEffect(() => {
+    if (isStreaming || !queued || isRateLimited) return;
+    const next = queued;
+    setQueued(null);
+    submit(next.text, next.images);
+    setTimeout(scrollToBottom, 100);
+  }, [isStreaming, queued, isRateLimited, submit, scrollToBottom]);
+
   const handleSubmit = useCallback(() => {
-    if ((input.trim() || images.length > 0) && !isStreaming) {
-      submit(input, images);
+    if (!input.trim() && images.length === 0) return;
+
+    // Sending mid-build used to silently do nothing. Queue it instead and send
+    // the moment the current turn finishes.
+    if (isStreaming) {
+      setQueued({ text: input, images });
       setInput('');
       setImages([]);
-      // Scroll to bottom on send
-      setTimeout(scrollToBottom, 100);
+      return;
     }
+
+    submit(input, images);
+    setInput('');
+    setImages([]);
+    setTimeout(scrollToBottom, 100);
   }, [input, images, isStreaming, submit, scrollToBottom]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Escape' && isStreaming) {
+      e.preventDefault();
+      stop();
+      return;
+    }
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSubmit();
     }
-  }, [handleSubmit]);
+  }, [handleSubmit, isStreaming, stop]);
 
   const handleRetry = useCallback(() => {
     // Find the last user message and resubmit
@@ -224,30 +255,36 @@ export function ChatPanel({ onCollapse }: ChatPanelProps) {
   return (
     <div className="flex flex-col h-full bg-[#09090b] relative">
       {/* Panel header */}
-      <div className="flex items-center justify-between px-3 py-2 border-b border-white/[0.06]">
+      <div className="flex items-center justify-between px-3 py-1.5 border-b border-white/[0.06]">
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5">
-            <RiRobot2Line className="w-3.5 h-3.5 text-violet-400" />
-            <span className="text-xs font-medium text-zinc-400 tracking-wide uppercase">Chat</span>
+          {/* The active specialist is more useful here than the word "chat". */}
+          <div className="flex items-center gap-1.5 min-w-0">
+            <RiRobot2Line className={cn('w-3.5 h-3.5 shrink-0', activeAgent ? AGENTS[activeAgent].color : 'text-zinc-500')} />
+            <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-zinc-400 truncate">
+              {activeAgent ? AGENTS[activeAgent].name : 'Chat'}
+            </span>
           </div>
 
-          {/* Token Usage */}
+          {/* Token usage. Was a 48px track with a 30%-white fill and a
+              zinc-600 label — the fill was indistinguishable from its own
+              track at low usage, and the label measured 3.0:1, well under AA.
+              Wider track, readable fill, AA label. */}
           {hasMessages && (
             <div className="flex items-center gap-1.5" title={`${tokenUsage.toLocaleString()} / ${modelLimit.toLocaleString()} tokens`}>
-              <div className="w-12 h-1 bg-white/[0.08] rounded-full overflow-hidden">
+              <div className="w-16 h-1 bg-white/[0.10] rounded-full overflow-hidden">
                 <div
                   className={cn(
                     "h-full rounded-full transition-all duration-500",
-                    isAtLimit ? "bg-red-500" : isNearLimit ? "bg-amber-400" : "bg-violet-500/70"
+                    isAtLimit ? "bg-rose-400" : isNearLimit ? "bg-amber-400" : "bg-white/55"
                   )}
                   style={{ width: `${Math.max(3, usagePercent)}%` }}
                 />
               </div>
               <span className={cn(
-                "text-[10px] font-medium",
-                isAtLimit ? "text-red-400" : isNearLimit ? "text-amber-400" : "text-zinc-600"
+                "font-mono text-[10px]",
+                isAtLimit ? "text-rose-400" : isNearLimit ? "text-amber-400" : "text-zinc-400"
               )}>
-                {Math.round(usagePercent)}%
+                {Math.round(usagePercent)}% context
               </span>
             </div>
           )}
@@ -283,7 +320,7 @@ export function ChatPanel({ onCollapse }: ChatPanelProps) {
         {/* Empty state */}
         {!hasMessages && (
           <div className="h-full flex flex-col items-center justify-center text-center px-4">
-            <div className="w-10 h-10 rounded-xl bg-violet-500/10 flex items-center justify-center mb-4">
+            <div className="w-10 h-10 rounded-xl bg-white/[0.04] flex items-center justify-center mb-4">
               <Image src="/logo.png" alt="DevForge" width={20} height={20} className="w-5 h-5" />
             </div>
             <h3 className="text-sm font-medium text-zinc-300 mb-1">Start a conversation</h3>
@@ -323,28 +360,39 @@ export function ChatPanel({ onCollapse }: ChatPanelProps) {
           );
         })}
 
-        {/* Generation phase indicator (below messages, above input) */}
-        {isStreaming && generationPhase !== 'idle' && (
+        {/* Generation phase indicator (below messages, above input).
+            Suppressed while phase is 'writing' with no file yet: its fallback
+            copy was "Analyzing your request...", which is the same thing the
+            streaming message bubble above it already says with "Thinking...".
+            It earns its place once it can name the file, or once the phase is
+            something the bubble does not cover (searching, installing). */}
+        {isStreaming && generationPhase !== 'idle' &&
+          !(generationPhase === 'writing' && !activelyWritingFile) && (
           <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-white/[0.02] border border-white/[0.04] animate-fade-in">
             {/* Active agent badge */}
             {activeAgent && (
-              <AgentBadge role={activeAgent as AgentRole} showName={false} />
+              <AgentBadge role={activeAgent} title={activeAgentReasoning ?? undefined} showName={false} />
             )}
             {generationPhase === 'writing' && (
               <>
-                <RiFileCodeLine className="w-3.5 h-3.5 text-violet-400 animate-pulse" />
-                <span className="text-xs text-zinc-400">
-                  {activelyWritingFile ? (
-                    <>Writing <span className="text-zinc-300 font-medium">{activelyWritingFile.split('/').pop()}</span>...</>
-                  ) : (
-                    'Analyzing your request...'
-                  )}
+                <RiFileCodeLine className="w-3.5 h-3.5 text-zinc-400 animate-pulse" />
+                <span className="text-xs shimmer-text">
+                  Writing <span className="font-medium">{activelyWritingFile?.split('/').pop()}</span>
                 </span>
+                {/* The count is what replaces the list of file cards that used
+                    to sit in the transcript: it is the only thing that told you
+                    how big this turn is. Files in the project, so it keeps
+                    climbing across turns rather than resetting. */}
+                {fileCount > 0 && (
+                  <span className="ml-auto font-mono text-[10px] text-zinc-400 tabular-nums">
+                    {fileCount} {fileCount === 1 ? 'file' : 'files'}
+                  </span>
+                )}
               </>
             )}
             {generationPhase === 'searching' && (
               <>
-                <RiGlobalLine className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
+                <RiGlobalLine className="w-3.5 h-3.5 text-zinc-400 animate-pulse" />
                 <span className="text-xs text-zinc-400">Searching the web...</span>
               </>
             )}
@@ -356,8 +404,14 @@ export function ChatPanel({ onCollapse }: ChatPanelProps) {
             )}
             {generationPhase === 'starting' && (
               <>
-                <RiRocketLine className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
+                <RiRocketLine className="w-3.5 h-3.5 text-zinc-400 animate-pulse" />
                 <span className="text-xs text-zinc-400">Starting dev server...</span>
+              </>
+            )}
+            {generationPhase === 'verifying' && (
+              <>
+                <RiShieldCheckLine className="w-3.5 h-3.5 text-zinc-400 animate-pulse" />
+                <span className="text-xs text-zinc-400">QA agent is testing your app...</span>
               </>
             )}
             {generationPhase === 'done' && (
@@ -366,6 +420,39 @@ export function ChatPanel({ onCollapse }: ChatPanelProps) {
                 <span className="text-xs text-emerald-400">Ready</span>
               </>
             )}
+          </div>
+        )}
+
+        {/* QA gate result — what the QA agent found and did about it */}
+        {qaStatus && (
+          <div
+            className={cn(
+              'mt-2 flex items-start gap-2 px-2.5 py-2 rounded-lg border animate-fade-in',
+              qaStatus.state === 'passed' && 'bg-emerald-500/[0.06] border-emerald-500/20',
+              qaStatus.state === 'fixing' && 'bg-white/[0.04] border-white/[0.08]',
+              qaStatus.state === 'failed' && 'bg-amber-500/[0.06] border-amber-500/20'
+            )}
+          >
+            {qaStatus.state === 'passed' && <RiShieldCheckLine className="w-3.5 h-3.5 mt-px text-emerald-400 shrink-0" />}
+            {qaStatus.state === 'fixing' && <RiLoader4Line className="w-3.5 h-3.5 mt-px text-zinc-400 animate-spin shrink-0" />}
+            {qaStatus.state === 'failed' && <RiErrorWarningLine className="w-3.5 h-3.5 mt-px text-amber-400 shrink-0" />}
+            <div className="min-w-0">
+              <p className={cn(
+                'text-xs font-medium',
+                qaStatus.state === 'passed' && 'text-emerald-300',
+                qaStatus.state === 'fixing' && 'text-zinc-300',
+                qaStatus.state === 'failed' && 'text-amber-300'
+              )}>
+                {qaStatus.summary}
+              </p>
+              {qaStatus.state !== 'passed' && (
+                <p className="text-[11px] text-zinc-500 mt-0.5">
+                  {qaStatus.state === 'fixing'
+                    ? `Auto-fix attempt ${qaStatus.attempt} of ${qaStatus.maxAttempts}`
+                    : `Stopped after ${qaStatus.maxAttempts} attempts — tell me what you see and I'll dig in.`}
+                </p>
+              )}
+            </div>
           </div>
         )}
       </div>
@@ -382,11 +469,23 @@ export function ChatPanel({ onCollapse }: ChatPanelProps) {
       )}
 
       {/* Input area */}
-      <div className="px-3 py-2.5 border-t border-white/[0.06]">
+      {queued && (
+        <div className="mx-3 mb-1 flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-white/[0.08] bg-white/[0.03]">
+          <RiTimeLine className="w-3 h-3 text-zinc-500 shrink-0" />
+          <span className="font-mono text-[10px] text-zinc-400 truncate">Queued · sends when this build finishes</span>
+          <button
+            onClick={() => { setInput(queued.text); setImages(queued.images); setQueued(null); }}
+            className="ml-auto font-mono text-[10px] text-zinc-500 hover:text-zinc-200 shrink-0"
+          >
+            Edit
+          </button>
+        </div>
+      )}
+      <div className="px-3 pb-3 pt-2 border-t border-white/[0.06] bg-gradient-to-b from-transparent to-black/20">
         <div className={cn(
-          'rounded-xl border border-white/[0.06] bg-white/[0.03]',
-          'focus-within:border-violet-500/30 focus-within:bg-white/[0.04]',
-          'focus-within:shadow-[inset_0_1px_3px_rgba(0,0,0,0.2),0_0_0_1px_rgba(124,58,237,0.15)]',
+          'rounded-xl border border-white/[0.07] bg-white/[0.025] overflow-hidden',
+          'focus-within:border-white/45 focus-within:bg-white/[0.04]',
+          'focus-within:shadow-[0_0_0_1px_rgba(255,255,255,0.08)]',
           'transition-all duration-200'
         )}>
           {/* Image Preview */}
@@ -425,41 +524,39 @@ export function ChatPanel({ onCollapse }: ChatPanelProps) {
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder={hasMessages ? 'Describe what to build...' : ''}
-              disabled={isStreaming}
               className={cn(
                 'w-full bg-transparent rounded-t-xl px-3.5 py-3 text-sm text-zinc-200 resize-none',
                 'focus:outline-none',
                 'placeholder:text-zinc-600',
-                'min-h-[44px] max-h-[200px]',
-                isStreaming && 'opacity-40 cursor-not-allowed'
+                'min-h-[44px] max-h-[200px]'
               )}
               rows={1}
             />
           </div>
 
           {/* Bottom toolbar */}
-          <div className="flex items-center justify-between px-2 py-1.5 border-t border-white/[0.04]">
-            <div className="flex items-center gap-2">
+          <div className="flex items-center justify-between gap-2 px-2 py-1.5 border-t border-white/[0.04]">
+            <div className="flex items-center gap-1.5 min-w-0 flex-1">
               {/* Inline model selector */}
               <CustomDropdown
                 options={FREE_MODELS}
                 value={selectedModel}
                 onChange={setSelectedModel}
-                className="w-44"
+                className="min-w-0 max-w-[9.5rem]"
                 dropUp
               />
 
               {/* Web search toggle */}
-              <Tooltip content="Web search">
+              <Tooltip content="Always research the web first. When off, the agent still searches on its own whenever it is unsure.">
                 <button
                   onClick={() => setWebSearchEnabled(!webSearchEnabled)}
                   className={cn(
                     'p-1.5 rounded-lg transition-all',
                     webSearchEnabled
-                      ? 'bg-cyan-500/15 text-cyan-400'
+                      ? 'bg-white/[0.06] text-zinc-100'
                       : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.06]'
                   )}
-                  title="Toggle web search"
+                  title="Always research first"
                 >
                   <RiGlobalLine className="w-4.5 h-4.5" />
                 </button>
@@ -467,7 +564,7 @@ export function ChatPanel({ onCollapse }: ChatPanelProps) {
 
             </div>
 
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 shrink-0">
               {/* Rate limit indicator */}
               {isRateLimited && (
                 <div className="flex items-center gap-1 px-2 py-0.5 text-[10px] text-amber-400/80 bg-amber-500/10 rounded-md">
@@ -476,7 +573,9 @@ export function ChatPanel({ onCollapse }: ChatPanelProps) {
                 </div>
               )}
 
-              {/* Image Upload */}
+              {/* Image upload — hidden while every allow-listed model is text-only,
+                  since the API strips image parts before sending anyway. */}
+              {VISION_SUPPORTED && (
               <ImageUpload
                 onImagesAdded={(newImages) => {
                   setImages([...images, ...newImages]);
@@ -484,6 +583,7 @@ export function ChatPanel({ onCollapse }: ChatPanelProps) {
                 currentImageCount={images.length}
                 maxImages={4}
               />
+              )}
 
               {/* Send / Stop */}
               {isStreaming ? (
@@ -497,11 +597,11 @@ export function ChatPanel({ onCollapse }: ChatPanelProps) {
               ) : (
                 <button
                   onClick={handleSubmit}
-                  disabled={!input.trim() || isRateLimited}
+                  disabled={(!input.trim() && images.length === 0) || isRateLimited}
                   className={cn(
                     'p-2 rounded-xl transition-all',
-                    input.trim() && !isRateLimited
-                      ? 'bg-violet-500 hover:bg-violet-400 text-white shadow-lg shadow-violet-500/20 pulse-glow'
+                    (input.trim() || images.length > 0) && !isRateLimited
+                      ? 'bg-zinc-50 hover:bg-white text-zinc-950 shadow-lg shadow-white/10 pulse-glow'
                       : 'bg-white/[0.04] text-zinc-600 cursor-not-allowed'
                   )}
                   title="Send message"
@@ -511,6 +611,14 @@ export function ChatPanel({ onCollapse }: ChatPanelProps) {
               )}
             </div>
           </div>
+        </div>
+        <div className="flex items-center justify-between px-1 pt-1.5">
+          <span className="font-mono text-[10px] text-zinc-700">
+            <kbd className="text-zinc-600">Enter</kbd> send · <kbd className="text-zinc-600">Shift+Enter</kbd> new line
+          </span>
+          {isStreaming && (
+            <span className="font-mono text-[10px] text-zinc-600">Esc to stop</span>
+          )}
         </div>
       </div>
     </div>

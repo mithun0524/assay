@@ -53,16 +53,16 @@ export function PreviewPanel() {
         <div className="h-full flex items-center justify-center bg-[#09090b]">
           <div className="text-center animate-fade-up">
             <div className="relative mb-4">
-              <RiLoader4Line className="w-6 h-6 mx-auto text-violet-400 animate-spin" />
-              <div className="absolute inset-0 w-6 h-6 mx-auto rounded-full bg-violet-500/20 blur-lg" />
+              <RiLoader4Line className="w-6 h-6 mx-auto text-zinc-400 animate-spin" />
+              <div className="absolute inset-0 w-6 h-6 mx-auto rounded-full bg-white/10 blur-lg" />
             </div>
             <p className="text-zinc-300 text-sm font-medium">
               {sandboxStatus === 'installing' ? 'Installing dependencies' : 'Starting dev server'}
             </p>
             <div className="mt-2 flex items-center justify-center gap-1">
-              <span className="w-1 h-1 rounded-full bg-violet-400/60 animate-pulse" style={{ animationDelay: '0ms' }} />
-              <span className="w-1 h-1 rounded-full bg-violet-400/60 animate-pulse" style={{ animationDelay: '200ms' }} />
-              <span className="w-1 h-1 rounded-full bg-violet-400/60 animate-pulse" style={{ animationDelay: '400ms' }} />
+              <span className="w-1 h-1 rounded-full bg-zinc-400/70 animate-pulse" style={{ animationDelay: '0ms' }} />
+              <span className="w-1 h-1 rounded-full bg-zinc-400/70 animate-pulse" style={{ animationDelay: '200ms' }} />
+              <span className="w-1 h-1 rounded-full bg-zinc-400/70 animate-pulse" style={{ animationDelay: '400ms' }} />
             </div>
           </div>
         </div>

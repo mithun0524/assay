@@ -43,4 +43,8 @@ next-env.d.ts
 
 # supabase
 supabase/.temp/
-supabase/.branches/
+supabase/.branches/screenshots/
+.auth/
+
+# Playwright/audit output
+screenshots/

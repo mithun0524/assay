@@ -107,7 +107,7 @@ export function ImageUpload({
           onDrop={handleDrop}
         >
           <div className="glass-strong rounded-2xl p-12 text-center">
-            <RiUploadLine size={48} className="mx-auto mb-4 text-violet-400" />
+            <RiUploadLine size={48} className="mx-auto mb-4 text-zinc-300" />
             <p className="text-lg font-semibold text-zinc-100 mb-1">
               Drop images here
             </p>

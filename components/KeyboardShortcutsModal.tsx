@@ -72,7 +72,7 @@ export function KeyboardShortcutsModal({ isOpen, onClose }: KeyboardShortcutsMod
             {/* Header */}
             <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06]">
               <div className="flex items-center gap-2">
-                <Keyboard className="w-4 h-4 text-violet-400" />
+                <Keyboard className="w-4 h-4 text-zinc-400" />
                 <h2 className="text-sm font-semibold text-zinc-100">Keyboard Shortcuts</h2>
               </div>
               <button

@@ -102,7 +102,7 @@ export function SnippetLibrary({ onInsert }: SnippetLibraryProps) {
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         placeholder="Search snippets..."
-                        className="w-full pl-8 pr-3 py-1.5 text-xs text-zinc-300 bg-white/[0.04] border border-white/[0.06] rounded-lg placeholder:text-zinc-600 focus:outline-none focus:border-violet-500/30"
+                        className="w-full pl-8 pr-3 py-1.5 text-xs text-zinc-300 bg-white/[0.04] border border-white/[0.06] rounded-lg placeholder:text-zinc-600 focus:outline-none focus:border-white/45"
                     />
                 </div>
                 <button
@@ -110,7 +110,7 @@ export function SnippetLibrary({ onInsert }: SnippetLibraryProps) {
                     className={cn(
                         "p-1.5 rounded-lg transition-all",
                         showAddForm
-                            ? "bg-violet-500/15 text-violet-400"
+                            ? "bg-white/[0.06] text-zinc-100"
                             : "text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.06]"
                     )}
                 >
@@ -120,18 +120,18 @@ export function SnippetLibrary({ onInsert }: SnippetLibraryProps) {
 
             {/* Add Form */}
             {showAddForm && (
-                <div className="p-3 rounded-xl border border-violet-500/20 bg-violet-500/[0.05] space-y-2">
+                <div className="p-3 rounded-xl border border-white/[0.08] bg-white/[0.03] space-y-2">
                     <input
                         type="text"
                         value={newName}
                         onChange={(e) => setNewName(e.target.value)}
                         placeholder="Snippet name"
-                        className="w-full px-3 py-1.5 text-xs text-zinc-300 bg-white/[0.04] border border-white/[0.06] rounded-lg placeholder:text-zinc-600 focus:outline-none focus:border-violet-500/30"
+                        className="w-full px-3 py-1.5 text-xs text-zinc-300 bg-white/[0.04] border border-white/[0.06] rounded-lg placeholder:text-zinc-600 focus:outline-none focus:border-white/45"
                     />
                     <select
                         value={newLanguage}
                         onChange={(e) => setNewLanguage(e.target.value)}
-                        className="w-full px-3 py-1.5 text-xs text-zinc-300 bg-white/[0.04] border border-white/[0.06] rounded-lg focus:outline-none focus:border-violet-500/30"
+                        className="w-full px-3 py-1.5 text-xs text-zinc-300 bg-white/[0.04] border border-white/[0.06] rounded-lg focus:outline-none focus:border-white/45"
                     >
                         {LANGUAGE_OPTIONS.map(lang => (
                             <option key={lang} value={lang}>{lang}</option>
@@ -142,7 +142,7 @@ export function SnippetLibrary({ onInsert }: SnippetLibraryProps) {
                         onChange={(e) => setNewCode(e.target.value)}
                         placeholder="Paste your code snippet here..."
                         rows={4}
-                        className="w-full px-3 py-2 text-xs text-zinc-300 bg-white/[0.04] border border-white/[0.06] rounded-lg placeholder:text-zinc-600 focus:outline-none focus:border-violet-500/30 font-mono resize-none"
+                        className="w-full px-3 py-2 text-xs text-zinc-300 bg-white/[0.04] border border-white/[0.06] rounded-lg placeholder:text-zinc-600 focus:outline-none focus:border-white/45 font-mono resize-none"
                     />
                     <div className="flex justify-end gap-2">
                         <button
@@ -153,7 +153,7 @@ export function SnippetLibrary({ onInsert }: SnippetLibraryProps) {
                         </button>
                         <button
                             onClick={handleAdd}
-                            className="px-3 py-1.5 text-xs text-white bg-violet-600 hover:bg-violet-500 rounded-lg transition-colors"
+                            className="px-3 py-1.5 text-xs text-zinc-950 bg-zinc-50 hover:bg-white rounded-lg transition-colors"
                         >
                             Save Snippet
                         </button>

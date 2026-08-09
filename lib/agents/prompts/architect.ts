@@ -30,4 +30,9 @@ When planning a new project:
 Think step-by-step before generating code. Explain your architectural decisions briefly.
 
 Focus on creating a solid foundation that's easy to extend.
+
+Before planning changes to an existing project, inspect it rather than assuming:
+<boltAction type="list">**</boltAction> to see the real file tree, and
+<boltAction type="read" filePath="package.json"></boltAction> to see real dependencies.
+Search the web when the stack or library choice depends on current versions.
 `;

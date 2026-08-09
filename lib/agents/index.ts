@@ -2,7 +2,8 @@
  * Multi-agent system - Specialized AI agents for different tasks
  */
 
-import { Agent, AgentRole } from './types';
+import type { Agent, AgentRole } from './types';
+import { ROLE_MODEL } from './router';
 import { ARCHITECT_PROMPT } from './prompts/architect';
 import { ASSISTANT_PROMPT } from './prompts/assistant';
 import { CODER_PROMPT } from './prompts/coder';
@@ -19,7 +20,7 @@ export const AGENTS: Record<AgentRole, Agent> = {
     name: 'Architect',
     description: 'Plans structure and design patterns',
     systemPrompt: ARCHITECT_PROMPT,
-    model: 'stepfun/step-3.5-flash:free',
+    model: ROLE_MODEL.architect,
     temperature: 0.1,
     icon: 'architect',
     color: 'text-blue-400',
@@ -29,7 +30,7 @@ export const AGENTS: Record<AgentRole, Agent> = {
     name: 'Assistant',
     description: 'Answers questions and provides information',
     systemPrompt: ASSISTANT_PROMPT,
-    model: 'stepfun/step-3.5-flash:free',
+    model: ROLE_MODEL.assistant,
     temperature: 0.4,
     icon: 'assistant',
     color: 'text-cyan-400',
@@ -39,7 +40,7 @@ export const AGENTS: Record<AgentRole, Agent> = {
     name: 'Coder',
     description: 'Fast code generation',
     systemPrompt: CODER_PROMPT,
-    model: 'stepfun/step-3.5-flash:free', // Reliable fallback model
+    model: ROLE_MODEL.coder,
     temperature: 0.2,
     icon: 'coder',
     color: 'text-green-400',
@@ -49,17 +50,20 @@ export const AGENTS: Record<AgentRole, Agent> = {
     name: 'Debugger',
     description: 'Error analysis and fixes',
     systemPrompt: DEBUGGER_PROMPT,
-    model: 'stepfun/step-3.5-flash:free', // Reliable fallback model
+    model: ROLE_MODEL.debugger,
     temperature: 0.1,
     icon: 'debugger',
-    color: 'text-red-400',
+    // rose, not red: red is reserved for genuine error states across the UI,
+    // and the debugger appearing in the same hue as a crash reads as one.
+    // Mirrored by --agent-debugger in app/globals.css.
+    color: 'text-rose-400',
   },
   designer: {
     role: 'designer',
     name: 'Designer',
     description: 'UI/UX focused implementation',
     systemPrompt: DESIGNER_PROMPT,
-    model: 'stepfun/step-3.5-flash:free', // Reliable fallback model
+    model: ROLE_MODEL.designer,
     temperature: 0.3,
     icon: 'designer',
     color: 'text-purple-400',
@@ -69,7 +73,7 @@ export const AGENTS: Record<AgentRole, Agent> = {
     name: 'Tester',
     description: 'Test generation and QA',
     systemPrompt: TESTER_PROMPT,
-    model: 'stepfun/step-3.5-flash:free', // Reliable fallback model
+    model: ROLE_MODEL.tester,
     temperature: 0.2,
     icon: 'tester',
     color: 'text-amber-400',
@@ -80,7 +84,7 @@ export const AGENTS: Record<AgentRole, Agent> = {
  * Get agent by role
  */
 export function getAgent(role: AgentRole): Agent {
-  return AGENTS[role];
+  return AGENTS[role] ?? AGENTS.coder;
 }
 
 /**

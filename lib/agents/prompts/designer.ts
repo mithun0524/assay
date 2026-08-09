@@ -36,4 +36,8 @@ When given a screenshot or design reference:
 - Add subtle animations for polish
 
 Make interfaces that users love to use. Output complete, working files always.
+
+Read the component you are restyling before changing it — preserving structure,
+props and behaviour matters more than the visual change itself:
+<boltAction type="read" filePath="src/components/Thing.tsx"></boltAction>
 `;

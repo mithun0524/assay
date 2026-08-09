@@ -2,7 +2,20 @@ export type FileAction = { type: 'file'; filePath: string; content: string };
 export type ShellAction = { type: 'shell'; command: string };
 export type StartAction = { type: 'start'; command: string };
 export type SearchAction = { type: 'search'; query: string };
-export type BoltAction = FileAction | ShellAction | StartAction | SearchAction;
+/** Read a file back out of the sandbox before editing it. */
+export type ReadAction = { type: 'read'; filePath: string };
+/** List what actually exists in the sandbox. */
+export type ListAction = { type: 'list'; pattern: string };
+/** Remove a file — refactors used to leave orphans behind. */
+export type DeleteAction = { type: 'delete'; filePath: string };
+export type BoltAction =
+  | FileAction
+  | ShellAction
+  | StartAction
+  | SearchAction
+  | ReadAction
+  | ListAction
+  | DeleteAction;
 
 type Callback = (action: BoltAction) => void | Promise<void>;
 
@@ -25,9 +38,13 @@ export function createStreamParser(onAction: Callback) {
   let attrs = '';
   let content = '';
 
+  // Actions are handled asynchronously (file writes hit the sandbox). Chain them
+  // so they run in emission order, and so flush() can await the whole batch —
+  // otherwise shell commands fire before the files they depend on exist.
+  let queue: Promise<void> = Promise.resolve();
+
   function processBuffer() {
-    let safety = 0;
-    while (buffer.length > 0 && safety++ < 1000) {
+    while (buffer.length > 0) {
       switch (state) {
         case State.TEXT: {
           const idx = buffer.indexOf(OPEN_TAG);
@@ -85,23 +102,42 @@ export function createStreamParser(onAction: Callback) {
     }
   }
 
-  function emitAction(attrsStr: string, body: string) {
-    const typeMatch = attrsStr.match(/type="([^"]+)"/);
-    if (!typeMatch) return;
+  /** Read an attribute value, tolerating single or double quotes. */
+  function attr(attrsStr: string, name: string): string | null {
+    const m = attrsStr.match(new RegExp(`${name}\\s*=\\s*("([^"]*)"|'([^']*)')`));
+    return m ? (m[2] ?? m[3] ?? '').trim() : null;
+  }
 
-    const type = typeMatch[1] as BoltAction['type'];
+  function dispatch(action: BoltAction) {
+    // Never let one failed action stop the rest of the stream.
+    queue = queue.then(() => onAction(action)).catch((err) => {
+      console.error('[streamParser] action failed:', action.type, err);
+    });
+  }
+
+  function emitAction(attrsStr: string, body: string) {
+    const type = attr(attrsStr, 'type') as BoltAction['type'] | null;
+    if (!type) return;
 
     if (type === 'file') {
-      const filePathMatch = attrsStr.match(/filePath="([^"]+)"/);
-      if (filePathMatch) {
-        onAction({ type: 'file', filePath: filePathMatch[1], content: body });
+      const filePath = attr(attrsStr, 'filePath');
+      if (filePath) {
+        dispatch({ type: 'file', filePath, content: body });
       }
     } else if (type === 'shell') {
-      onAction({ type: 'shell', command: body.trim() });
+      dispatch({ type: 'shell', command: body.trim() });
     } else if (type === 'start') {
-      onAction({ type: 'start', command: body.trim() });
+      dispatch({ type: 'start', command: body.trim() });
     } else if (type === 'search') {
-      onAction({ type: 'search', query: body.trim() });
+      dispatch({ type: 'search', query: body.trim() });
+    } else if (type === 'read') {
+      const filePath = attr(attrsStr, 'filePath') || body.trim();
+      if (filePath) dispatch({ type: 'read', filePath });
+    } else if (type === 'list') {
+      dispatch({ type: 'list', pattern: body.trim() });
+    } else if (type === 'delete') {
+      const filePath = attr(attrsStr, 'filePath') || body.trim();
+      if (filePath) dispatch({ type: 'delete', filePath });
     }
   }
 
@@ -110,7 +146,12 @@ export function createStreamParser(onAction: Callback) {
       buffer += chunk;
       processBuffer();
     },
-    flush() {
+    /**
+     * Finish the stream and wait for every queued action to complete.
+     * Callers MUST await this before running shell commands — the actions
+     * are async and would otherwise still be in flight.
+     */
+    flush(): Promise<void> {
       // If we're mid-content when stream ends, emit whatever we have
       if (state === State.CONTENT && content.length > 0) {
         emitAction(attrs, content);
@@ -119,6 +160,7 @@ export function createStreamParser(onAction: Callback) {
       attrs = '';
       content = '';
       state = State.TEXT;
+      return queue;
     },
   };
 }

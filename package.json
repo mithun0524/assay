@@ -3,10 +3,15 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -p 3001",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "tsx --test test/*.test.ts",
+    "ui:smoke": "node test/ui-smoke.mjs",
+    "promo:studio": "remotion studio remotion/index.ts",
+    "promo:render": "node remotion/render.mjs",
+    "test:auth": "node test/auth-setup.mjs"
   },
   "dependencies": {
     "@ai-sdk/openai": "^3.0.29",
@@ -38,7 +43,7 @@
     "lenis": "^1.3.17",
     "lucide-react": "^0.575.0",
     "motion": "^12.34.3",
-    "next": "16.1.6",
+    "next": "^16.3.0",
     "ogl": "^1.0.11",
     "react": "19.2.3",
     "react-colorful": "^5.6.1",
@@ -54,13 +59,20 @@
     "zustand": "^5.0.11"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.12.1",
+    "@playwright/test": "^1.62.1",
+    "@remotion/bundler": "^4.0.506",
+    "@remotion/cli": "^4.0.506",
+    "@remotion/renderer": "^4.0.506",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
+    "remotion": "^4.0.506",
     "tailwindcss": "^4",
+    "tsx": "^4.23.9",
     "typescript": "^5"
   }
 }

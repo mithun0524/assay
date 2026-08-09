@@ -126,7 +126,7 @@ export function GitHubCommitDialog({ isOpen, onClose }: GitHubCommitDialogProps)
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06]">
           <div className="flex items-center gap-2">
-            <RiUploadLine className="w-4 h-4 text-violet-400" />
+            <RiUploadLine className="w-4 h-4 text-zinc-400" />
             <h2 className="text-sm font-semibold text-zinc-100">Push to GitHub</h2>
           </div>
           <button
@@ -153,7 +153,7 @@ export function GitHubCommitDialog({ isOpen, onClose }: GitHubCommitDialogProps)
                   className={cn(
                     'flex-1 px-3 py-2 rounded-lg text-xs font-medium transition-all',
                     !createNew
-                      ? 'bg-violet-500 text-white'
+                      ? 'bg-zinc-50 text-zinc-950'
                       : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
                   )}
                 >
@@ -164,7 +164,7 @@ export function GitHubCommitDialog({ isOpen, onClose }: GitHubCommitDialogProps)
                   className={cn(
                     'flex-1 px-3 py-2 rounded-lg text-xs font-medium transition-all',
                     createNew
-                      ? 'bg-violet-500 text-white'
+                      ? 'bg-zinc-50 text-zinc-950'
                       : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
                   )}
                 >
@@ -181,7 +181,7 @@ export function GitHubCommitDialog({ isOpen, onClose }: GitHubCommitDialogProps)
                   className={cn(
                     'w-full px-3 py-2 rounded-lg text-sm text-zinc-200',
                     'bg-zinc-800 border border-white/[0.06]',
-                    'focus:outline-none focus:border-violet-500/40',
+                    'focus:outline-none focus:border-white/45',
                     loadingRepos && 'opacity-50 cursor-not-allowed'
                   )}
                 >
@@ -207,7 +207,7 @@ export function GitHubCommitDialog({ isOpen, onClose }: GitHubCommitDialogProps)
                     className={cn(
                       'w-full px-3 py-2 rounded-lg text-sm text-zinc-200',
                       'bg-zinc-800 border border-white/[0.06]',
-                      'focus:outline-none focus:border-violet-500/40',
+                      'focus:outline-none focus:border-white/45',
                       'placeholder:text-zinc-600'
                     )}
                   />
@@ -219,7 +219,7 @@ export function GitHubCommitDialog({ isOpen, onClose }: GitHubCommitDialogProps)
                     className={cn(
                       'w-full px-3 py-2 rounded-lg text-sm text-zinc-200 resize-none',
                       'bg-zinc-800 border border-white/[0.06]',
-                      'focus:outline-none focus:border-violet-500/40',
+                      'focus:outline-none focus:border-white/45',
                       'placeholder:text-zinc-600'
                     )}
                   />
@@ -228,7 +228,7 @@ export function GitHubCommitDialog({ isOpen, onClose }: GitHubCommitDialogProps)
                       type="checkbox"
                       checked={isPrivate}
                       onChange={(e) => setIsPrivate(e.target.checked)}
-                      className="rounded border-zinc-700 bg-zinc-800 text-violet-500 focus:ring-violet-500"
+                      className="rounded border-zinc-700 bg-zinc-800 text-zinc-50 focus:ring-white/45"
                     />
                     <span className="text-xs text-zinc-400">Private repository</span>
                   </label>
@@ -260,7 +260,7 @@ export function GitHubCommitDialog({ isOpen, onClose }: GitHubCommitDialogProps)
               className={cn(
                 'w-full px-3 py-2 rounded-lg text-sm text-zinc-200 resize-none',
                 'bg-zinc-800 border border-white/[0.06]',
-                'focus:outline-none focus:border-violet-500/40',
+                'focus:outline-none focus:border-white/45',
                 'placeholder:text-zinc-600'
               )}
             />

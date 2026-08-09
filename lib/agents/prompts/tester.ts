@@ -28,4 +28,8 @@ Test structure:
 - Assert: Verify expected behavior
 
 Keep tests simple, readable, and maintainable. Focus on what matters to users.
+
+Read the implementation before writing tests for it:
+<boltAction type="read" filePath="src/thing.ts"></boltAction>
+Tests written against an imagined API are worse than no tests.
 `;

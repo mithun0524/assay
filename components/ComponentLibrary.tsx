@@ -115,7 +115,7 @@ export function ComponentLibrary({ isOpen, onClose }: ComponentLibraryProps) {
             {/* Header */}
             <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06]">
               <div className="flex items-center gap-2">
-                <RiLayoutLine className="w-4 h-4 text-violet-400" />
+                <RiLayoutLine className="w-4 h-4 text-zinc-400" />
                 <h2 className="text-sm font-semibold text-zinc-100">shadcn/ui Components</h2>
               </div>
               <button onClick={onClose} className="p-1.5 hover:bg-white/[0.06] rounded-lg transition-all">
@@ -135,7 +135,7 @@ export function ComponentLibrary({ isOpen, onClose }: ComponentLibraryProps) {
                   className={cn(
                     'w-full pl-9 pr-3 py-2 rounded-xl text-xs text-zinc-200',
                     'bg-white/[0.04] border border-white/[0.06]',
-                    'focus:outline-none focus:border-violet-500/40',
+                    'focus:outline-none focus:border-white/45',
                     'placeholder:text-zinc-600 transition-all'
                   )}
                   autoFocus
@@ -152,7 +152,7 @@ export function ComponentLibrary({ isOpen, onClose }: ComponentLibraryProps) {
                   className={cn(
                     'px-2.5 py-1 text-[11px] rounded-lg transition-all capitalize',
                     category === cat
-                      ? 'bg-violet-500/20 text-violet-300 border border-violet-500/30'
+                      ? 'bg-white/[0.06] text-zinc-100 border border-white/[0.12]'
                       : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.04] border border-transparent'
                   )}
                 >
@@ -195,7 +195,7 @@ export function ComponentLibrary({ isOpen, onClose }: ComponentLibraryProps) {
                             ? 'bg-emerald-500/15 text-emerald-400 cursor-default'
                             : isInstalling
                               ? 'bg-zinc-800 text-zinc-500 cursor-wait'
-                              : 'bg-violet-600/90 text-white hover:bg-violet-500 opacity-0 group-hover:opacity-100'
+                              : 'bg-zinc-50 text-zinc-950 hover:bg-white opacity-0 group-hover:opacity-100'
                         )}
                       >
                         {isInstalled ? (
@@ -225,7 +225,7 @@ export function ComponentLibrary({ isOpen, onClose }: ComponentLibraryProps) {
                 href="https://ui.shadcn.com"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-[11px] text-violet-400 hover:text-violet-300 transition-colors"
+                className="text-[11px] text-zinc-400 hover:text-zinc-100 transition-colors"
               >
                 shadcn/ui docs
               </a>

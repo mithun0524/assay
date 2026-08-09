@@ -134,6 +134,8 @@ export function ProjectSidebar({ isOpen, onClose, onSelectProject, onNewProject 
                     </div>
                     <button
                         onClick={onClose}
+                        aria-label="Close projects panel"
+                        title="Close projects panel"
                         className="p-1.5 text-zinc-400 hover:text-white hover:bg-white/[0.06] rounded-lg transition-colors"
                     >
                         <RiCloseLine className="w-4 h-4" />
@@ -150,7 +152,7 @@ export function ProjectSidebar({ isOpen, onClose, onSelectProject, onNewProject 
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 placeholder="Search projects..."
-                                className="w-full pl-8 pr-3 py-1.5 text-xs text-zinc-300 bg-white/[0.04] border border-white/[0.06] rounded-lg placeholder:text-zinc-600 focus:outline-none focus:border-violet-500/30"
+                                className="w-full pl-8 pr-3 py-1.5 text-xs text-zinc-300 bg-white/[0.04] border border-white/[0.06] rounded-lg placeholder:text-zinc-600 focus:outline-none focus:border-white/45"
                             />
                         </div>
                     </div>
@@ -169,7 +171,7 @@ export function ProjectSidebar({ isOpen, onClose, onSelectProject, onNewProject 
                             className={cn(
                                 "group flex items-center gap-2 p-2.5 rounded-xl cursor-pointer transition-all border",
                                 currentProjectId === project.id
-                                    ? "bg-violet-500/10 border-violet-500/20"
+                                    ? "bg-white/[0.06] border-white/[0.08]"
                                     : "bg-transparent border-transparent hover:bg-white/[0.04] hover:border-white/[0.04]"
                             )}
                         >
@@ -192,7 +194,7 @@ export function ProjectSidebar({ isOpen, onClose, onSelectProject, onNewProject 
                             {/* Folder icon */}
                             <div className={cn(
                                 "p-1.5 rounded-lg shrink-0",
-                                currentProjectId === project.id ? "bg-violet-500/20 text-violet-300" : "bg-white/[0.06] text-zinc-400 group-hover:text-zinc-200"
+                                currentProjectId === project.id ? "bg-white/[0.09] text-zinc-100" : "bg-white/[0.06] text-zinc-400 group-hover:text-zinc-200"
                             )}>
                                 <RiFolderLine className="w-3.5 h-3.5" />
                             </div>
@@ -209,12 +211,12 @@ export function ProjectSidebar({ isOpen, onClose, onSelectProject, onNewProject 
                                             if (e.key === 'Escape') setRenamingId(null);
                                         }}
                                         onBlur={() => handleRenameSubmit(project.id)}
-                                        className="text-sm font-medium text-zinc-200 bg-white/[0.06] border border-violet-500/30 rounded px-1.5 py-0.5 outline-none"
+                                        className="text-sm font-medium text-zinc-200 bg-white/[0.06] border border-white/20 rounded px-1.5 py-0.5 outline-none"
                                     />
                                 ) : (
                                     <span className={cn(
                                         "text-sm font-medium truncate",
-                                        currentProjectId === project.id ? "text-violet-200" : "text-zinc-300"
+                                        currentProjectId === project.id ? "text-zinc-50" : "text-zinc-300"
                                     )}>
                                         {project.name}
                                     </span>
@@ -227,7 +229,7 @@ export function ProjectSidebar({ isOpen, onClose, onSelectProject, onNewProject 
 
                             {/* Active indicator */}
                             {currentProjectId === project.id && (
-                                <div className="text-violet-400 shrink-0">
+                                <div className="text-zinc-300 shrink-0">
                                     <RiCheckLine className="w-3.5 h-3.5" />
                                 </div>
                             )}

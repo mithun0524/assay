@@ -27,6 +27,9 @@ export function formatForDisplay(rawContent: string): string {
   // Parse completed actions
   const fileActions: string[] = [];
   const shellActions: string[] = [];
+  const readActions: string[] = [];
+  const listActions: string[] = [];
+  const deleteActions: string[] = [];
   let startAction: string | null = null;
 
   const actionRegex = /<boltAction\s+type="([^"]+)"(?:\s+filePath="([^"]+)")?>[\s\S]*?<\/boltAction>/g;
@@ -43,6 +46,13 @@ export function formatForDisplay(rawContent: string): string {
     } else if (type === 'start') {
       const commandMatch = match[0].match(/>([^<]+)</);
       if (commandMatch) startAction = commandMatch[1].trim();
+    } else if (type === 'read' && filePath) {
+      readActions.push(filePath);
+    } else if (type === 'list') {
+      const patternMatch = match[0].match(/>([^<]*)</);
+      listActions.push(patternMatch?.[1].trim() || '**');
+    } else if (type === 'delete' && filePath) {
+      deleteActions.push(filePath);
     }
   }
 
@@ -68,6 +78,9 @@ export function formatForDisplay(rawContent: string): string {
       files: fileActions,
       commands: shellActions,
       startCommand: startAction,
+      reads: readActions,
+      lists: listActions,
+      deletes: deleteActions,
     });
     parts.push(`\n<!--ACTION_CARD:${cardData}-->\n`);
   }

@@ -92,7 +92,7 @@ export default function SharedProjectPage() {
         <div className="text-center">
           <RiErrorWarningLine className="w-8 h-8 text-zinc-600 mx-auto mb-3" />
           <p className="text-sm text-zinc-400 mb-4">{error || 'Project not found'}</p>
-          <a href="/app" className="text-xs text-violet-400 hover:text-violet-300">
+          <a href="/app" className="text-xs text-zinc-300 hover:text-zinc-50">
             Go to DevForge
           </a>
         </div>
@@ -113,14 +113,14 @@ export default function SharedProjectPage() {
           <div className="w-px h-5 bg-white/[0.06]" />
           <div>
             <h1 className="text-sm font-medium text-zinc-200">{project.name}</h1>
-            <p className="text-[10px] text-zinc-600">
+            <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-zinc-400">
               Shared {new Date(project.createdAt).toLocaleDateString()}
             </p>
           </div>
         </div>
         <button
           onClick={handleForkToDevForge}
-          className="px-3.5 py-1.5 text-xs font-medium bg-violet-600/90 text-white hover:bg-violet-500 rounded-lg transition-all border border-violet-500/30"
+          className="px-3.5 py-1.5 text-xs font-medium bg-zinc-50 text-zinc-950 hover:bg-white rounded-lg transition-all"
         >
           Fork to DevForge
         </button>
@@ -130,7 +130,7 @@ export default function SharedProjectPage() {
       <div className="flex-1 flex min-h-0">
         {/* File list sidebar */}
         <div className="w-52 shrink-0 border-r border-white/[0.06] overflow-y-auto p-2">
-          <div className="text-[10px] font-medium text-zinc-600 uppercase tracking-wider px-2 py-1.5 mb-1">
+          <div className="font-mono text-[10px] text-zinc-400 uppercase tracking-[0.16em] px-2 py-1.5 mb-1">
             Files ({filePaths.length})
           </div>
           {filePaths.map((path) => (
@@ -140,7 +140,7 @@ export default function SharedProjectPage() {
               className={cn(
                 'w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs text-left transition-colors',
                 activeFile === path
-                  ? 'bg-violet-500/10 text-violet-300'
+                  ? 'bg-white/[0.06] text-zinc-50'
                   : 'text-zinc-400 hover:bg-white/[0.04] hover:text-zinc-200'
               )}
             >
@@ -154,7 +154,7 @@ export default function SharedProjectPage() {
         <div className="flex-1 flex flex-col min-w-0">
           {activeFile && project.files[activeFile] && (
             <>
-              <div className="flex items-center justify-between px-4 py-2 border-b border-white/[0.06] bg-[#0a0a0b]">
+              <div className="flex items-center justify-between px-4 py-2 border-b border-white/[0.06] bg-[#0A0A0D]">
                 <div className="flex items-center gap-2 text-xs text-zinc-400">
                   <RiFolderLine className="w-3.5 h-3.5" />
                   <span>{activeFile}</span>
