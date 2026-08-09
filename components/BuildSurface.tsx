@@ -123,7 +123,10 @@ export const BuildSurface = memo(function BuildSurface({
               src={previewUrl}
               title="App preview"
               className="w-full h-full rounded-lg border-0 bg-white"
-              sandbox="allow-scripts allow-same-origin allow-forms allow-modals allow-popups"
+              // Same set as PreviewPanel, deliberately. The generated app is
+              // untrusted code, so this surface must not quietly grant it more
+              // than the panel that already frames it.
+              sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
             />
           ) : (
             <div className="w-full max-w-sm">
