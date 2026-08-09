@@ -14,6 +14,7 @@ export function Terminal() {
         let cancelled = false;
         let handleResize: (() => void) | null = null;
         let resizeObserver: ResizeObserver | null = null;
+        let fitFrame: number | null = null;
 
         const initTerminal = async () => {
             if (!terminalRef.current) return;
@@ -40,24 +41,55 @@ export function Terminal() {
                 lineHeight: 1.4,
             });
 
+            // Registered before anything else can happen to it. This used to be
+            // assigned further down, after open() and the first write, so an
+            // unmount landing in that window found termRef.current still null,
+            // skipped dispose() entirely, and leaked a live terminal attached to
+            // a node that had just been detached.
+            termRef.current = term;
+
+            if (cancelled) {
+                term.dispose();
+                termRef.current = null;
+                return;
+            }
+
             const fitAddon = new FitAddon();
             term.loadAddon(fitAddon);
             term.open(terminalRef.current);
 
-            // Only fit when the container has actual dimensions
+            // Only fit when the container has actual dimensions, and at most
+            // once per frame.
+            //
+            // A ResizeObserver fires per observed change, and every fit() makes
+            // xterm's Viewport queue an internal refresh, so dragging the panel
+            // divider used to queue one full refresh per pixel. One per frame is
+            // all a terminal can draw anyway.
+            //
+            // KNOWN, NOT FIXED HERE: xterm 5.3's Viewport can run a queued
+            // _innerRefresh after dispose() has nulled its render service, which
+            // throws "Cannot read properties of undefined (reading
+            // 'dimensions')" from inside the library. Coalescing shrinks the
+            // window but cannot close it — the timer is xterm's own. The package
+            // is deprecated in favour of @xterm/xterm, where this is fixed;
+            // upgrading is the actual fix.
             const safeFit = () => {
-                try {
-                    if (
-                        !cancelled &&
-                        terminalRef.current &&
-                        terminalRef.current.offsetWidth > 0 &&
-                        terminalRef.current.offsetHeight > 0
-                    ) {
-                        fitAddon.fit();
+                if (fitFrame !== null) cancelAnimationFrame(fitFrame);
+                fitFrame = requestAnimationFrame(() => {
+                    fitFrame = null;
+                    try {
+                        if (
+                            !cancelled &&
+                            terminalRef.current &&
+                            terminalRef.current.offsetWidth > 0 &&
+                            terminalRef.current.offsetHeight > 0
+                        ) {
+                            fitAddon.fit();
+                        }
+                    } catch {
+                        // Ignore fit errors from renderer not being ready
                     }
-                } catch {
-                    // Ignore fit errors from renderer not being ready
-                }
+                });
             };
 
             safeFit();
@@ -68,7 +100,6 @@ export function Terminal() {
                 term.write(currentOutput);
             }
 
-            termRef.current = term;
             setTerminalInstance(term);
 
             handleResize = safeFit;
@@ -87,6 +118,9 @@ export function Terminal() {
 
         return () => {
             cancelled = true;
+            // Drop the queued fit before disposing, so we are not handing xterm
+            // a refresh to run against a terminal that is about to be gone.
+            if (fitFrame !== null) { cancelAnimationFrame(fitFrame); fitFrame = null; }
             if (handleResize) window.removeEventListener('resize', handleResize);
             if (resizeObserver) resizeObserver.disconnect();
             if (termRef.current) {

@@ -26,11 +26,42 @@ test('a simple user is never offered code or logs', () => {
 });
 
 test('surfaces stay hidden until they mean something', () => {
-  // nothing has happened yet
-  assert.deepEqual(ids('developer', s()), []);
+  // build is always there; the rest have to earn their place
+  assert.deepEqual(ids('developer', s()), ['build']);
   // code needs files, logs needs output, app needs a preview url
   assert.deepEqual(ids('developer', s({ fileCount: 1 })), ['build', 'code']);
   assert.deepEqual(ids('developer', s({ hasOutput: true, fileCount: 1 })), ['build', 'code', 'logs']);
+});
+
+test('the panel is never left with nothing to render', () => {
+  // Regression: a project whose first turn failed before writing anything has
+  // messages but no files, no preview and an idle phase. Every surface was
+  // unavailable, so the tab bar was empty and the right-hand panel rendered
+  // nothing at all — worse than the layout it replaced.
+  const firstTurnFailed = s({ fileCount: 0, hasPreview: false, hasOutput: false, phase: 'idle', hasError: true });
+  for (const tier of ['simple', 'developer'] as const) {
+    assert.ok(visibleSurfaces(tier, firstTurnFailed).length > 0,
+      `${tier} tier had no surface to show`);
+    assert.ok(surfaceToFocus(tier, firstTurnFailed, null),
+      `${tier} tier resolved to no surface`);
+  }
+
+  // and the same holds for every combination of the flags, at both tiers
+  for (const fileCount of [0, 3]) {
+    for (const hasPreview of [false, true]) {
+      for (const hasOutput of [false, true]) {
+        for (const isStreaming of [false, true]) {
+          for (const hasError of [false, true]) {
+            const st = s({ fileCount, hasPreview, hasOutput, isStreaming, hasError });
+            for (const tier of ['simple', 'developer'] as const) {
+              assert.ok(visibleSurfaces(tier, st).length > 0,
+                `empty for ${tier} ${JSON.stringify(st)}`);
+            }
+          }
+        }
+      }
+    }
+  }
 });
 
 test('build takes focus while the agent works, app takes it when the app runs', () => {
@@ -63,9 +94,9 @@ test('a user stranded on a vanished surface is moved somewhere real', () => {
   // was on code, then switched down to the simple tier
   const st = s({ fileCount: 5, hasPreview: true, phase: 'done' });
   assert.equal(surfaceToFocus('simple', st, 'code'), 'app');
-  // and with nothing available at all, nothing is forced
-  assert.equal(surfaceToFocus('simple', s(), null), null);
-  assert.equal(firstAvailable('simple', s()), null);
+  // and from a standing start there is always somewhere to land
+  assert.equal(surfaceToFocus('simple', s(), null), 'build');
+  assert.equal(firstAvailable('simple', s()), 'build');
 });
 
 test('nothing is focused when no surface asks and the current one is fine', () => {

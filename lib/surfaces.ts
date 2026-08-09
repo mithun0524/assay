@@ -61,7 +61,16 @@ export const SURFACES: Surface[] = [
     id: 'build',
     label: 'Build',
     tiers: ['simple', 'developer'],
-    available: (s) => s.isStreaming || s.phase !== 'idle' || s.fileCount > 0,
+    // Unconditional, and it has to stay that way. Build is the home surface:
+    // it is the only one every tier is offered and the only one that does not
+    // depend on files, a preview or a running turn existing.
+    //
+    // It used to require `isStreaming || phase !== 'idle' || fileCount > 0`,
+    // which is false for a project whose first turn failed before writing
+    // anything — messages but no files, no preview, idle. Every other surface
+    // was also unavailable, so the tab bar came back empty and the panel
+    // rendered nothing at all. `neverEmpty` in the tests pins this.
+    available: () => true,
     // Every working phase except 'done' — the build is the thing to watch right
     // up until there is a running app to look at instead.
     focusWhen: (s) => s.isStreaming && s.phase !== 'idle' && s.phase !== 'done',
