@@ -100,27 +100,30 @@
    BASE
    ═══════════════════════════════════════════════════════════════════════════ */
 
+/* The document scrolls by default. `overflow: hidden` used to live here for
+   the /app workspace, which is a fixed-height IDE — but that made the document
+   unscrollable everywhere, so the landing page had to scroll inside a wrapper
+   div. That wrapper is what broke ScrollTrigger and position: sticky.
+   The lock is now opt-in via .viewport-locked, set by the workspace only. */
 html {
-  height: 100%;
   margin: 0;
   padding: 0;
-  overflow: hidden;
   scroll-behavior: smooth;
 }
 
 body {
-  height: 100%;
   margin: 0;
   padding: 0;
-  overflow: hidden;
   background: var(--bg-base);
   color: var(--text-primary);
   font-feature-settings: "ss01", "ss02", "cv01", "cv02";
   -webkit-font-smoothing: antialiased;
 }
 
-/* Next.js root wrapper */
-body>div:first-child {
+/* Opt-in viewport lock for full-height app screens (the workspace). */
+html.viewport-locked,
+html.viewport-locked body,
+html.viewport-locked body>div:first-child {
   height: 100%;
   overflow: hidden;
 }
@@ -221,17 +224,9 @@ select option {
   border: 1px solid var(--hairline);
 }
 
-/* The landing page scrolls inside this div, not the document. `html` carries
-   `overflow: hidden`, so the `scroll-behavior: smooth` declared on it applied
-   to an element that never scrolls — the nav's anchor links hard-jumped. It
-   belongs on the element doing the scrolling. */
-#landing-scroller {
-  scroll-behavior: smooth;
-}
-
-/* And without this an anchored section lands beneath the 56px sticky nav,
-   hiding its own heading. */
-#landing-scroller [id] {
+/* Without this an anchored section lands beneath the sticky nav, hiding its
+   own heading. */
+[id] {
   scroll-margin-top: 5rem;
 }
 

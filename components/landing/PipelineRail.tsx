@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 import { RevealText } from './RevealText';
 
 /**
@@ -48,11 +48,13 @@ const STAGES = [
   },
 ];
 
-export function PipelineRail({ scrollerId }: { scrollerId?: string }) {
+const useIsoLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
+
+export function PipelineRail() {
   const sectionRef = useRef<HTMLDivElement>(null);
   const lineRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
+  useIsoLayoutEffect(() => {
     const section = sectionRef.current;
     const line = lineRef.current;
     if (!section || !line) return;
@@ -68,7 +70,6 @@ export function PipelineRail({ scrollerId }: { scrollerId?: string }) {
       const { ScrollTrigger } = await import('gsap/ScrollTrigger');
       gsap.registerPlugin(ScrollTrigger);
 
-      const scroller = scrollerId ? document.getElementById(scrollerId) ?? undefined : undefined;
       const ctx = gsap.context(() => {
         // The rail fills in step with the scroll position.
         gsap.fromTo(
@@ -78,7 +79,6 @@ export function PipelineRail({ scrollerId }: { scrollerId?: string }) {
             scaleY: 1,
             ease: 'none',
             scrollTrigger: {
-              scroller,
               trigger: section,
               start: 'top 70%',
               end: 'bottom 85%',
@@ -91,14 +91,19 @@ export function PipelineRail({ scrollerId }: { scrollerId?: string }) {
         // leave the stage readable, not hidden. `fromTo` with an inline
         // opacity:0 hid the whole column when the scroller raced the refresh.
         section.querySelectorAll<HTMLElement>('[data-stage]').forEach((el) => {
+          // Only stages that are still below the fold get hidden. One already
+          // on screen keeps its painted state — hiding it now would show the
+          // text, blank it, then reveal it again.
+          if (el.getBoundingClientRect().top <= window.innerHeight * 0.92) return;
+
           gsap.from(el, {
             opacity: 0,
             y: 24,
             duration: 0.7,
             ease: 'power2.out',
-            immediateRender: false,
+            immediateRender: true,
             clearProps: 'transform,opacity',
-            scrollTrigger: { scroller, trigger: el, start: 'top 92%', once: true },
+            scrollTrigger: { trigger: el, start: 'top 92%', once: true },
           });
           const dot = el.querySelector<HTMLElement>('[data-dot]');
           if (dot) {
@@ -107,27 +112,22 @@ export function PipelineRail({ scrollerId }: { scrollerId?: string }) {
               opacity: 0.3,
               duration: 0.4,
               ease: 'back.out(2)',
-              immediateRender: false,
+              immediateRender: true,
               clearProps: 'transform,opacity',
-              scrollTrigger: { scroller, trigger: el, start: 'top 90%', once: true },
+              scrollTrigger: { trigger: el, start: 'top 90%', once: true },
             });
           }
         });
       }, section);
 
-      // Lenis drives a custom scroller, so keep ScrollTrigger in sync with it.
-      const onScroll = () => ScrollTrigger.update();
-      (scroller ?? window).addEventListener('scroll', onScroll, { passive: true });
+      // Native document scrolling — ScrollTrigger drives itself. It only
+      // needed manual updates while the page scrolled inside a wrapper div.
       ScrollTrigger.refresh();
-
-      cleanup = () => {
-        (scroller ?? window).removeEventListener('scroll', onScroll);
-        ctx.revert();
-      };
+      cleanup = () => ctx.revert();
     })();
 
     return () => cleanup();
-  }, [scrollerId]);
+  }, []);
 
   return (
     <section
@@ -145,7 +145,6 @@ export function PipelineRail({ scrollerId }: { scrollerId?: string }) {
             as="h2"
             text="Every stage hands its work to the next."
             onScroll
-            scrollerId={scrollerId}
             className="block text-3xl sm:text-[2.6rem] leading-[1.08] font-semibold tracking-[-0.035em] text-zinc-50 mb-5"
           />
           <p className="text-[15px] leading-relaxed text-zinc-400">

@@ -69,7 +69,6 @@ export function AgentRoster() {
           as="h2"
           text="Six specialists, not one general-purpose bot."
           onScroll
-          scrollerId="landing-scroller"
           className="block text-3xl sm:text-4xl font-semibold tracking-[-0.03em] text-zinc-50 max-w-2xl mb-4"
         />
         <p className="text-[15px] leading-relaxed text-zinc-400 max-w-xl mb-14">

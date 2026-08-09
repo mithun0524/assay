@@ -107,6 +107,14 @@ export function WorkspaceLayout() {
     return () => window.removeEventListener('keydown', handler);
   }, []);
 
+  // The workspace is a fixed-height IDE — lock the document so panels scroll
+  // internally instead of the page growing a second scrollbar. Scoped here so
+  // the landing page keeps native document scrolling.
+  useEffect(() => {
+    document.documentElement.classList.add('viewport-locked');
+    return () => document.documentElement.classList.remove('viewport-locked');
+  }, []);
+
   // Boot WebContainer
   useWebContainer();
 

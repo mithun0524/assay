@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, type ElementType, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, type ElementType, type ReactNode } from 'react';
 
 /**
  * GSAP word/char reveal. Splitting is done here rather than with the paid
@@ -20,9 +20,11 @@ type RevealTextProps = {
   split?: 'word' | 'char';
   /** animate when scrolled into view instead of on mount */
   onScroll?: boolean;
-  scrollerId?: string;
   children?: ReactNode;
 };
+
+// Runs before paint on the client, so the start-state is set without a flash.
+const useIsoLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
 export function RevealText({
   text,
@@ -32,11 +34,10 @@ export function RevealText({
   delay = 0,
   split = 'word',
   onScroll = false,
-  scrollerId,
 }: RevealTextProps) {
   const ref = useRef<HTMLElement>(null);
 
-  useEffect(() => {
+  useIsoLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
     const units = el.querySelectorAll<HTMLElement>('[data-unit] > span');
@@ -64,6 +65,11 @@ export function RevealText({
         clearProps: 'transform,opacity',
       };
 
+      // Anything already on screen when this mounts must stay put. Animating it
+      // would mean showing the text, hiding it, then revealing it again — the
+      // flash `immediateRender: false` causes on its own.
+      const belowFold = el.getBoundingClientRect().top > window.innerHeight * 0.9;
+
       if (!onScroll) {
         const tween = gsap.from(units, vars);
         cleanup = () => {
@@ -76,21 +82,18 @@ export function RevealText({
       const { ScrollTrigger } = await import('gsap/ScrollTrigger');
       if (cancelled) return;
       gsap.registerPlugin(ScrollTrigger);
-      const scroller = scrollerId ? document.getElementById(scrollerId) ?? undefined : undefined;
+      if (!belowFold) return; // already visible — leave it alone
+
       const ctx = gsap.context(() => {
+        // immediateRender applies the hidden start-state now, before this
+        // off-screen element is ever painted, so there is nothing to flash.
         gsap.from(units, {
           ...vars,
-          // Without this, `from` hides the text immediately and only reveals it
-          // when the trigger fires — so a trigger that never fires (custom
-          // scroller, resize race) leaves the heading permanently invisible.
-          immediateRender: false,
-          scrollTrigger: { scroller, trigger: el, start: 'top 90%', once: true },
+          immediateRender: true,
+          scrollTrigger: { trigger: el, start: 'top 90%', once: true },
         });
       }, el);
-      const sync = () => ScrollTrigger.update();
-      (scroller ?? window).addEventListener('scroll', sync, { passive: true });
       cleanup = () => {
-        (scroller ?? window).removeEventListener('scroll', sync);
         ctx.revert();
         gsap.set(units, { clearProps: 'transform,opacity' });
       };
@@ -100,7 +103,7 @@ export function RevealText({
       cancelled = true;
       cleanup();
     };
-  }, [text, stagger, delay, onScroll, scrollerId, split]);
+  }, [text, stagger, delay, onScroll, split]);
 
   const units =
     split === 'char'

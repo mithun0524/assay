@@ -30,6 +30,7 @@ import { ImageUpload } from './ImageUpload';
 import { ImagePreview } from './ImagePreview';
 import { AgentBadge } from './AgentBadge';
 import { AGENTS } from '@/lib/agents';
+import type { AgentRole } from '@/lib/agents';
 import { Tooltip } from './Tooltip';
 
 interface ChatPanelProps {
@@ -52,6 +53,16 @@ const PLACEHOLDERS = [
   'Create a blog with markdown support...',
 ];
 
+/** Identity hues, from the same tokens the transcript avatars use. */
+const AGENT_HUE: Record<AgentRole, string> = {
+  architect: 'var(--agent-architect)',
+  assistant: 'var(--agent-assistant)',
+  coder: 'var(--agent-coder)',
+  debugger: 'var(--agent-debugger)',
+  designer: 'var(--agent-designer)',
+  tester: 'var(--agent-tester)',
+};
+
 export function ChatPanel({ onCollapse }: ChatPanelProps) {
   // ── Fine-grained Zustand selectors — only re-render when these specific values change ──
   const messages = useStore(s => s.messages);
@@ -66,6 +77,7 @@ export function ChatPanel({ onCollapse }: ChatPanelProps) {
   // Selector returns a number, not the files object, so this does not re-render
   // the whole panel on every keystroke the agent writes into a file.
   const fileCount = useStore(s => Object.keys(s.files).length);
+  const viewTier = useStore(s => s.viewTier);
   const activeAgent = useStore(s => s.activeAgent);
   const activeAgentReasoning = useStore(s => s.activeAgentReasoning);
   const qaStatus = useStore(s => s.qaStatus);
@@ -258,18 +270,31 @@ export function ChatPanel({ onCollapse }: ChatPanelProps) {
       <div className="flex items-center justify-between px-3 py-1.5 border-b border-white/[0.06]">
         <div className="flex items-center gap-3">
           {/* The active specialist is more useful here than the word "chat". */}
-          <div className="flex items-center gap-1.5 min-w-0">
-            <RiRobot2Line className={cn('w-3.5 h-3.5 shrink-0', activeAgent ? AGENTS[activeAgent].color : 'text-zinc-500')} />
-            <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-zinc-400 truncate">
+          {/* Same avatar chip the transcript uses, so the header names the
+              active specialist in the same language as the turns below it.
+              The old mono uppercase caption truncated to "ARCHITEC…" in a
+              330px panel, which is not a name. */}
+          <div className="flex items-center gap-2 min-w-0">
+            {activeAgent ? (
+              <span
+                aria-hidden
+                className="w-[18px] h-[18px] rounded-md shrink-0 grid place-items-center font-mono text-[9px] font-bold text-zinc-950"
+                style={{ background: AGENT_HUE[activeAgent] }}
+              >
+                {AGENTS[activeAgent].name.charAt(0)}
+              </span>
+            ) : (
+              <RiRobot2Line className="w-3.5 h-3.5 shrink-0 text-zinc-500" />
+            )}
+            <span className="text-[12px] font-semibold text-zinc-200 truncate">
               {activeAgent ? AGENTS[activeAgent].name : 'Chat'}
             </span>
           </div>
 
-          {/* Token usage. Was a 48px track with a 30%-white fill and a
-              zinc-600 label — the fill was indistinguishable from its own
-              track at low usage, and the label measured 3.0:1, well under AA.
-              Wider track, readable fill, AA label. */}
-          {hasMessages && (
+          {/* Token usage — developer telemetry, so it is developer-tier only.
+              At 330px it also wrapped "1% context" onto two lines and pushed
+              the agent name into an ellipsis. */}
+          {hasMessages && viewTier === 'developer' && (
             <div className="flex items-center gap-1.5" title={`${tokenUsage.toLocaleString()} / ${modelLimit.toLocaleString()} tokens`}>
               <div className="w-16 h-1 bg-white/[0.10] rounded-full overflow-hidden">
                 <div

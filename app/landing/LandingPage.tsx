@@ -113,14 +113,11 @@ export function LandingPage() {
   const [showLoader, setShowLoader] = useState(true);
   const [heroMorphing, setHeroMorphing] = useState(false);
   const [navScrolled, setNavScrolled] = useState(false);
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   // The navbar sits over the hero's agent-hue wash, so at rest it is
   // transparent and lets the wash through; once the page moves it earns a
-  // ground and a hairline. Reading scrollTop off the scroller div rather than
-  // the window, because the page scrolls inside #landing-scroller, not the
-  // document.
-  useEffect(() => onScrollPast(24, setNavScrolled, 'landing-scroller'), []);
+  // ground and a hairline.
+  useEffect(() => onScrollPast(24, setNavScrolled), []);
 
   const handleLoaderComplete = useCallback(() => {
     setHeroMorphing(true);
@@ -146,7 +143,7 @@ export function LandingPage() {
         sparkCount={8}
         duration={400}
       >
-        <div ref={scrollContainerRef} id="landing-scroller" className="h-screen overflow-y-auto bg-[var(--bg-primary)] text-[var(--text-primary)]">
+        <div className="bg-[var(--bg-primary)] text-[var(--text-primary)]">
           <div className="gradient-mesh" />
 
       {/* Aurora region — wraps navbar + hero */}
@@ -298,7 +295,6 @@ export function LandingPage() {
             so the layout rules have to come from here or the strip wraps into
             several rows instead of scrolling as one line. */}
         <ScrollVelocity
-          scrollContainerRef={scrollContainerRef}
           texts={['WebContainers — OpenRouter — Next.js — React — TypeScript — Tailwind — Supabase — Vercel']}
           velocity={34}
           damping={60}
@@ -319,7 +315,6 @@ export function LandingPage() {
           poster="/promo-poster.jpg"
           alt="How a DevForge build runs: the architect plans, the coder writes files, QA finds a crash, the debugger fixes it, QA passes"
           scrollHint="Six agents · one QA gate"
-          scrollerId="landing-scroller"
           stageHeight={0.82}
           startWidth={54}
           startHeight={64}
@@ -334,7 +329,7 @@ export function LandingPage() {
       </section>
 
       {/* ─────────── How It Works — scroll-drawn pipeline ─────────── */}
-      <PipelineRail scrollerId="landing-scroller" />
+      <PipelineRail />
 
       {/* Templates — same rail language as everything else, and only the
           categories that actually ship in lib/templates. */}
@@ -347,8 +342,7 @@ export function LandingPage() {
             as="h2"
             text="Ten starting points, already running."
             onScroll
-            scrollerId="landing-scroller"
-            className="block text-3xl sm:text-4xl font-semibold tracking-[-0.03em] text-zinc-50 max-w-2xl mb-4"
+              className="block text-3xl sm:text-4xl font-semibold tracking-[-0.03em] text-zinc-50 max-w-2xl mb-4"
           />
           <p className="text-[15px] leading-relaxed text-zinc-400 max-w-xl mb-12">
             Pick a template and it installs and boots in the sandbox before you have typed

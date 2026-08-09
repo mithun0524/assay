@@ -29,8 +29,6 @@ type ScrollExpandProps = {
   holdDistance?: number;
   smoothing?: number;
   overlayScrim?: number;
-  /** id of the scrolling ancestor; omit to use the window */
-  scrollerId?: string;
   /** stage height as a fraction of the viewport — below 1 leaves breathing room */
   stageHeight?: number;
   /** expansion progress at which a video starts playing (0–1) */
@@ -64,7 +62,6 @@ export function ScrollExpand({
   holdDistance = 0.35,
   smoothing = 0.1,
   overlayScrim = 0.45,
-  scrollerId,
   stageHeight = 1,
   playAt = 0.45,
   enabled = true,
@@ -164,8 +161,7 @@ export function ScrollExpand({
     const stage = stageRef.current;
     if (!root || !track || !stage) return;
 
-    const scroller: HTMLElement | Window =
-      (scrollerId ? document.getElementById(scrollerId) : null) ?? window;
+    const scroller: Window = window;
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
     let raf = 0;
@@ -263,7 +259,7 @@ export function ScrollExpand({
       ro.disconnect();
       io.disconnect();
     };
-  }, [applyProgress, scrollerId, stageHeight]);
+  }, [applyProgress, stageHeight]);
 
   const media =
     mediaType === 'video' ? (

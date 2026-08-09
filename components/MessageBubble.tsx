@@ -78,14 +78,15 @@ type ActionCardData = {
   startCommand: string | null;
 };
 
-/** Tailwind can't build class names at runtime — map roles to static rail classes. */
-const AGENT_RAIL: Record<AgentRole, string> = {
-  architect: 'border-blue-400/70',
-  assistant: 'border-cyan-400/70',
-  coder: 'border-green-400/70',
-  debugger: 'border-rose-400/70',
-  designer: 'border-purple-400/70',
-  tester: 'border-amber-400/70',
+/** Agent identity hues, read straight from the tokens so the avatar chip, the
+    landing roster and lib/agents cannot drift apart. */
+const AGENT_HUE: Record<AgentRole, string> = {
+  architect: 'var(--agent-architect)',
+  assistant: 'var(--agent-assistant)',
+  coder: 'var(--agent-coder)',
+  debugger: 'var(--agent-debugger)',
+  designer: 'var(--agent-designer)',
+  tester: 'var(--agent-tester)',
 };
 
 const ACTION_CARD_REGEX = /<!--ACTION_CARD:([\s\S]*?)-->/;
@@ -183,15 +184,13 @@ function UserMessageBubble({ message, timeAgo }: { message: Message; timeAgo: st
   }, [text, lines, isTooLong]);
 
   return (
+    /* Your own turn is a filled block, not a labelled rail. It is the one thing
+       in the transcript that is not machine output, so it should not be dressed
+       like machine output — a mono "YOU" caption above a coloured rail read
+       exactly like the agent turns beneath it. No bubble either: a bubble makes
+       this look like a messenger rather than a tool. */
     <div className="group animate-fade-up min-w-0" style={{ animationDuration: '0.25s' }}>
-      <div className="flex items-baseline gap-2 mb-1">
-        <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-zinc-500">You</span>
-        <span className="font-mono text-[10px] text-zinc-700">{timeAgo}</span>
-        <span className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity">
-          <CopyButton text={text} />
-        </span>
-      </div>
-      <div className="border-l-2 border-zinc-700 pl-3 min-w-0">
+      <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-2.5 min-w-0">
         <div
           className={cn(
             'text-[13.5px] text-zinc-200 leading-relaxed whitespace-pre-wrap break-words',
@@ -218,6 +217,11 @@ function UserMessageBubble({ message, timeAgo }: { message: Message; timeAgo: st
             )}
           </button>
         )}
+      </div>
+      {/* Time and copy on hover only — neither is worth a permanent line. */}
+      <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-2 mt-1">
+        <span className="font-mono text-[10px] text-zinc-500">{timeAgo}</span>
+        <CopyButton text={text} />
       </div>
     </div>
   );
@@ -324,8 +328,8 @@ export const MessageBubble = memo(function MessageBubble({ message, isLastAssist
   }
 
   // -- ERROR MESSAGE --
-  // Same rail language as an agent turn: what happened on the first line,
-  // what to do about it on the second.
+  // Same shape as an agent turn — avatar slot, name, time — so a failure reads
+  // as one more participant in the transcript rather than a different widget.
   if (isError) {
     const body = message.displayContent
       .replace(/^\u274C\s*\*\*Error:\*\*\s*/, '')
@@ -335,12 +339,15 @@ export const MessageBubble = memo(function MessageBubble({ message, isLastAssist
 
     return (
       <div className="group animate-fade-up min-w-0" style={{ animationDuration: '0.25s' }}>
-        <div className="flex items-baseline gap-2 mb-1">
-          <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-red-400 flex items-center gap-1.5">
+        <div className="flex items-center gap-2 mb-1.5">
+          <span
+            aria-hidden
+            className="w-[18px] h-[18px] rounded-md shrink-0 grid place-items-center bg-rose-400 text-zinc-950"
+          >
             <RiErrorWarningLine className="w-3 h-3" />
-            Failed
           </span>
-          <span className="font-mono text-[10px] text-zinc-700">{timeAgo}</span>
+          <span className="text-[12px] font-semibold text-rose-300">Failed</span>
+          <span className="font-mono text-[10px] text-zinc-500">{timeAgo}</span>
           <span className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
             <CopyButton text={message.displayContent} />
             {onRetry && (
@@ -354,8 +361,8 @@ export const MessageBubble = memo(function MessageBubble({ message, isLastAssist
             )}
           </span>
         </div>
-        <div className="border-l-2 border-red-500/50 pl-3 min-w-0">
-          <p className="text-[13.5px] text-red-200/90 leading-relaxed break-words">{headline}</p>
+        <div className="pl-[26px] min-w-0">
+          <p className="text-[13.5px] text-rose-200/90 leading-relaxed break-words">{headline}</p>
           {rest.length > 0 && (
             <p className="mt-1 text-[12.5px] text-zinc-400 leading-relaxed break-words">{rest.join(' ')}</p>
           )}
@@ -365,39 +372,35 @@ export const MessageBubble = memo(function MessageBubble({ message, isLastAssist
   }
 
   // -- ASSISTANT MESSAGE --
-  // The rail is the signature of this transcript: a rule down the left of every
-  // agent turn, coloured by the specialist that produced it, so you can scan the
-  // history and see who did what without reading a word.
+  // An avatar chip carries who spoke; the body sits in its column underneath.
+  // The transcript is narration only — no file lists, no code — so the surface
+  // beside it can show the build and the editor can show the code.
   const agent = message.agent ? AGENTS[message.agent] : null;
   const isLive = isLastAssistant && isStreaming;
 
   return (
+    /* Identity is carried by one small avatar chip, not a coloured rail down the
+       whole turn. With six agents the rails stacked into a barcode, and the mono
+       uppercase caption made every line read as log output rather than
+       something a specialist said. */
     <div className="group animate-fade-up min-w-0" style={{ animationDuration: '0.25s' }}>
-      <div className="flex items-baseline gap-2 mb-1">
+      <div className="flex items-center gap-2 mb-1.5">
         <span
-          className={cn(
-            'font-mono text-[10px] uppercase tracking-[0.14em]',
-            agent ? agent.color : 'text-zinc-500'
-          )}
+          aria-hidden
+          className="w-[18px] h-[18px] rounded-md shrink-0 grid place-items-center font-mono text-[9px] font-bold text-zinc-950"
+          style={{ background: agent ? AGENT_HUE[agent.role] : 'var(--text-tertiary)' }}
         >
+          {(agent ? agent.name : 'Agent').charAt(0)}
+        </span>
+        <span className="text-[12px] font-semibold text-zinc-100">
           {agent ? agent.name : 'Agent'}
         </span>
-        {isLive && (
-          <span className="font-mono text-[10px] text-zinc-600 flex items-center gap-1">
-            <span className="w-1 h-1 rounded-full bg-current animate-pulse" />
-            working
-          </span>
-        )}
-        <span className="font-mono text-[10px] text-zinc-700">{timeAgo}</span>
+        <span className="ml-auto font-mono text-[10px] text-zinc-500">
+          {isLive ? 'now' : timeAgo}
+        </span>
       </div>
 
-      <div
-        className={cn(
-          'border-l-2 pl-3 min-w-0 transition-colors',
-          agent ? AGENT_RAIL[agent.role] : 'border-zinc-800',
-          isLive && 'border-opacity-100'
-        )}
-      >
+      <div className="pl-[26px] min-w-0">
         {isEmpty && isLastAssistant && isStreaming && (
           <div className="flex items-center gap-2 px-3 py-2.5 text-sm text-zinc-500">
             <RiLoader4Line className="w-3.5 h-3.5 animate-spin text-zinc-400" />
@@ -448,7 +451,7 @@ export const MessageBubble = memo(function MessageBubble({ message, isLastAssist
 
       {/* Outside the rail — an invisible hover row inside it left the rule
           hanging ~25px below the last card. */}
-      <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 mt-1 pl-[14px]">
+      <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 mt-1 pl-[26px]">
         <CopyButton text={message.displayContent} />
         {onRetry && (
           <button
