@@ -3,7 +3,7 @@
 import { useEffect, useRef } from 'react';
 import { useStore } from '@/lib/store';
 
-import 'xterm/css/xterm.css';
+import '@xterm/xterm/css/xterm.css';
 
 export function Terminal() {
     const terminalRef = useRef<HTMLDivElement>(null);
@@ -22,8 +22,8 @@ export function Terminal() {
             // Clean up any previous terminal DOM content
             terminalRef.current.innerHTML = '';
 
-            const { Terminal: XTerm } = await import('xterm');
-            const { FitAddon } = await import('xterm-addon-fit');
+            const { Terminal: XTerm } = await import('@xterm/xterm');
+            const { FitAddon } = await import('@xterm/addon-fit');
 
             if (cancelled) return;
 
@@ -66,13 +66,12 @@ export function Terminal() {
             // divider used to queue one full refresh per pixel. One per frame is
             // all a terminal can draw anyway.
             //
-            // KNOWN, NOT FIXED HERE: xterm 5.3's Viewport can run a queued
-            // _innerRefresh after dispose() has nulled its render service, which
-            // throws "Cannot read properties of undefined (reading
-            // 'dimensions')" from inside the library. Coalescing shrinks the
-            // window but cannot close it — the timer is xterm's own. The package
-            // is deprecated in favour of @xterm/xterm, where this is fixed;
-            // upgrading is the actual fix.
+            // This also used to be a crash: xterm 5.3's Viewport could run a
+            // queued _innerRefresh after dispose() had nulled its render
+            // service, throwing "Cannot read properties of undefined (reading
+            // 'dimensions')". Coalescing narrowed the window but could not close
+            // it, because the timer was the library's own. Fixed properly by
+            // moving to @xterm/xterm, which supersedes the deprecated `xterm`.
             const safeFit = () => {
                 if (fitFrame !== null) cancelAnimationFrame(fitFrame);
                 fitFrame = requestAnimationFrame(() => {
