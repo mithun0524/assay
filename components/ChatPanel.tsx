@@ -385,69 +385,6 @@ export function ChatPanel({ onCollapse }: ChatPanelProps) {
           );
         })}
 
-        {/* Generation phase indicator (below messages, above input).
-            Suppressed while phase is 'writing' with no file yet: its fallback
-            copy was "Analyzing your request...", which is the same thing the
-            streaming message bubble above it already says with "Thinking...".
-            It earns its place once it can name the file, or once the phase is
-            something the bubble does not cover (searching, installing). */}
-        {isStreaming && generationPhase !== 'idle' &&
-          !(generationPhase === 'writing' && !activelyWritingFile) && (
-          <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-white/[0.02] border border-white/[0.04] animate-fade-in">
-            {/* Active agent badge */}
-            {activeAgent && (
-              <AgentBadge role={activeAgent} title={activeAgentReasoning ?? undefined} showName={false} />
-            )}
-            {generationPhase === 'writing' && (
-              <>
-                <RiFileCodeLine className="w-3.5 h-3.5 text-zinc-400 animate-pulse" />
-                <span className="text-xs shimmer-text">
-                  Writing <span className="font-medium">{activelyWritingFile?.split('/').pop()}</span>
-                </span>
-                {/* The count is what replaces the list of file cards that used
-                    to sit in the transcript: it is the only thing that told you
-                    how big this turn is. Files in the project, so it keeps
-                    climbing across turns rather than resetting. */}
-                {fileCount > 0 && (
-                  <span className="ml-auto font-mono text-[10px] text-zinc-400 tabular-nums">
-                    {fileCount} {fileCount === 1 ? 'file' : 'files'}
-                  </span>
-                )}
-              </>
-            )}
-            {generationPhase === 'searching' && (
-              <>
-                <RiGlobalLine className="w-3.5 h-3.5 text-zinc-400 animate-pulse" />
-                <span className="text-xs text-zinc-400">Searching the web...</span>
-              </>
-            )}
-            {generationPhase === 'installing' && (
-              <>
-                <RiArchiveLine className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
-                <span className="text-xs text-zinc-400">Installing dependencies...</span>
-              </>
-            )}
-            {generationPhase === 'starting' && (
-              <>
-                <RiRocketLine className="w-3.5 h-3.5 text-zinc-400 animate-pulse" />
-                <span className="text-xs text-zinc-400">Starting dev server...</span>
-              </>
-            )}
-            {generationPhase === 'verifying' && (
-              <>
-                <RiShieldCheckLine className="w-3.5 h-3.5 text-zinc-400 animate-pulse" />
-                <span className="text-xs text-zinc-400">QA agent is testing your app...</span>
-              </>
-            )}
-            {generationPhase === 'done' && (
-              <>
-                <RiCheckboxCircleLine className="w-3.5 h-3.5 text-emerald-400" />
-                <span className="text-xs text-emerald-400">Ready</span>
-              </>
-            )}
-          </div>
-        )}
-
         {/* QA gate result — what the QA agent found and did about it */}
         {qaStatus && (
           <div
@@ -481,6 +418,76 @@ export function ChatPanel({ onCollapse }: ChatPanelProps) {
           </div>
         )}
       </div>
+
+      {/* Live status. Pinned between the transcript and the composer rather than
+          living inside the scroller: it is persistent status, not a transcript
+          entry. Inside, it scrolled away with the history — and because the
+          auto-scroll effect keys off `messages`, a phase change with no new
+          tokens (installing, for one) never triggered a scroll, so it could
+          sit below the fold exactly when it was the only thing moving.
+
+          Suppressed while phase is 'writing' with no file yet.
+          Suppressed while phase is 'writing' with no file yet: its fallback
+          copy was "Analyzing your request...", which is the same thing the
+          streaming message bubble above it already says with "Thinking...".
+          It earns its place once it can name the file, or once the phase is
+          something the bubble does not cover (searching, installing). */}
+      {isStreaming && generationPhase !== 'idle' &&
+        !(generationPhase === 'writing' && !activelyWritingFile) && (
+        <div className="shrink-0 mx-3 mb-1 flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-white/[0.02] border border-white/[0.06] animate-fade-in">
+          {/* Active agent badge */}
+          {activeAgent && (
+            <AgentBadge role={activeAgent} title={activeAgentReasoning ?? undefined} showName={false} />
+          )}
+          {generationPhase === 'writing' && (
+            <>
+              <RiFileCodeLine className="w-3.5 h-3.5 text-zinc-400 animate-pulse" />
+              <span className="text-xs shimmer-text">
+                Writing <span className="font-medium">{activelyWritingFile?.split('/').pop()}</span>
+              </span>
+              {/* The count is what replaces the list of file cards that used
+                  to sit in the transcript: it is the only thing that told you
+                  how big this turn is. Files in the project, so it keeps
+                  climbing across turns rather than resetting. */}
+              {fileCount > 0 && (
+                <span className="ml-auto font-mono text-[10px] text-zinc-400 tabular-nums">
+                  {fileCount} {fileCount === 1 ? 'file' : 'files'}
+                </span>
+              )}
+            </>
+          )}
+          {generationPhase === 'searching' && (
+            <>
+              <RiGlobalLine className="w-3.5 h-3.5 text-zinc-400 animate-pulse" />
+              <span className="text-xs text-zinc-400">Searching the web...</span>
+            </>
+          )}
+          {generationPhase === 'installing' && (
+            <>
+              <RiArchiveLine className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
+              <span className="text-xs text-zinc-400">Installing dependencies...</span>
+            </>
+          )}
+          {generationPhase === 'starting' && (
+            <>
+              <RiRocketLine className="w-3.5 h-3.5 text-zinc-400 animate-pulse" />
+              <span className="text-xs text-zinc-400">Starting dev server...</span>
+            </>
+          )}
+          {generationPhase === 'verifying' && (
+            <>
+              <RiShieldCheckLine className="w-3.5 h-3.5 text-zinc-400 animate-pulse" />
+              <span className="text-xs text-zinc-400">QA agent is testing your app...</span>
+            </>
+          )}
+          {generationPhase === 'done' && (
+            <>
+              <RiCheckboxCircleLine className="w-3.5 h-3.5 text-emerald-400" />
+              <span className="text-xs text-emerald-400">Ready</span>
+            </>
+          )}
+        </div>
+      )}
 
       {/* Scroll-to-bottom FAB */}
       {showScrollFab && (
