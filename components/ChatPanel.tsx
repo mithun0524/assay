@@ -19,6 +19,7 @@ import {
   RiErrorWarningLine,
 } from '@remixicon/react';
 import Image from 'next/image';
+import { AssayMark } from './Logo';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useStore } from '@/lib/store';
 import { useChat } from '@/hooks/useChat';
@@ -346,7 +347,7 @@ export function ChatPanel({ onCollapse }: ChatPanelProps) {
         {!hasMessages && (
           <div className="h-full flex flex-col items-center justify-center text-center px-4">
             <div className="w-10 h-10 rounded-xl bg-white/[0.04] flex items-center justify-center mb-4">
-              <Image src="/logo.png" alt="DevForge" width={20} height={20} className="w-5 h-5" />
+              <AssayMark className="w-5 h-5 text-zinc-300" />
             </div>
             <h3 className="text-sm font-medium text-zinc-300 mb-1">Start a conversation</h3>
             <p className="text-xs text-zinc-600 mb-5 max-w-[220px]">Describe what you want to build and I&apos;ll generate the code.</p>

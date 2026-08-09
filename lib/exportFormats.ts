@@ -19,7 +19,7 @@ function getCodeSandboxParameters(files: Record<string, FileEntry>): string {
   // Ensure package.json exists
   if (!csbFiles['package.json']) {
     csbFiles['package.json'] = {
-      content: JSON.stringify({ name: 'devforge-export', dependencies: {} }, null, 2),
+      content: JSON.stringify({ name: 'assay-export', dependencies: {} }, null, 2),
     };
   }
 
@@ -46,7 +46,7 @@ export function generateStackBlitzUrl(files: Record<string, FileEntry>): string 
   form.target = '_blank';
 
   // Add project metadata
-  addHiddenInput(form, 'project[title]', 'DevForge Export');
+  addHiddenInput(form, 'project[title]', 'Assay Export');
   addHiddenInput(form, 'project[template]', 'node');
 
   // Add files

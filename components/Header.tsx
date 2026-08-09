@@ -19,7 +19,7 @@ import {
   RiLayoutLine,
   RiArrowRightSLine,
 } from '@remixicon/react';
-import Image from 'next/image';
+import { AssayWordmark } from './Logo';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useStore } from '@/lib/store';
 import { cn } from '@/lib/utils';
@@ -108,7 +108,7 @@ export function Header({ onOpenProjects, onOpenShortcuts }: HeaderProps) {
       >
         <div className="flex items-center gap-3">
           <div className="flex items-center">
-            <Image src="/logo-with-typo.png" alt="DevForge" width={100} height={24} className="h-6 w-auto" />
+            <AssayWordmark className="text-[15px] text-zinc-100" />
           </div>
           {onOpenProjects && (
             <Tooltip content="Projects">

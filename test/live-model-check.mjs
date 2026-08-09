@@ -81,7 +81,7 @@ async function call(model, body) {
     headers: {
       Authorization: `Bearer ${KEY}`,
       'Content-Type': 'application/json',
-      'X-Title': 'DevForge model check',
+      'X-Title': 'Assay model check',
     },
     body: JSON.stringify({ model, ...body }),
     signal: AbortSignal.timeout(120_000),

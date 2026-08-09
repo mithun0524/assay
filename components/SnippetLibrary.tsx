@@ -35,7 +35,7 @@ export function SnippetLibrary({ onInsert }: SnippetLibraryProps) {
                 id: crypto.randomUUID(),
                 createdAt: Date.now(),
             }));
-            localStorage.setItem('devforge-snippets', JSON.stringify(initialized));
+            localStorage.setItem('assay-snippets', JSON.stringify(initialized));
             setSnippets(initialized);
         } else {
             setSnippets(loaded);

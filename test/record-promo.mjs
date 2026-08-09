@@ -15,7 +15,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 const BASE = process.env.BASE_URL || 'http://localhost:3001';
-const dir = mkdtempSync(join(tmpdir(), 'devforge-promo-'));
+const dir = mkdtempSync(join(tmpdir(), 'assay-promo-'));
 
 const PLAN = `Three columns, drag between them, and the board state in localStorage.
 

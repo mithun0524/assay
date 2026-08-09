@@ -10,7 +10,7 @@ import {
   RiTerminalBoxLine,
   RiLayoutGridLine,
 } from '@remixicon/react';
-import Image from 'next/image';
+import { AssayWordmark } from '@/components/Logo';
 import { Mail } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuthContext } from '@/components/Providers';
@@ -77,7 +77,7 @@ export function LoginForm() {
       <div className="w-full lg:w-1/2 flex flex-col justify-between px-8 sm:px-12 py-10 relative z-10">
         {/* Logo */}
         <div className="flex items-center animate-fade-in">
-          <Image src="/logo-with-typo.png" alt="DevForge" width={140} height={36} className="h-9 w-auto" />
+          <AssayWordmark className="text-[19px] text-zinc-100" />
         </div>
 
         {/* Form Area */}
@@ -254,7 +254,7 @@ export function LoginForm() {
               <span className="gradient-text">with natural language</span>
             </h2>
             <p className="text-sm text-zinc-400 leading-relaxed max-w-xs">
-              Describe what you want. DevForge writes, previews, and deploys your code — all in one place.
+              Describe what you want. Assay writes, previews, and deploys your code — all in one place.
             </p>
           </div>
 

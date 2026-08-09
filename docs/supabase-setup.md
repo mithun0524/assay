@@ -1,6 +1,6 @@
 # Supabase setup
 
-Everything DevForge needs from Supabase, and why. Follow top to bottom on a
+Everything Assay needs from Supabase, and why. Follow top to bottom on a
 fresh project.
 
 ## 1. Environment

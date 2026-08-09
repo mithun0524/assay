@@ -53,6 +53,9 @@ const useIsoLayoutEffect = typeof window === 'undefined' ? useEffect : useLayout
 export function PipelineRail() {
   const sectionRef = useRef<HTMLDivElement>(null);
   const lineRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLOListElement>(null);
+  const trackRef = useRef<HTMLDivElement>(null);
+  const refreshRef = useRef<(() => void) | null>(null);
 
   useIsoLayoutEffect(() => {
     const section = sectionRef.current;
@@ -63,6 +66,30 @@ export function PipelineRail() {
       return;
     }
 
+    // Span exactly first dot → last dot.
+    const sizeRail = () => {
+      const list = listRef.current;
+      const dots = list?.querySelectorAll<HTMLElement>('[data-dot]');
+      if (!list || !dots || dots.length < 2) return;
+      const listTop = list.getBoundingClientRect().top;
+      const first = dots[0].getBoundingClientRect();
+      const last = dots[dots.length - 1].getBoundingClientRect();
+      const top = first.top - listTop + first.height / 2;
+      const height = last.top + last.height / 2 - first.top - first.height / 2;
+      for (const el of [trackRef.current, line]) {
+        if (!el) continue;
+        el.style.top = `${top}px`;
+        el.style.height = `${height}px`;
+        el.style.bottom = 'auto';
+      }
+    };
+    sizeRail();
+    const ro = new ResizeObserver(() => {
+      sizeRail();
+      refreshRef.current?.();
+    });
+    ro.observe(section);
+
     let cleanup = () => {};
 
     (async () => {
@@ -71,7 +98,10 @@ export function PipelineRail() {
       gsap.registerPlugin(ScrollTrigger);
 
       const ctx = gsap.context(() => {
-        // The rail fills in step with the scroll position.
+        // Scrub against the dot span. Triggering on the section meant the rail
+        // was half full before the list appeared and finished while stage 5 was
+        // still mid-screen — it stopped tracking exactly where it should have
+        // been guiding you.
         gsap.fromTo(
           line,
           { scaleY: 0 },
@@ -79,32 +109,26 @@ export function PipelineRail() {
             scaleY: 1,
             ease: 'none',
             scrollTrigger: {
-              trigger: section,
-              start: 'top 70%',
-              end: 'bottom 85%',
+              // The track spans exactly first dot → last dot, so scrubbing
+              // against it makes the fill track which stage you are reading:
+              // empty when stage 1 reaches the reading line, full when the
+              // last one does.
+              trigger: trackRef.current ?? listRef.current ?? section,
+              start: 'top 45%',
+              end: 'bottom 45%',
               scrub: 0.4,
             },
           }
         );
 
-        // gsap.from + immediateRender:false — a trigger that never fires must
-        // leave the stage readable, not hidden. `fromTo` with an inline
-        // opacity:0 hid the whole column when the scroller raced the refresh.
+        // The stage text is never animated — it is simply there. Fading a wall
+        // of prose in on scroll made the section feel like it was still
+        // loading; signalling progress is the rail's job. Only the dot marks
+        // arrival, and only for stages still below the fold, so nothing that
+        // is already painted ever blinks.
         section.querySelectorAll<HTMLElement>('[data-stage]').forEach((el) => {
-          // Only stages that are still below the fold get hidden. One already
-          // on screen keeps its painted state — hiding it now would show the
-          // text, blank it, then reveal it again.
           if (el.getBoundingClientRect().top <= window.innerHeight * 0.92) return;
 
-          gsap.from(el, {
-            opacity: 0,
-            y: 24,
-            duration: 0.7,
-            ease: 'power2.out',
-            immediateRender: true,
-            clearProps: 'transform,opacity',
-            scrollTrigger: { trigger: el, start: 'top 92%', once: true },
-          });
           const dot = el.querySelector<HTMLElement>('[data-dot]');
           if (dot) {
             gsap.from(dot, {
@@ -123,10 +147,17 @@ export function PipelineRail() {
       // Native document scrolling — ScrollTrigger drives itself. It only
       // needed manual updates while the page scrolled inside a wrapper div.
       ScrollTrigger.refresh();
-      cleanup = () => ctx.revert();
+      refreshRef.current = () => ScrollTrigger.refresh();
+      cleanup = () => {
+        refreshRef.current = null;
+        ctx.revert();
+      };
     })();
 
-    return () => cleanup();
+    return () => {
+      ro.disconnect();
+      cleanup();
+    };
   }, []);
 
   return (
@@ -154,15 +185,18 @@ export function PipelineRail() {
         </div>
 
         <div className="relative pl-8 sm:pl-10">
-          <div className="absolute left-[7px] top-3 bottom-3 w-px bg-white/[0.07]" aria-hidden />
+          {/* Height is measured from the first dot to the last so the rail
+              starts and stops on them, instead of running past into the
+              list's padding. */}
+          <div ref={trackRef} className="absolute left-[7px] w-px bg-white/[0.07]" aria-hidden />
           <div
             ref={lineRef}
-            className="absolute left-[7px] top-3 bottom-3 w-px origin-top bg-gradient-to-b from-blue-400 via-emerald-400 to-zinc-200"
+            className="absolute left-[7px] w-px origin-top bg-gradient-to-b from-blue-400 via-emerald-400 to-zinc-200"
             style={{ transform: 'scaleY(0)' }}
             aria-hidden
           />
 
-          <ol className="divide-y divide-white/[0.06]">
+          <ol ref={listRef} className="divide-y divide-white/[0.06]">
             {STAGES.map((s) => (
               <li key={s.id} data-stage className="relative py-7 first:pt-0 last:pb-0">
                 <span

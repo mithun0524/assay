@@ -1,8 +1,8 @@
-# DevForge 
+# Assay 
 
 **The Open-Source AI Code Editor That Runs Entirely in Your Browser**
 
-DevForge is a powerful browser-based AI code editor built with Next.js, React 19, and WebContainers. It generates complete, production-ready applications with live preview, terminal access, and AI-powered assistance—all without any backend infrastructure.
+Assay is a powerful browser-based AI code editor built with Next.js, React 19, and WebContainers. It generates complete, production-ready applications with live preview, terminal access, and AI-powered assistance—all without any backend infrastructure.
 
 [![MIT License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Next.js](https://img.shields.io/badge/Next.js-16-black)](https://nextjs.org/)
@@ -51,8 +51,8 @@ DevForge is a powerful browser-based AI code editor built with Next.js, React 19
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/devforge.git
-   cd devforge
+   git clone https://github.com/yourusername/assay.git
+   cd assay
    ```
 
 2. **Install dependencies**
@@ -133,7 +133,7 @@ DevForge is a powerful browser-based AI code editor built with Next.js, React 19
 
 ### Multi-Agent System
 
-DevForge automatically routes your requests to specialized agents:
+Assay automatically routes your requests to specialized agents:
 
 - **🏗️ Architect**: Plans structure for new projects
 - **⚡ Coder**: Fast implementation of features
@@ -187,7 +187,7 @@ The active agent is shown as a badge during generation.
 ## 📁 Project Structure
 
 ```
-devforge/
+assay/
 ├── app/                      # Next.js app directory
 │   ├── api/chat/            # AI chat API route
 │   └── page.tsx             # Main app page
@@ -234,7 +234,7 @@ devforge/
 #### OpenRouter (Required for AI)
 1. Go to [openrouter.ai/keys](https://openrouter.ai/keys)
 2. Create a new API key
-3. Add to Settings in DevForge UI or `.env.local`:
+3. Add to Settings in Assay UI or `.env.local`:
    ```
    OPENROUTER_API_KEY=sk-or-v1-...
    ```
@@ -316,8 +316,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 💬 Support
 
-- **Issues**: [GitHub Issues](https://github.com/yourusername/devforge/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/yourusername/devforge/discussions)
+- **Issues**: [GitHub Issues](https://github.com/yourusername/assay/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/yourusername/assay/discussions)
 ..
 ---
 

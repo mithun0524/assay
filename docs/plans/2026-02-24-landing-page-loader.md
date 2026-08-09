@@ -246,7 +246,7 @@ export function LoaderScreen({ onComplete }: { onComplete: () => void }) {
         >
           <Image
             src="/logo.png"
-            alt="DevForge"
+            alt="Assay"
             width={100}
             height={100}
             priority
@@ -432,7 +432,7 @@ Update the Image component props:
 ```typescript
 <Image
   src="/logo.png"
-  alt="DevForge"
+  alt="Assay"
   width={100}
   height={100}
   priority
@@ -625,7 +625,7 @@ Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>"
 All tasks done! The landing page now has a premium loader experience.
 
 **Testing Checklist:**
-- ✅ Visual design matches DevForge aesthetic
+- ✅ Visual design matches Assay aesthetic
 - ✅ Minimum timing enforced (1.5s)
 - ✅ Smooth morphing transition
 - ✅ Accessibility support

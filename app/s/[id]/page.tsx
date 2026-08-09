@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { RiFileCopyLine, RiCodeSSlashLine, RiFolderLine, RiLoader4Line, RiErrorWarningLine } from '@remixicon/react';
 import { cn } from '@/lib/utils';
-import Image from 'next/image';
+import { AssayWordmark } from '@/components/Logo';
 
 interface SharedProject {
   id: string;
@@ -61,10 +61,10 @@ export default function SharedProjectPage() {
     }
   };
 
-  const handleForkToDevForge = () => {
+  const handleForkToAssay = () => {
     if (!project) return;
     try {
-      sessionStorage.setItem('devforge-fork', JSON.stringify({
+      sessionStorage.setItem('assay-fork', JSON.stringify({
         name: project.name + ' (Fork)',
         files: project.files,
       }));
@@ -93,7 +93,7 @@ export default function SharedProjectPage() {
           <RiErrorWarningLine className="w-8 h-8 text-zinc-600 mx-auto mb-3" />
           <p className="text-sm text-zinc-400 mb-4">{error || 'Project not found'}</p>
           <a href="/app" className="text-xs text-zinc-300 hover:text-zinc-50">
-            Go to DevForge
+            Go to Assay
           </a>
         </div>
       </div>
@@ -108,7 +108,7 @@ export default function SharedProjectPage() {
       <header className="h-12 shrink-0 px-4 flex items-center justify-between border-b border-white/[0.06] bg-[#09090b]">
         <div className="flex items-center gap-3">
           <a href="/app">
-            <Image src="/logo-with-typo.png" alt="DevForge" width={100} height={24} className="h-6 w-auto" />
+            <AssayWordmark className="text-[15px] text-zinc-100" />
           </a>
           <div className="w-px h-5 bg-white/[0.06]" />
           <div>
@@ -119,10 +119,10 @@ export default function SharedProjectPage() {
           </div>
         </div>
         <button
-          onClick={handleForkToDevForge}
+          onClick={handleForkToAssay}
           className="px-3.5 py-1.5 text-xs font-medium bg-zinc-50 text-zinc-950 hover:bg-white rounded-lg transition-all"
         >
-          Fork to DevForge
+          Fork to Assay
         </button>
       </header>
 

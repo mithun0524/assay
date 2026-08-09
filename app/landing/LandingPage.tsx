@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import Image from 'next/image';
+import { AssayWordmark } from '@/components/Logo';
 import Link from 'next/link';
 
 import { onScrollPast } from '@/lib/motion';
@@ -174,7 +174,7 @@ export function LandingPage() {
       >
         <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
           <Link href="/landing" className="flex items-center cursor-pointer">
-            <Image src="/logo-with-typo.png" alt="DevForge" width={160} height={40} className="h-9 w-auto" />
+            <AssayWordmark className="text-[19px] text-zinc-100" />
           </Link>
 
           <div className="hidden md:flex items-center gap-8">
@@ -313,7 +313,7 @@ export function LandingPage() {
           mediaType="video"
           src="/promo.mp4"
           poster="/promo-poster.jpg"
-          alt="How a DevForge build runs: the architect plans, the coder writes files, QA finds a crash, the debugger fixes it, QA passes"
+          alt="How a Assay build runs: the architect plans, the coder writes files, QA finds a crash, the debugger fixes it, QA passes"
           scrollHint="Six agents · one QA gate"
           stageHeight={0.82}
           startWidth={54}
@@ -461,7 +461,7 @@ export function LandingPage() {
         <div className="border-t border-[var(--border-subtle)]">
           <div className="max-w-6xl mx-auto px-6 py-6 flex flex-col sm:flex-row items-center justify-between gap-4">
             <p className="font-mono text-[11px] text-zinc-400">
-              DevForge — an open-source AI app builder. Not a company.
+              Assay — an open-source AI app builder. Not a company.
             </p>
             <a
               href="https://github.com/mithun0524/devforge"
@@ -478,7 +478,7 @@ export function LandingPage() {
           <div className="max-w-6xl mx-auto px-6 py-8 sm:py-10">
             <div className="flex items-center justify-center select-none">
               <span className="font-bold tracking-tighter text-white/[0.04] text-[80px] sm:text-[140px] md:text-[220px] lg:text-[350px] leading-none">
-                DevForge
+                Assay
               </span>
             </div>
           </div>

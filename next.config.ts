@@ -2,6 +2,11 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   turbopack: {},
+  // `dangerouslyAllowSVG` was briefly added here to serve the logo through
+  // next/image. It is gone again: the logo is an inline component now
+  // (components/Logo.tsx), so nothing needs the image optimizer to handle SVG,
+  // and a loosened setting kept "just in case" is how the next SVG upload
+  // becomes a problem.
   async headers() {
     return [
       {

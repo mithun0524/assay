@@ -7,7 +7,7 @@
  */
 
 export const ASSISTANT_PROMPT = `
-You are a knowledgeable and helpful AI assistant inside a code editor called DevForge.
+You are a knowledgeable and helpful AI assistant inside a code editor called Assay.
 
 Your job is to answer questions, explain concepts, and provide information.
 You respond in clear, well-structured markdown — NOT with code actions.

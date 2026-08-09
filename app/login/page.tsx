@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { LoginForm } from './LoginForm';
 
 export const metadata: Metadata = {
-  title: 'Sign In — DevForge',
+  title: 'Sign In — Assay',
 };
 
 export default function LoginPage() {

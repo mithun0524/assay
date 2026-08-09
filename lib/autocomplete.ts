@@ -1,6 +1,6 @@
 import type * as Monaco from 'monaco-editor';
 
-const AUTOCOMPLETE_STORAGE_KEY = 'devforge-autocomplete-enabled';
+const AUTOCOMPLETE_STORAGE_KEY = 'assay-autocomplete-enabled';
 
 export function isAutocompleteEnabled(): boolean {
   if (typeof window === 'undefined') return false;

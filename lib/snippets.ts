@@ -6,7 +6,7 @@ export interface Snippet {
   createdAt: number;
 }
 
-const STORAGE_KEY = 'devforge-snippets';
+const STORAGE_KEY = 'assay-snippets';
 
 export function getSnippets(): Snippet[] {
   try {

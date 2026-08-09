@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Image from 'next/image';
+import { AssayMark } from '@/components/Logo';
 
 export function LoaderScreen({ onComplete }: { onComplete: () => void }) {
   const [minimumMet, setMinimumMet] = useState(false);
@@ -125,15 +125,7 @@ export function LoaderScreen({ onComplete }: { onComplete: () => void }) {
               : 'logo-entrance 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards, logo-breathe 2s ease-in-out 0.6s infinite',
           }}
         >
-          <Image
-            src="/logo.png"
-            alt="DevForge"
-            width={100}
-            height={100}
-            priority
-            loading="eager"
-            className="select-none"
-          />
+          <AssayMark className="w-full h-full text-zinc-100" />
         </div>
       </div>
     </div>

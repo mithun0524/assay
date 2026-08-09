@@ -8,7 +8,7 @@ import {
 } from 'remotion';
 
 /**
- * DevForge promo — a motion graphic, not a screen capture.
+ * Assay promo — a motion graphic, not a screen capture.
  *
  * It tells the one thing that makes the product different: six specialists
  * build, one breaks it on purpose, and you only ever see the version that runs.
@@ -265,7 +265,7 @@ const Claim: React.FC = () => {
           opacity: spring({ frame: frame - 34, fps: FPS, config: { damping: 200 }, durationInFrames: 20 }),
         }}
       >
-        DEVFORGE — SIX AGENTS · ONE QA GATE
+        ASSAY — SIX AGENTS · ONE QA GATE
       </div>
     </AbsoluteFill>
   );

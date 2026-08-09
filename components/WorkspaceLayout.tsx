@@ -175,9 +175,9 @@ export function WorkspaceLayout() {
     const init = async () => {
       try {
         // Check for forked project from share page
-        const forkData = sessionStorage.getItem('devforge-fork');
+        const forkData = sessionStorage.getItem('assay-fork');
         if (forkData) {
-          sessionStorage.removeItem('devforge-fork');
+          sessionStorage.removeItem('assay-fork');
           try {
             const parsed = JSON.parse(forkData);
             const forkName: string = parsed.name || 'Forked Project';
