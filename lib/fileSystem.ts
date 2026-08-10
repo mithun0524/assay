@@ -118,6 +118,50 @@ export async function stopDevServer() {
   }
 }
 
+/**
+ * Empty the sandbox so the next project starts on bare ground.
+ *
+ * Switching or creating a project used to clear the store and nothing else. The
+ * WebContainer kept every file from the previous project and kept serving it,
+ * so the new project was written on top of the old one: the preview showed the
+ * previous app, and any file the new project did not happen to overwrite stayed
+ * behind — in the build, and in the file context handed to the agent.
+ *
+ * node_modules is kept by default. Deleting it costs a full reinstall on every
+ * switch, and the install that follows reconciles the new package.json anyway.
+ * Pass keepNodeModules: false when the dependency tree itself is suspect.
+ */
+export async function resetSandbox({ keepNodeModules = true } = {}): Promise<void> {
+  await stopDevServer();
+
+  let wc: Awaited<ReturnType<typeof getWebContainer>>;
+  try {
+    wc = await getWebContainer();
+  } catch {
+    // No container booted yet — nothing to clear, and forcing one to boot just
+    // to empty it would be slower than letting the next write create it.
+    return;
+  }
+
+  let entries: string[];
+  try {
+    entries = await wc.fs.readdir('/', { withFileTypes: false }) as unknown as string[];
+  } catch {
+    return;
+  }
+
+  await Promise.all(
+    entries
+      .filter((name) => !(keepNodeModules && name === 'node_modules'))
+      .map((name) =>
+        wc.fs.rm(`/${name}`, { recursive: true, force: true }).catch(() => {
+          // A file the container is still holding open is not worth failing the
+          // whole switch over; the new project will overwrite it.
+        }),
+      ),
+  );
+}
+
 export async function installDependencies(retries = 2) {
   // If an install is already running, wait for it instead of starting a second one.
   // Two concurrent `npm install` processes in the same WebContainer deadlock on the

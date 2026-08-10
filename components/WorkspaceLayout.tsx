@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useWebContainer } from '@/hooks/useWebContainer';
 import { useStore } from '@/lib/store';
 import { loadProject, saveProject, getAllProjects, getActiveProjectId, setActiveProjectId, createNewProject } from '@/lib/db';
-import { writeFileToSandbox } from '@/lib/fileSystem';
+import { writeFileToSandbox, resetSandbox } from '@/lib/fileSystem';
 import { cn } from '@/lib/utils';
 import { Header } from './Header';
 import { ChatPanel } from './ChatPanel';
@@ -293,6 +293,10 @@ export function WorkspaceLayout() {
       setPreviewUrl(null);
       setSandboxStatus('idle');
 
+      // Same reason as handleNewProject: anything the incoming project does not
+      // overwrite would otherwise be inherited from the outgoing one.
+      await resetSandbox();
+
       // Load new project
       const project = await loadProject(id);
       if (project) {
@@ -324,6 +328,10 @@ export function WorkspaceLayout() {
     setSandboxStatus('idle');
     setHasProject(false);
     setCurrentProjectId(null);
+    // Clearing the store is not enough: without this the previous project's
+    // files stay in the container and its dev server keeps serving them, so a
+    // brand new project opens showing the old app.
+    await resetSandbox();
   };
 
   // Handle resize dragging

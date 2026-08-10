@@ -150,6 +150,18 @@ export function ChatPanel({ onCollapse }: ChatPanelProps) {
     return () => el.removeEventListener('scroll', handleScroll);
   }, []); // Register once, use ref for dynamic value
 
+  // The header's error pill asks the transcript to show the failure rather than
+  // guessing at a fix. The failing turn is the last one, so this is a scroll.
+  useEffect(() => {
+    const reveal = () => {
+      const el = scrollRef.current;
+      if (!el) return;
+      el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+    };
+    window.addEventListener('assay:reveal-error', reveal);
+    return () => window.removeEventListener('assay:reveal-error', reveal);
+  }, []);
+
   const scrollToBottom = useCallback(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
   }, []);

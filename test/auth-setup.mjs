@@ -46,30 +46,50 @@ console.log('  │  This terminal will say when it has the session.│');
 console.log('  └────────────────────────────────────────────────┘');
 console.log('  Waiting up to 8 minutes. Progress prints below.\n');
 
+// Closing the window is a normal way to abandon this — treat it as a cancel,
+// not a crash.
+let closed = false;
+context.on('close', () => { closed = true; });
+page.on('close', () => { closed = true; });
+
 const started = Date.now();
 let signedIn = false;
 let lastReport = '';
 
-while (Date.now() - started < TIMEOUT_MS) {
-  // The server is the authority — a cookie alone proves nothing.
+while (!closed && Date.now() - started < TIMEOUT_MS) {
+  // Both signals, not either. A 200 alone was enough to fool this once: the
+  // dev server had been built with an auth bypass in the tree, so every
+  // endpoint answered 200 and we saved a session containing no cookies at all.
+  // A real Supabase cookie cannot be faked by a misbuilt server.
   let status = 0;
   try {
     status = (await page.request.get(`${BASE}/api/user/secrets`)).status();
   } catch { /* page navigating mid-OAuth */ }
 
-  if (status === 200) {
+  const cookies = await context.cookies();
+  const sb = cookies.filter((c) => c.name.startsWith('sb-')).map((c) => c.name);
+
+  if (status === 200 && sb.length > 0) {
     signedIn = true;
     break;
   }
-
-  const cookies = await context.cookies();
-  const sb = cookies.filter((c) => c.name.startsWith('sb-')).map((c) => c.name);
   const report = `url=${page.url().slice(0, 60)} api=${status} sb-cookies=[${sb.join(', ') || 'none'}]`;
   if (report !== lastReport) {
     lastReport = report;
     console.log(`  ${Math.round((Date.now() - started) / 1000)}s  ${report}`);
   }
-  await page.waitForTimeout(2000);
+  try {
+    await page.waitForTimeout(2000);
+  } catch {
+    closed = true; // window went away mid-wait
+  }
+}
+
+if (closed && !signedIn) {
+  console.error('\n  Window closed before sign-in completed. Nothing saved.');
+  console.error('  Re-run `npm run test:auth` when you are ready.');
+  await browser.close().catch(() => {});
+  process.exit(1);
 }
 
 if (!signedIn) {
@@ -82,7 +102,13 @@ if (!signedIn) {
   process.exit(1);
 }
 
-await context.storageState({ path: '.auth/state.json' });
+const state = await context.storageState({ path: '.auth/state.json' });
+if (!state.cookies.length) {
+  console.error('  Captured state has no cookies — refusing to save a session');
+  console.error('  that would silently fail. Is the dev server built with auth on?');
+  await browser.close();
+  process.exit(1);
+}
 const who = await page.request.get(`${BASE}/api/user/secrets`).then((r) => r.json());
 console.log('  Session captured → .auth/state.json');
 console.log('  Server sees:', JSON.stringify(who));

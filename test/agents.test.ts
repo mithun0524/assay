@@ -117,7 +117,9 @@ test('agent registry is complete and consistent', () => {
 });
 
 test('only allow-listed models are callable, and the picker offers the three picks', () => {
-  const ids = Object.values(MODEL_IDS);
+  // Widened: the literal union would reject any id not already in the map,
+  // including the withdrawn one this test exists to keep out.
+  const ids: string[] = Object.values(MODEL_IDS);
 
   // The three a user can choose, in order. Everything after them exists only so
   // the fallback chain has somewhere to go when the free tier is exhausted.

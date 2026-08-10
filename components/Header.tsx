@@ -166,9 +166,15 @@ export function Header({ onOpenProjects, onOpenShortcuts }: HeaderProps) {
           }
 
           return (
-            <Tooltip content="Open Settings to resolve">
+            <Tooltip content="Show what went wrong">
               <button
-                onClick={() => { setSettingsTab('api-keys'); setShowSettings(true); }}
+                onClick={() => {
+                  // Opening Settings was a guess, and usually the wrong one: a
+                  // rate limit, an exhausted daily allowance and a withdrawn
+                  // model all land here, and none are fixed by typing a key.
+                  // The failing turn already says what happened, so go there.
+                  window.dispatchEvent(new CustomEvent('assay:reveal-error'));
+                }}
                 className={cn(
                   'flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg',
                   'border border-rose-400/30 bg-rose-400/[0.07]',
