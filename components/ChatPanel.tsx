@@ -427,14 +427,14 @@ export function ChatPanel({ onCollapse }: ChatPanelProps) {
           tokens (installing, for one) never triggered a scroll, so it could
           sit below the fold exactly when it was the only thing moving.
 
-          Suppressed while phase is 'writing' with no file yet.
-          Suppressed while phase is 'writing' with no file yet: its fallback
-          copy was "Analyzing your request...", which is the same thing the
-          streaming message bubble above it already says with "Thinking...".
-          It earns its place once it can name the file, or once the phase is
-          something the bubble does not cover (searching, installing). */}
-      {isStreaming && generationPhase !== 'idle' &&
-        !(generationPhase === 'writing' && !activelyWritingFile) && (
+          Shown for every phase of a live turn. It was briefly suppressed during
+          'writing' before a file had been named, to avoid doubling up with the
+          bubble's "Thinking..." — but that was decided while the transcript
+          still listed file cards. Now that the transcript only narrates, this
+          line is the entire signal, and suppressing it left the chat silent
+          through the longest and least certain stretch of a build: after the
+          agent has spoken but before the first file lands. */}
+      {isStreaming && generationPhase !== 'idle' && (
         <div className="shrink-0 mx-3 mb-1 flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-white/[0.02] border border-white/[0.06] animate-fade-in">
           {/* Active agent badge */}
           {activeAgent && (
@@ -443,8 +443,15 @@ export function ChatPanel({ onCollapse }: ChatPanelProps) {
           {generationPhase === 'writing' && (
             <>
               <RiFileCodeLine className="w-3.5 h-3.5 text-zinc-400 animate-pulse" />
+              {/* Before the first boltAction arrives there is no file to name,
+                  so say what is actually true rather than nothing. "Analyzing
+                  your request" was the old copy and it described no real step. */}
               <span className="text-xs shimmer-text">
-                Writing <span className="font-medium">{activelyWritingFile?.split('/').pop()}</span>
+                {activelyWritingFile ? (
+                  <>Writing <span className="font-medium">{activelyWritingFile.split('/').pop()}</span></>
+                ) : (
+                  'Working out the files'
+                )}
               </span>
               {/* The count is what replaces the list of file cards that used
                   to sit in the transcript: it is the only thing that told you
