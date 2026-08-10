@@ -443,12 +443,17 @@ export function ChatPanel({ onCollapse }: ChatPanelProps) {
           {generationPhase === 'writing' && (
             <>
               <RiFileCodeLine className="w-3.5 h-3.5 text-zinc-400 animate-pulse" />
-              {/* Before the first boltAction arrives there is no file to name,
-                  so say what is actually true rather than nothing. "Analyzing
-                  your request" was the old copy and it described no real step. */}
+              {/* Three states, because there are three truths. `writing` is set
+                  for the whole phase but `activelyWritingFile` only holds a
+                  value while an action is mid-stream, which is a minority of
+                  the time — so keying only on the filename showed "Working out
+                  the files" for nearly four minutes of a real build that was
+                  writing files the entire time. Once one exists, say so. */}
               <span className="text-xs shimmer-text">
                 {activelyWritingFile ? (
                   <>Writing <span className="font-medium">{activelyWritingFile.split('/').pop()}</span></>
+                ) : fileCount > 0 ? (
+                  'Writing files'
                 ) : (
                   'Working out the files'
                 )}
