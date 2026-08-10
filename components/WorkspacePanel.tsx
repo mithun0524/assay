@@ -439,7 +439,12 @@ export function WorkspacePanel() {
             {/* Tab bar — rendered from lib/surfaces, not hardcoded. Which tabs
                 exist here is a function of tier and state; see SURFACES. */}
             <div className="flex items-center border-b border-white/[0.06] panel-header px-1">
-                {surfaces.map((surface) => {
+                {/* One surface is not a choice, so it is not offered as one. The
+                    row itself stays — it carries the live status and the panel
+                    actions — but a lone "Preview" tab with nothing to switch to
+                    is furniture. Developers, who have Code and Logs, still get
+                    the tabs. */}
+                {surfaces.length > 1 && surfaces.map((surface) => {
                     const Icon = SURFACE_ICON[surface.id];
                     const isActive = surface.id === activeSurface;
                     return (

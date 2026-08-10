@@ -111,43 +111,36 @@ export const BuildSurface = memo(function BuildSurface({
         (fileCount > 0 ? 'Writing files' : working ? 'Working out the files' : 'Your app appears here'));
 
   return (
-    <div className="h-full flex flex-col p-4 overflow-hidden">
-      <div className="flex-1 min-h-0 rounded-xl border border-white/[0.06] bg-[var(--bg-raised)] overflow-hidden flex flex-col">
-        <div className="h-7 shrink-0 flex items-center px-2.5 border-b border-white/[0.06]">
-          <span className="font-mono text-[10px] text-zinc-500 truncate">
-            no server running yet
-          </span>
-        </div>
+    // No frame, no chrome. This used to draw a bordered card with a fake URL
+    // bar reading "no server running yet" — a window inside a window, quoting a
+    // browser that does not exist yet. The panel is already the window.
+    <div className="h-full grid place-items-center p-6 overflow-hidden">
+      <div className="flex flex-col items-center text-center">
+        <BuildMark tone={tone} />
 
-        <div className="flex-1 grid place-items-center p-6">
-          <div className="flex flex-col items-center text-center">
-            <BuildMark tone={tone} />
+        <p
+          className={cn(
+            'mt-3 text-[15px] font-medium tracking-[-0.01em]',
+            hasError ? 'text-rose-300' : working ? 'shimmer-text' : 'text-zinc-400'
+          )}
+          aria-live="polite"
+        >
+          {headline}
+        </p>
 
-            <p
-              className={cn(
-                'mt-3 text-[15px] font-medium tracking-[-0.01em]',
-                hasError ? 'text-rose-300' : working ? 'shimmer-text' : 'text-zinc-400'
-              )}
-              aria-live="polite"
-            >
-              {headline}
-            </p>
+        {/* The full path, under the short name in the headline — enough to tell
+            two index.ts apart without widening the line. */}
+        {activelyWritingFile && !hasError && (
+          <p className="mt-1.5 font-mono text-[11px] text-zinc-600 max-w-[280px] truncate">
+            {activelyWritingFile}
+          </p>
+        )}
 
-            {/* The full path, under the short name in the headline — enough to
-                tell two index.ts apart without widening the line. */}
-            {activelyWritingFile && !hasError && (
-              <p className="mt-1.5 font-mono text-[11px] text-zinc-600 max-w-[280px] truncate">
-                {activelyWritingFile}
-              </p>
-            )}
-
-            {fileCount > 0 && (
-              <p className="mt-2 font-mono text-[11px] text-zinc-500 tabular-nums">
-                {fileCount} {fileCount === 1 ? 'file' : 'files'} written
-              </p>
-            )}
-          </div>
-        </div>
+        {fileCount > 0 && (
+          <p className="mt-2 font-mono text-[11px] text-zinc-500 tabular-nums">
+            {fileCount} {fileCount === 1 ? 'file' : 'files'} written
+          </p>
+        )}
       </div>
     </div>
   );

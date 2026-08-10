@@ -104,7 +104,10 @@ export function Header({ onOpenProjects, onOpenShortcuts }: HeaderProps) {
 
   return (
     <>
-      <header className="h-10 shrink-0 px-4 flex items-center justify-between glass border-b-0 z-20 relative"
+      {/* Not justify-between with a floating centre item: the status describes the
+          project, so it sits beside the project, and one ml-auto pushes the whole
+          action cluster right. A centred pill belongs to nothing on either side. */}
+      <header className="h-10 shrink-0 px-4 flex items-center gap-2 glass border-b-0 z-20 relative"
       >
         <div className="flex items-center gap-3">
           <div className="flex items-center">
@@ -189,7 +192,7 @@ export function Header({ onOpenProjects, onOpenShortcuts }: HeaderProps) {
           );
         })()}
 
-        <div className="flex items-center gap-1.5">
+        <div className="ml-auto flex items-center gap-1.5">
           {hasFiles && (
             <>
               <Tooltip content="Undo" shortcut={`${mod}Z`}>
@@ -252,7 +255,6 @@ export function Header({ onOpenProjects, onOpenShortcuts }: HeaderProps) {
               <div className="w-px h-4 bg-white/[0.06]" />
             </>
           )}
-          <GitHubAuthButton />
           {hasFiles && (
             <Tooltip content="Environment Variables">
               <button
@@ -352,6 +354,13 @@ export function Header({ onOpenProjects, onOpenShortcuts }: HeaderProps) {
               Deploy
             </button>
           </Tooltip>
+
+          {/* Identity last, on the far edge — the order every tool in this
+              category uses: tools, then the primary action, then who you are.
+              This used to sit between Push and .env, in the middle of the
+              utilities, which is what made the row read as unsorted. */}
+          <div className="w-px h-4 bg-white/[0.06] ml-0.5" />
+          <GitHubAuthButton />
         </div>
       </header>
       <SettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} defaultTab={settingsTab} onOpenShortcuts={onOpenShortcuts} />
