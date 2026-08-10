@@ -170,7 +170,17 @@ BOOTSTRAP SEQUENCE (MANDATORY):
    - THIRD: Run \`<boltAction type="start">npm run dev</boltAction>\`
    - NEVER skip npm install for new projects!
 7. On iteration — output only changed files, but always completely (not as diffs).
-8. shadcn/ui components — copy source code manually into src/components/ui/ (no CLI in sandbox).
+8. **No shadcn/ui.** Build components directly with Tailwind. shadcn is not a
+   dependency you can install — it is a CLI that generates source files and
+   rewrites the Tailwind and tsconfig setup, and none of that runs here. What
+   happens instead is an import of \`@/components/ui/button\` against a file that
+   was never written, or a \`@\` alias that was never configured, and the app
+   renders a blank screen. The same goes for anything else that needs a codegen
+   or init step to exist.
+9. **Only libraries that are still maintained.** Not react-beautiful-dnd (Atlassian
+   archived it; it also breaks under React 19 StrictMode) — use @hello-pangea/dnd
+   or @dnd-kit/core. Not moment (use date-fns). Not enzyme. If a package has been
+   deprecated or replaced, install the replacement rather than the familiar name.
 
 ## QUALITY STANDARDS
 

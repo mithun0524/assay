@@ -28,6 +28,8 @@ type Props = {
   hasError: boolean;
   activelyWritingFile: string | null;
   fileCount: number;
+  /** The sandbox is booting or bringing the dev server up. */
+  serverStarting: boolean;
 };
 
 const PHASE_LABEL: Partial<Record<GenerationPhase, string>> = {
@@ -99,16 +101,30 @@ export const BuildSurface = memo(function BuildSurface({
   hasError,
   activelyWritingFile,
   fileCount,
+  serverStarting,
 }: Props) {
-  const working = phase !== 'idle' && phase !== 'done';
+  const agentWorking = phase !== 'idle' && phase !== 'done';
+  const working = agentWorking || serverStarting;
   const tone = hasError ? 'error' : working ? 'working' : 'idle';
 
+  // Every "still going" wording has to sit behind a check that something is
+  // actually going. It did not: the file-count branch was reached whenever the
+  // project had files, so reopening a finished project — idle phase, no turn
+  // running, three files restored from IndexedDB — announced "Writing files"
+  // with nothing writing anything.
   const headline = hasError
     ? 'The build stopped'
-    : activelyWritingFile
-      ? `Writing ${activelyWritingFile.split('/').pop()}`
-      : (PHASE_LABEL[phase] ??
-        (fileCount > 0 ? 'Writing files' : working ? 'Working out the files' : 'Your app appears here'));
+    : agentWorking
+      ? activelyWritingFile
+        ? `Writing ${activelyWritingFile.split('/').pop()}`
+        : (PHASE_LABEL[phase] ?? (fileCount > 0 ? 'Writing files' : 'Working out the files'))
+      : serverStarting
+        ? 'Starting the dev server'
+        : fileCount > 0
+          // Files but no server and nothing running: the honest report, rather
+          // than implying work that is not happening.
+          ? 'Nothing is running'
+          : 'Your app appears here';
 
   return (
     // No frame, no chrome. This used to draw a bordered card with a fake URL
@@ -138,7 +154,10 @@ export const BuildSurface = memo(function BuildSurface({
 
         {fileCount > 0 && (
           <p className="mt-2 font-mono text-[11px] text-zinc-500 tabular-nums">
-            {fileCount} {fileCount === 1 ? 'file' : 'files'} written
+            {/* "written" is a claim about this session. On a reopened project
+                nothing was written — the files came back from IndexedDB. */}
+            {fileCount} {fileCount === 1 ? 'file' : 'files'}
+            {agentWorking ? ' written' : ' in this project'}
           </p>
         )}
       </div>

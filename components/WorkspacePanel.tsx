@@ -510,6 +510,7 @@ export function WorkspacePanel() {
                             hasError={hasError}
                             activelyWritingFile={activelyWritingFile}
                             fileCount={fileCount}
+                            serverStarting={sandboxStatus === 'booting' || sandboxStatus === 'installing' || sandboxStatus === 'starting'}
                         />
                     </div>
                 )}
