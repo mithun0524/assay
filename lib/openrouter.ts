@@ -33,11 +33,17 @@ export const MODEL_IDS = {
 
   // Groq. A second provider means a second daily allowance — the point of the
   // fallback chain, which a single OpenRouter account could never deliver on
-  // its own. All three support tool calling, which the agent now requires.
-  // Skipped entirely when GROQ_API_KEY is unset, so they cost nothing to list.
+  // its own. Skipped entirely when GROQ_API_KEY is unset.
+  //
+  // Only one model, and that is the honest count. Every other tool-capable
+  // model Groq serves was probed with a real write_file call carrying real file
+  // content, and each failed on exactly that: gpt-oss-20b and gpt-oss-120b
+  // return "Failed to parse tool call arguments as JSON" — a file body full of
+  // newlines and quotes breaks their tool-argument serialisation, which is the
+  // only thing this app asks a model to do. qwen3.6-27b refuses to call the
+  // function at all, llama-3.1-8b-instant invents a tool name, and
+  // moonshotai/kimi-k2-instruct does not exist on Groq.
   groqLlama: 'groq/llama-3.3-70b-versatile',
-  groqOss: 'groq/openai/gpt-oss-120b',
-  groqKimi: 'groq/moonshotai/kimi-k2-instruct',
 } as const;
 
 // Context lengths and capabilities verified against the OpenRouter model API.
