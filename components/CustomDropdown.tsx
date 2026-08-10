@@ -71,7 +71,9 @@ export function CustomDropdown({ options, value, onChange, className, dropUp = f
             {/* Dropdown panel */}
             <div
                 className={cn(
-                    'absolute z-50 w-full rounded-xl overflow-hidden',
+                    // The trigger is deliberately narrow; the menu is not.
+                    // Inheriting w-full truncated every option's description.
+                    'absolute z-50 left-0 w-max min-w-full max-w-[17rem] rounded-xl overflow-hidden',
                     'bg-[#18181b] border border-white/[0.1] shadow-xl shadow-black/50',
                     'backdrop-blur-xl',
                     'transition-all duration-200 ease-out',

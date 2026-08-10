@@ -538,7 +538,9 @@ export function ChatPanel({ onCollapse }: ChatPanelProps) {
       )}
       <div className="px-3 pb-3 pt-2 border-t border-white/[0.06] bg-gradient-to-b from-transparent to-black/20">
         <div className={cn(
-          'rounded-xl border border-white/[0.07] bg-white/[0.025] overflow-hidden',
+          // No overflow-hidden here: it clipped the model drop-up to the
+          // composer's box, so only the last option was visible.
+          'rounded-xl border border-white/[0.07] bg-white/[0.025]',
           'focus-within:border-white/45 focus-within:bg-white/[0.04]',
           'focus-within:shadow-[0_0_0_1px_rgba(255,255,255,0.08)]',
           'transition-all duration-200'
