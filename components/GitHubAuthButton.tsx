@@ -9,6 +9,47 @@ import { useAuthContext } from './Providers';
 import { AuthModal } from './AuthModal';
 import { ExitConfirmModal } from './ExitConfirmModal';
 
+/**
+ * The user's picture, with a fallback that actually appears.
+ *
+ * Two things were wrong with a bare <img src={avatar_url}>. Google serves
+ * avatars from lh3.googleusercontent.com and returns 403 when a referrer is
+ * sent, which is every cross-origin request a browser makes by default — so a
+ * Google-authenticated user got the broken-image glyph next to their name.
+ * And once it failed there was nothing behind it, because the only guard was
+ * on the URL being present, not on it loading.
+ */
+function Avatar({ src, name }: { src?: string; name?: string }) {
+  const [failed, setFailed] = useState(false);
+  const initial = (name?.trim()?.[0] ?? '?').toUpperCase();
+
+  if (!src || failed) {
+    return (
+      <span
+        aria-hidden
+        className="w-5 h-5 shrink-0 rounded-full bg-white/[0.08] text-[10px] font-medium text-zinc-300 grid place-items-center"
+      >
+        {initial}
+      </span>
+    );
+  }
+
+  return (
+    // Remote avatar hosts are user-controlled; next/image would need every one
+    // allow-listed in next.config, and a 20px avatar is not worth that.
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={src}
+      alt=""
+      width={20}
+      height={20}
+      referrerPolicy="no-referrer"
+      onError={() => setFailed(true)}
+      className="w-5 h-5 shrink-0 rounded-full object-cover"
+    />
+  );
+}
+
 export function GitHubAuthButton() {
   const { user, loading, isGitHubLinked, signOut, linkGitHub } = useAuthContext();
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -57,9 +98,7 @@ export function GitHubAuthButton() {
       <>
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-zinc-800/50">
-            {avatarUrl && (
-              <img src={avatarUrl} alt="" className="w-5 h-5 rounded-full" />
-            )}
+            <Avatar src={avatarUrl} name={name ?? undefined} />
             <span className="text-xs text-zinc-300">{name}</span>
           </div>
           <button
@@ -84,9 +123,7 @@ export function GitHubAuthButton() {
       <>
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-zinc-800/50">
-            {avatarUrl && (
-              <img src={avatarUrl} alt="" className="w-5 h-5 rounded-full" />
-            )}
+            <Avatar src={avatarUrl} name={name ?? undefined} />
             <span className="text-xs text-zinc-300">{name}</span>
           </div>
           <button

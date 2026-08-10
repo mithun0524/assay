@@ -73,6 +73,15 @@ export const FREE_MODELS: ModelOption[] = [
     contextLength: 262_144,
     note: 'Mid-size — general building',
   },
+  {
+    // The only model here not served by OpenRouter, and the only reason the
+    // picker is worth opening on a day the free allowance is gone: it draws on
+    // a separate quota. 131k context per Groq's own model API.
+    id: MODEL_IDS.groqLlama,
+    label: 'Llama 3.3 70B (Groq)',
+    contextLength: 131_072,
+    note: 'Separate daily quota — use when OpenRouter is rate limited',
+  },
 ];
 
 // Offered to the fallback chain but not to the picker: the list above is the

@@ -14,7 +14,7 @@ import assert from 'node:assert/strict';
 import { classifyLocally, routeToAgent, ROLE_MODEL, VALID_ROLES, isAgentRole } from '../lib/agents/router';
 import { AGENTS, getAgent, getAllAgentRoles } from '../lib/agents';
 import type { AgentContext, AgentRole } from '../lib/agents/types';
-import { FREE_MODELS, MODEL_IDS, AUTO_MODEL_ID, isValidModelId, resolveModelId, DEFAULT_MODEL_ID, fallbackChain } from '../lib/openrouter';
+import { FREE_MODELS, FALLBACK_ONLY_MODEL_IDS, MODEL_IDS, AUTO_MODEL_ID, isValidModelId, resolveModelId, DEFAULT_MODEL_ID, fallbackChain } from '../lib/openrouter';
 
 const EMPTY: AgentContext = {
   hasProject: false,
@@ -121,8 +121,9 @@ test('only allow-listed models are callable, and the picker offers the three pic
   // including the withdrawn one this test exists to keep out.
   const ids: string[] = Object.values(MODEL_IDS);
 
-  // The three a user can choose, in order. Everything after them exists only so
-  // the fallback chain has somewhere to go when the free tier is exhausted.
+  // The OpenRouter models a user can choose, in order. Everything after them
+  // exists only so the fallback chain has somewhere to go when the free tier is
+  // exhausted.
   const PICKS = [
     'nvidia/nemotron-3-ultra-550b-a55b:free',
     'poolside/laguna-s-2.1:free',
@@ -142,8 +143,16 @@ test('only allow-listed models are callable, and the picker offers the three pic
   // chain it burned a retry slot and masked the real error.
   assert.ok(!ids.includes('inclusionai/ling-3.0-flash:free'), 'withdrawn model is back in the list');
 
-  // Picker = Auto + the three picks only; fallbacks are not user-selectable.
-  assert.deepEqual(FREE_MODELS.map((m) => m.id), [AUTO_MODEL_ID, ...PICKS]);
+  // Picker = Auto + the picks + Groq; fallback-only models stay out of it.
+  // Groq is offered by name because it is the one entry drawing on a separate
+  // daily quota, which is the only useful thing to pick once OpenRouter's is
+  // gone — it was wired into the fallback chain and left out of this list,
+  // so the menu never showed it.
+  const OFFERED = [AUTO_MODEL_ID, ...PICKS, MODEL_IDS.groqLlama];
+  assert.deepEqual(FREE_MODELS.map((m) => m.id), OFFERED);
+  for (const id of FALLBACK_ONLY_MODEL_IDS) {
+    assert.ok(!OFFERED.includes(id), `${id} is fallback-only and must not be in the picker`);
+  }
   for (const m of FREE_MODELS) {
     assert.ok(m.label.trim().length > 0 && m.contextLength > 0, `${m.id} missing label/contextLength`);
   }

@@ -210,10 +210,14 @@ function UserMessageBubble({ message, timeAgo }: { message: Message; timeAgo: st
         )}
       </div>
       {/* Same footer treatment as an agent turn, so both sides of the
-          transcript behave the same way. */}
+          transcript behave the same way — including hiding the action until
+          hover. Copying back the sentence you just typed is the rarest thing
+          anyone does here, and it was the most prominent control on screen. */}
       <div className="flex items-center gap-2 mt-1.5 text-zinc-600">
         <span className="ml-auto font-mono text-[10px]">{timeAgo}</span>
-        <CopyButton text={text} />
+        <span className="flex items-center opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100 max-sm:opacity-100">
+          <CopyButton text={text} />
+        </span>
       </div>
     </div>
   );
