@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { RiGithubLine, RiLogoutBoxRLine, RiLinkM } from '@remixicon/react';
+import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useAuthContext } from './Providers';
 import { AuthModal } from './AuthModal';
@@ -33,7 +34,7 @@ export function GitHubAuthButton() {
       await linkGitHub();
     } catch (err) {
       console.error('Link GitHub error:', err);
-      alert('Failed to link GitHub. Please try again.');
+      toast.error('Failed to link GitHub. Please try again.');
     } finally {
       setLinking(false);
     }

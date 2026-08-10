@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { getAllProjects, deleteProject, toggleProjectFavorite, renameProject } from '@/lib/db';
 import { useStore } from '@/lib/store';
+import { ConfirmModal } from './ConfirmModal';
 
 interface Project {
     id: string;
@@ -32,6 +33,7 @@ export function ProjectSidebar({ isOpen, onClose, onSelectProject, onNewProject 
     const [searchQuery, setSearchQuery] = useState('');
     const [renamingId, setRenamingId] = useState<string | null>(null);
     const [renameValue, setRenameValue] = useState('');
+    const [pendingDelete, setPendingDelete] = useState<Project | null>(null);
 
     const refreshProjects = async () => {
         try {
@@ -56,23 +58,30 @@ export function ProjectSidebar({ isOpen, onClose, onSelectProject, onNewProject 
         return projects.filter(p => p.name.toLowerCase().includes(q));
     }, [projects, searchQuery]);
 
-    const handleDelete = async (e: React.MouseEvent, id: string) => {
+    const handleDelete = (e: React.MouseEvent, project: Project) => {
         e.stopPropagation();
-        if (confirm('Are you sure you want to delete this project?')) {
-            setIsDeleting(id);
-            try {
-                await deleteProject(id);
-                toast.success('Project deleted');
-                setIsDeleting(null);
-                await refreshProjects();
-                if (currentProjectId === id) {
-                    onNewProject();
-                }
-            } catch (error) {
-                console.error('Failed to delete project:', error);
-                toast.error('Failed to delete project');
-                setIsDeleting(null);
+        setPendingDelete(project);
+    };
+
+    const confirmDelete = async () => {
+        const project = pendingDelete;
+        if (!project) return;
+        setIsDeleting(project.id);
+        try {
+            await deleteProject(project.id);
+            toast.success('Project deleted');
+            setPendingDelete(null);
+            setIsDeleting(null);
+            await refreshProjects();
+            if (currentProjectId === project.id) {
+                onNewProject();
             }
+        } catch (error) {
+            console.error('Failed to delete project:', error);
+            toast.error('Failed to delete project');
+            // Leave the dialog open so the failure is visible where the action
+            // was taken, rather than only as a toast over a closed dialog.
+            setIsDeleting(null);
         }
     };
 
@@ -244,7 +253,7 @@ export function ProjectSidebar({ isOpen, onClose, onSelectProject, onNewProject 
                                     <RiPencilLine className="w-3.5 h-3.5" />
                                 </button>
                                 <button
-                                    onClick={(e) => handleDelete(e, project.id)}
+                                    onClick={(e) => handleDelete(e, project)}
                                     className="p-1 text-zinc-500 hover:text-red-400 hover:bg-red-500/10 rounded-md transition-all"
                                     title="Delete project"
                                 >
@@ -285,6 +294,23 @@ export function ProjectSidebar({ isOpen, onClose, onSelectProject, onNewProject 
                     </button>
                 </div>
             </div>
+
+            <ConfirmModal
+                isOpen={pendingDelete !== null}
+                onClose={() => setPendingDelete(null)}
+                onConfirm={confirmDelete}
+                loading={isDeleting !== null}
+                icon={<RiDeleteBinLine className="w-5 h-5" />}
+                title="Delete this project?"
+                description={
+                    <>
+                        <span className="text-zinc-300">{pendingDelete?.name}</span> and its files
+                        will be permanently removed. This cannot be undone.
+                    </>
+                }
+                confirmLabel="Delete"
+                loadingLabel="Deleting…"
+            />
         </>
     );
 }
