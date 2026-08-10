@@ -162,3 +162,59 @@ test('a malformed Retry-After cannot brick the composer', async () => {
   // And there is always something to show.
   assert.ok(interpretRateLimit(null, '').message.length > 0);
 });
+
+// ── Structural faults ──
+// A blank page that prints no error passes every output-based check, so these
+// read the files instead. Reproduced from a real generated todo list.
+
+const TODO_APP = {
+  'package.json': { content: '{"scripts":{"dev":"vite --host"},"devDependencies":{"vite":"^3.1.0"}}' },
+  'vite.config.ts': { content: "import { defineConfig } from 'vite';" },
+  'src/App.tsx': { content: "import React from 'react';\nimport './App.css';\nexport default function App(){return <div/>}" },
+  'src/index.css': { content: 'body { font-family: Arial; }' },
+  'src/main.tsx': { content: "import App from './App';\ncreateRoot(document.getElementById('root')!).render(<App/>)" },
+};
+
+test('a project with no index.html is reported, not passed', async () => {
+  const { checkProjectStructure } = await import('../lib/projectCheck');
+  const issues = checkProjectStructure(TODO_APP);
+  assert.ok(
+    issues.some((i) => /index\.html/.test(i.message)),
+    'the missing Vite entry point is the whole reason the page was blank',
+  );
+});
+
+test('an import of a file nobody wrote is reported', async () => {
+  const { checkProjectStructure } = await import('../lib/projectCheck');
+  const issues = checkProjectStructure(TODO_APP);
+  assert.ok(
+    issues.some((i) => i.message.includes('./App.css')),
+    'App.tsx imported ./App.css while the stylesheet was written as src/index.css',
+  );
+});
+
+test('a correct project reports nothing', async () => {
+  const { checkProjectStructure } = await import('../lib/projectCheck');
+  const ok = {
+    'package.json': { content: '{"devDependencies":{"vite":"^5"}}' },
+    'index.html': { content: '<div id="root"></div><script type="module" src="/src/main.tsx"></script>' },
+    'src/main.tsx': { content: "import App from './App';\nimport './index.css';\ndocument.getElementById('root')" },
+    'src/App.tsx': { content: "import { Item } from './components/Item';\nexport default function App(){return <Item/>}" },
+    'src/components/Item.tsx': { content: 'export function Item(){return <li/>}' },
+    'src/index.css': { content: 'body{}' },
+  };
+  assert.deepEqual(checkProjectStructure(ok), [], 'a working project must not be flagged');
+});
+
+test('extensionless and index imports resolve like a bundler', async () => {
+  const { checkProjectStructure } = await import('../lib/projectCheck');
+  const files = {
+    'package.json': { content: '{"devDependencies":{"vite":"^5"}}' },
+    'index.html': { content: '<div id="root"></div><script type="module" src="/src/main.tsx"></script>' },
+    // './hooks' → src/hooks/index.ts, and '../util' climbs a directory.
+    'src/main.tsx': { content: "import './hooks';\nimport '../util';" },
+    'src/hooks/index.ts': { content: 'export {}' },
+    'util.ts': { content: 'export {}' },
+  };
+  assert.deepEqual(checkProjectStructure(files), []);
+});

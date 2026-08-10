@@ -9,6 +9,7 @@
 
 import { useStore } from './store';
 import { detectTerminalErrors, stripAnsi } from './terminalErrorDetector';
+import { checkProjectStructure } from './projectCheck';
 
 export type QaIssue = {
   source: 'build' | 'runtime' | 'command' | 'tool';
@@ -50,6 +51,12 @@ export async function runQaCheck(
   // error that follows it, and putting it at the top of the fix prompt is the
   // difference between the model fixing the cause and chasing the symptom.
   const issues: QaIssue[] = [...toolFailures];
+
+  // Structural faults first, and before anything that reads output: a project
+  // with no entry point renders a blank page while printing nothing at all, so
+  // every other signal here reports success. This is what let a todo list with
+  // no index.html pass QA.
+  issues.push(...checkProjectStructure(files));
 
   for (const message of previewErrors) {
     issues.push({ source: 'runtime', message });

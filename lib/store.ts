@@ -179,8 +179,6 @@ type AppStore = {
   activeAgentReasoning: string | null;
   setActiveAgentReasoning: (reason: string | null) => void;
 
-  designMode: boolean;
-  setDesignMode: (enabled: boolean) => void;
   inspectedElement: any | null;
   setInspectedElement: (element: any | null) => void;
 
@@ -532,8 +530,6 @@ export const useStore = create<AppStore>((set) => ({
   activeAgentReasoning: null,
   setActiveAgentReasoning: (reason) => set({ activeAgentReasoning: reason }),
 
-  designMode: false,
-  setDesignMode: (enabled) => set({ designMode: enabled }),
   inspectedElement: null,
   setInspectedElement: (element) => set({ inspectedElement: element }),
 

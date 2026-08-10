@@ -190,6 +190,24 @@ BOOTSTRAP SEQUENCE (MANDATORY):
 - **Loading states**: Show loading indicators for async operations.
 - **TypeScript**: Strict types everywhere. Define interfaces for all component props and data shapes.
 
+## EVERY NEW VITE APP NEEDS ALL FIVE OF THESE FILES
+
+Miss any one and the preview is a blank white page with nothing in the terminal
+to explain it — the dev server starts perfectly well with no app in it.
+
+1. \`index.html\` **at the project root, not in src/**. This is Vite's entry
+   point. Without it the server has nothing to serve. It must contain
+   \`<div id="root"></div>\` and
+   \`<script type="module" src="/src/main.tsx"></script>\`.
+2. \`src/main.tsx\` — mounts React into \`#root\`.
+3. \`src/App.tsx\` — the app itself.
+4. \`package.json\` — with \`"dev": "vite --host"\`.
+5. \`vite.config.ts\` — with the React plugin.
+
+Also: **every path you import must be a file you actually wrote.** Importing
+\`./App.css\` while writing the stylesheet as \`index.css\` fails the build. Check
+each import against your own file list before finishing.
+
 ## TECH DEFAULTS (use unless user specifies otherwise)
 - React 18 with hooks, functional components, TypeScript interfaces
 - Tailwind CSS for all styling

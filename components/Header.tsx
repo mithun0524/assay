@@ -8,14 +8,12 @@ import {
   RiArrowGoBackLine,
   RiArrowGoForwardLine,
   RiUploadLine,
-  RiPaletteLine,
   RiKeyLine,
   RiShareLine,
   RiFileZipLine,
   RiStackLine,
   RiClipboardLine,
   RiArrowDownSLine,
-  RiLayoutLine,
   RiArrowRightSLine,
 } from '@remixicon/react';
 import { AssayWordmark } from './Logo';
@@ -32,7 +30,6 @@ import { DeployModal } from './DeployModal';
 import { ShareModal } from './ShareModal';
 import { Tooltip } from './Tooltip';
 import { useAuthContext } from './Providers';
-import { ComponentLibrary } from './ComponentLibrary';
 
 interface HeaderProps {
   onOpenProjects?: () => void;
@@ -40,7 +37,7 @@ interface HeaderProps {
 }
 
 export function Header({ onOpenProjects, onOpenShortcuts }: HeaderProps) {
-  const { sandboxStatus, files, canUndo, canRedo, undo, redo, designMode, setDesignMode } = useStore();
+  const { sandboxStatus, files, canUndo, canRedo, undo, redo } = useStore();
   const { user, isGitHubLinked } = useAuthContext();
   const [showSettings, setShowSettings] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
@@ -48,7 +45,6 @@ export function Header({ onOpenProjects, onOpenShortcuts }: HeaderProps) {
   const [showCommitDialog, setShowCommitDialog] = useState(false);
   const [showDeployModal, setShowDeployModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
-  const [showComponentLibrary, setShowComponentLibrary] = useState(false);
   const [showRing, setShowRing] = useState(false);
   const prevStatusRef = useRef(sandboxStatus);
   const hasFiles = Object.keys(files).length > 0;
@@ -213,31 +209,6 @@ export function Header({ onOpenProjects, onOpenShortcuts }: HeaderProps) {
                 </button>
               </Tooltip>
               <div className="w-px h-4 bg-white/[0.06]" />
-              <Tooltip content="Design Mode">
-                <button
-                  onClick={() => setDesignMode(!designMode)}
-                  className={cn(
-                    'p-1.5 rounded-lg transition-all',
-                    designMode
-                      ? 'bg-white/[0.09] text-zinc-100'
-                      : 'hover:bg-white/[0.06] text-zinc-500 hover:text-zinc-300'
-                  )}
-                >
-                  <RiPaletteLine className="w-4 h-4" />
-                </button>
-              </Tooltip>
-              <Tooltip content="UI Components">
-                <button
-                  onClick={() => setShowComponentLibrary(true)}
-                  className={cn(
-                    'p-1.5 rounded-lg transition-all',
-                    'hover:bg-white/[0.06] text-zinc-500 hover:text-zinc-300'
-                  )}
-                >
-                  <RiLayoutLine className="w-4 h-4" />
-                </button>
-              </Tooltip>
-              <div className="w-px h-4 bg-white/[0.06]" />
             </>
           )}
           {hasFiles && user && isGitHubLinked && (
@@ -364,7 +335,6 @@ export function Header({ onOpenProjects, onOpenShortcuts }: HeaderProps) {
       />
       <DeployModal isOpen={showDeployModal} onClose={() => setShowDeployModal(false)} />
       <ShareModal isOpen={showShareModal} onClose={() => setShowShareModal(false)} />
-      <ComponentLibrary isOpen={showComponentLibrary} onClose={() => setShowComponentLibrary(false)} />
     </>
   );
 }
