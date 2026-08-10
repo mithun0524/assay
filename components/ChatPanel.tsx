@@ -29,7 +29,6 @@ import { FREE_MODELS, VISION_SUPPORTED } from '@/lib/openrouter';
 import { cn } from '@/lib/utils';
 import { ImageUpload } from './ImageUpload';
 import { ImagePreview } from './ImagePreview';
-import { AgentBadge } from './AgentBadge';
 import { AGENTS } from '@/lib/agents';
 import type { AgentRole } from '@/lib/agents';
 import { Tooltip } from './Tooltip';
@@ -80,7 +79,6 @@ export function ChatPanel({ onCollapse }: ChatPanelProps) {
   const fileCount = useStore(s => Object.keys(s.files).length);
   const viewTier = useStore(s => s.viewTier);
   const activeAgent = useStore(s => s.activeAgent);
-  const activeAgentReasoning = useStore(s => s.activeAgentReasoning);
   const qaStatus = useStore(s => s.qaStatus);
   const webSearchEnabled = useStore(s => s.webSearchEnabled);
   const setWebSearchEnabled = useStore(s => s.setWebSearchEnabled);
@@ -436,10 +434,9 @@ export function ChatPanel({ onCollapse }: ChatPanelProps) {
           agent has spoken but before the first file lands. */}
       {isStreaming && generationPhase !== 'idle' && (
         <div className="shrink-0 mx-3 mb-1 flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-white/[0.02] border border-white/[0.06] animate-fade-in">
-          {/* Active agent badge */}
-          {activeAgent && (
-            <AgentBadge role={activeAgent} title={activeAgentReasoning ?? undefined} showName={false} />
-          )}
+          {/* An AgentBadge sat here. At 14px with no name beside it, it read
+              as a broken image rather than an agent, and the transcript names
+              the agent directly above anyway. */}
           {generationPhase === 'writing' && (
             <>
               <RiFileCodeLine className="w-3.5 h-3.5 text-zinc-400 animate-pulse" />

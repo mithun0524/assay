@@ -486,7 +486,13 @@ export function WorkspacePanel() {
                     and skeleton are not running behind a hidden pane. */}
                 {activeSurface === 'build' && (
                     <div className="h-full animate-fade-in" style={{ animationDuration: '0.15s' }}>
-                        <BuildSurface phase={generationPhase} hasError={hasError} previewUrl={previewUrl} />
+                        <BuildSurface
+                            phase={generationPhase}
+                            hasError={hasError}
+                            previewUrl={previewUrl}
+                            activelyWritingFile={activelyWritingFile}
+                            fileCount={fileCount}
+                        />
                     </div>
                 )}
 
