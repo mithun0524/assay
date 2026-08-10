@@ -3,7 +3,6 @@
 import { useEffect, useState, useRef } from 'react';
 import {
   RiLoader4Line,
-  RiSettings3Line,
   RiDownloadLine,
   RiFolderLine,
   RiArrowGoBackLine,
@@ -266,14 +265,6 @@ export function Header({ onOpenProjects, onOpenShortcuts }: HeaderProps) {
               </button>
             </Tooltip>
           )}
-          <Tooltip content="Settings" shortcut={`${mod},`}>
-            <button
-              onClick={() => { setSettingsTab('api-keys'); setShowSettings(true); }}
-              className="p-1.5 hover:bg-white/[0.06] rounded-lg transition-all"
-            >
-              <RiSettings3Line className="w-4 h-4 text-zinc-500 hover:text-zinc-300 transition-colors" />
-            </button>
-          </Tooltip>
           {hasFiles && (
             <div className="relative">
               <Tooltip content="Export">
@@ -360,7 +351,10 @@ export function Header({ onOpenProjects, onOpenShortcuts }: HeaderProps) {
               This used to sit between Push and .env, in the middle of the
               utilities, which is what made the row read as unsorted. */}
           <div className="w-px h-4 bg-white/[0.06] ml-0.5" />
-          <GitHubAuthButton />
+          <GitHubAuthButton
+            onOpenSettings={() => { setSettingsTab('api-keys'); setShowSettings(true); }}
+            onOpenShortcuts={onOpenShortcuts}
+          />
         </div>
       </header>
       <SettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} defaultTab={settingsTab} onOpenShortcuts={onOpenShortcuts} />
