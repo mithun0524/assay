@@ -89,8 +89,8 @@ const FOOTER_LINKS: Record<string, Array<{ label: string; href: string }>> = {
     { label: 'The agents', href: '#features' },
   ],
   Source: [
-    { label: 'GitHub repository', href: 'https://github.com/mithun0524/devforge' },
-    { label: 'Report an issue', href: 'https://github.com/mithun0524/devforge/issues' },
+    { label: 'GitHub repository', href: 'https://github.com/mithun0524/assay' },
+    { label: 'Report an issue', href: 'https://github.com/mithun0524/assay/issues' },
   ],
   'Built on': [
     { label: 'WebContainers', href: 'https://webcontainers.io' },
@@ -418,7 +418,7 @@ export function LandingPage() {
               <RiArrowRightLine className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
             </Link>
             <a
-              href="https://github.com/mithun0524/devforge"
+              href="https://github.com/mithun0524/assay"
               target="_blank"
               rel="noreferrer noopener"
               className="inline-flex items-center gap-2 px-6 py-3 rounded-xl border border-white/[0.08] text-sm text-zinc-300 hover:text-zinc-50 hover:border-white/20 transition-all"
@@ -464,12 +464,12 @@ export function LandingPage() {
               Assay — an open-source AI app builder. Not a company.
             </p>
             <a
-              href="https://github.com/mithun0524/devforge"
+              href="https://github.com/mithun0524/assay"
               target="_blank"
               rel="noreferrer noopener"
               className="font-mono text-[11px] text-zinc-400 hover:text-zinc-200 transition-colors"
             >
-              github.com/mithun0524/devforge
+              github.com/mithun0524/assay
             </a>
           </div>
         </div>
