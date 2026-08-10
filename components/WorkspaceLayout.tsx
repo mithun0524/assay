@@ -199,8 +199,12 @@ export function WorkspaceLayout() {
                   )
                 );
                 if (forkFiles['package.json']) {
-                  const { installDependencies } = await import('@/lib/fileSystem');
+                  // Same as the restore path below: a fork lands in a fresh
+                  // container with nothing running in it.
+                  const { installDependencies, startDevServerInSandbox } =
+                    await import('@/lib/fileSystem');
                   await installDependencies();
+                  await startDevServerInSandbox();
                 }
               } catch (err) {
                 console.error('Fork sandbox setup failed:', err);
@@ -249,8 +253,17 @@ export function WorkspaceLayout() {
                     )
                   );
                   if (project.files!['package.json']) {
-                    const { installDependencies } = await import('@/lib/fileSystem');
+                    // Installing is not enough: a reload gets a brand new
+                    // WebContainer, so the dev server that was running before
+                    // is gone with the old one. Without this the project comes
+                    // back with its files and its code intact and no running
+                    // app — the App surface never appears and the preview is
+                    // simply blank until the next message happens to restart
+                    // it. Reloading the tab looked exactly like a broken build.
+                    const { installDependencies, startDevServerInSandbox } =
+                      await import('@/lib/fileSystem');
                     await installDependencies();
+                    await startDevServerInSandbox();
                   }
                 } catch (err) {
                   console.error('Background sandbox restore failed:', err);
