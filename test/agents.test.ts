@@ -130,10 +130,13 @@ test('only allow-listed models are callable, and the picker offers the three pic
   ];
   assert.deepEqual(ids.slice(0, PICKS.length), PICKS);
 
-  // Every id is free. A paid model reaching this list would silently start
-  // charging whoever's key is configured.
-  for (const id of ids) {
-    assert.ok(id.endsWith(':free'), `${id} is not a free model`);
+  // OpenRouter exposes a paid twin of every free model under the same name
+  // minus the suffix, so a missing ':free' there silently starts charging
+  // whoever's key is configured. Groq encodes nothing in the slug — its free
+  // tier is a property of the account — so the rule applies to OpenRouter ids
+  // only rather than being dropped for everyone.
+  for (const id of ids.filter((x) => !x.startsWith('groq/'))) {
+    assert.ok(id.endsWith(':free'), `${id} is an OpenRouter id without :free`);
   }
   // The withdrawn model must not come back: it 404s, and while it sat in the
   // chain it burned a retry slot and masked the real error.
@@ -160,4 +163,41 @@ test('every model has somewhere to fall back to when the free tier is exhausted'
   // A junk id still yields a usable chain rather than an empty one
   assert.equal(fallbackChain('gpt-4o')[0], DEFAULT_MODEL_ID);
   assert.equal(fallbackChain(AUTO_MODEL_ID).length, Object.values(MODEL_IDS).length);
+});
+
+test('the fallback chain crosses providers and skips unconfigured ones', () => {
+  const all = fallbackChain(MODEL_IDS.nemotron);
+  assert.equal(all[0], MODEL_IDS.nemotron, 'preferred model must be tried first');
+
+  // Interleaved, not blocked by provider. A rate limit is applied per account,
+  // so a run of same-provider models fails together and the chain stalls
+  // exactly when it is needed.
+  const providers = all.slice(1).map((id) => (id.startsWith('groq/') ? 'groq' : 'openrouter'));
+  assert.ok(providers.includes('groq'), 'chain never reaches the second provider');
+  assert.ok(
+    providers.slice(0, 2).includes('groq'),
+    `second provider should appear immediately, got ${providers.slice(0, 3).join(',')}`,
+  );
+
+  // With Groq unconfigured, none of its models should be attempted.
+  const openrouterOnly = fallbackChain(MODEL_IDS.nemotron, (id) => !id.startsWith('groq/'));
+  assert.ok(openrouterOnly.length > 0, 'dropping a provider must not empty the chain');
+  assert.ok(
+    openrouterOnly.every((id) => !id.startsWith('groq/')),
+    'an unconfigured provider still appeared in the chain',
+  );
+});
+
+test('groq ids are prefixed for us and bare for the provider', async () => {
+  const { providerOf, bareModelId } = await import('../lib/providers');
+  assert.equal(providerOf('groq/llama-3.3-70b-versatile'), 'groq');
+  assert.equal(bareModelId('groq/llama-3.3-70b-versatile'), 'llama-3.3-70b-versatile');
+  // A Groq slug that itself contains a slash must survive intact.
+  assert.equal(bareModelId('groq/openai/gpt-oss-120b'), 'openai/gpt-oss-120b');
+  // OpenRouter ids contain slashes too and must never be trimmed.
+  assert.equal(providerOf('nvidia/nemotron-3-ultra-550b-a55b:free'), 'openrouter');
+  assert.equal(
+    bareModelId('nvidia/nemotron-3-ultra-550b-a55b:free'),
+    'nvidia/nemotron-3-ultra-550b-a55b:free',
+  );
 });

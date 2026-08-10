@@ -30,6 +30,14 @@ export const MODEL_IDS = {
   northCode: 'cohere/north-mini-code:free',
   gemma: 'google/gemma-4-31b-it:free',
   lingTiny: 'inclusionai/ling-3.0-tiny:free',
+
+  // Groq. A second provider means a second daily allowance — the point of the
+  // fallback chain, which a single OpenRouter account could never deliver on
+  // its own. All three support tool calling, which the agent now requires.
+  // Skipped entirely when GROQ_API_KEY is unset, so they cost nothing to list.
+  groqLlama: 'groq/llama-3.3-70b-versatile',
+  groqOss: 'groq/openai/gpt-oss-120b',
+  groqKimi: 'groq/moonshotai/kimi-k2-instruct',
 } as const;
 
 // Context lengths and capabilities verified against the OpenRouter model API.
@@ -92,10 +100,42 @@ export const VISION_SUPPORTED: boolean = FREE_MODELS.some((m) => m.supportsVisio
  * Nemotron regularly returns "ResourceExhausted: worker request limit reached",
  * so every model needs somewhere to fall back to.
  */
-export function fallbackChain(preferred: string): string[] {
+/**
+ * The order models are tried in, best first.
+ *
+ * Providers are interleaved rather than listed in blocks. A rate limit is
+ * applied per account, so a run of same-provider models fails together and the
+ * chain stalls exactly when it is needed; alternating means the second attempt
+ * is already somewhere else.
+ *
+ * `isUsable` lets the caller drop a provider with no key configured. Without it
+ * an unconfigured provider burns a slot in every chain and returns an auth
+ * error that reads like an outage.
+ */
+export function fallbackChain(
+  preferred: string,
+  isUsable: (modelId: string) => boolean = () => true,
+): string[] {
   const primary = resolveModelId(preferred);
   const rest = Object.values(MODEL_IDS).filter((id) => id !== primary);
-  return [primary, ...rest];
+
+  const byProvider = new Map<string, string[]>();
+  for (const id of rest) {
+    const key = id.startsWith('groq/') ? 'groq' : 'openrouter';
+    if (!byProvider.has(key)) byProvider.set(key, []);
+    byProvider.get(key)!.push(id);
+  }
+
+  const interleaved: string[] = [];
+  const queues = [...byProvider.values()];
+  for (let i = 0; queues.some((q) => q.length); i++) {
+    for (const q of queues) {
+      const next = q.shift();
+      if (next) interleaved.push(next);
+    }
+  }
+
+  return [primary, ...interleaved].filter(isUsable);
 }
 
 export function getModelLabel(id: string): string {

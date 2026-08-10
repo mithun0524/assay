@@ -3,6 +3,7 @@ import { streamText } from 'ai';
 import { NextRequest } from 'next/server';
 import { SYSTEM_PROMPT } from '@/lib/systemPrompt';
 import { OPENROUTER_BASE_URL, fallbackChain } from '@/lib/openrouter';
+import { PROVIDERS, providerOf, bareModelId } from '@/lib/providers';
 import { AGENT_TOOLS, toolCallToAction } from '@/lib/agentTools';
 import { createClient } from '@/lib/supabase/server';
 import { requireAuth, checkCsrf, rateLimit } from '@/lib/api-auth';
@@ -45,7 +46,11 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  if (!resolvedKey) {
+  const groqKey = process.env.GROQ_API_KEY || '';
+
+  // Either provider is enough to serve a turn. Rejecting on a missing
+  // OpenRouter key alone would lock out a setup that only has Groq configured.
+  if (!resolvedKey && !groqKey) {
     return new Response(
       JSON.stringify({ error: 'No API key configured. Please add your OpenRouter API key in Settings (gear icon).' }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }
@@ -57,14 +62,32 @@ export async function POST(req: NextRequest) {
   const basePrompt = customSystemPrompt || SYSTEM_PROMPT;
   const systemPrompt = fileContext ? basePrompt + '\n\n' + fileContext : basePrompt;
 
-  const openrouter = createOpenAI({
-    baseURL: OPENROUTER_BASE_URL,
-    apiKey: resolvedKey,
-    headers: {
-      'HTTP-Referer': process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000',
-      'X-Title': 'AI App Builder',
-    },
-  });
+  /**
+   * A client per provider, built once and reused across the chain. Groq is
+   * OpenAI SDK compatible, so this is the same factory with a different base
+   * URL and key — no second SDK.
+   */
+  const clientFor = (() => {
+    const cache = new Map<string, ReturnType<typeof createOpenAI>>();
+    return (modelId: string) => {
+      const id = providerOf(modelId);
+      const cached = cache.get(id);
+      if (cached) return cached;
+      const made = createOpenAI({
+        baseURL: id === 'groq' ? PROVIDERS.groq.baseURL : OPENROUTER_BASE_URL,
+        apiKey: id === 'groq' ? groqKey : resolvedKey,
+        headers:
+          id === 'groq'
+            ? undefined
+            : {
+                'HTTP-Referer': process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000',
+                'X-Title': 'Assay',
+              },
+      });
+      cache.set(id, made);
+      return made;
+    };
+  })();
 
   // Sanitize: Force all message content to be plain strings (no multimodal arrays).
   const sanitizedMessages = messages.map((m: any) => {
@@ -86,7 +109,11 @@ export async function POST(req: NextRequest) {
 
   // Free-tier models drop out under load, so try the next allow-listed model
   // instead of handing the user a dead turn.
-  const chain = fallbackChain(model);
+  // Drop any model whose provider has no key — an unconfigured provider would
+  // otherwise burn a slot and return an auth error that looks like an outage.
+  const chain = fallbackChain(model, (id) =>
+    providerOf(id) === 'groq' ? Boolean(groqKey) : Boolean(resolvedKey),
+  );
   let lastErr: unknown = null;
   // Every failure, not just the final one. The chain used to be judged by
   // whichever model happened to be tried last, so a withdrawn model at the end
@@ -98,7 +125,7 @@ export async function POST(req: NextRequest) {
     try {
       const result = streamText({
         // CRITICAL: Use .chat() to force the Chat Completions API (/v1/chat/completions).
-        model: openrouter.chat(candidate),
+        model: clientFor(candidate).chat(bareModelId(candidate)),
         system: systemPrompt,
         messages: sanitizedMessages,
         tools: AGENT_TOOLS,
