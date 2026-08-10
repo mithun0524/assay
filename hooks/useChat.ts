@@ -2,7 +2,7 @@
 
 import { useCallback, useRef } from 'react';
 import { useStore } from '@/lib/store';
-import { createStreamParser } from '@/lib/streamParser';
+import { createStreamParser, claimsToBuild } from '@/lib/streamParser';
 import { formatForDisplay } from '@/lib/displayFormatter';
 import { writeFileToSandbox, runShellInSandbox, startDevServerInSandbox } from '@/lib/fileSystem';
 import type { Message } from '@/lib/store';
@@ -105,8 +105,13 @@ export function useChat() {
     let firstFileWritten = false;
     const collectedFileActions: Array<{ filePath: string; content: string }> = [];
 
+    // Counts what this turn actually did, so a turn that produced nothing can
+    // be told apart from one that deliberately only answered a question.
+    let filesWrittenThisTurn = 0;
+
     const parser = createStreamParser(async (action) => {
       if (action.type === 'file') {
+        filesWrittenThisTurn++;
         gs().setActivelyWritingFile(action.filePath);
         gs().setGenerationPhase('writing');
 
@@ -484,6 +489,30 @@ export function useChat() {
             ? { state: 'passed', summary: 'QA passed — the app builds and runs', attempt: retryCountRef.current, maxAttempts: MAX_AUTO_RETRIES }
             : { state: 'failed', summary: summarizeQaIssues(issues), attempt: retryCountRef.current, maxAttempts: MAX_AUTO_RETRIES }
         );
+      }
+
+      // A turn can finish having written nothing at all and still look like a
+      // success: some models answer with tool-call markup instead of the
+      // action markup this app parses, so the parser yields nothing, no file
+      // is written, and nothing throws. The user is left with an agent that
+      // promised an application and a blank preview that never explains why.
+      //
+      // Only flagged when the agent said it was going to build something —
+      // answering a question without touching a file is normal and silent.
+      if (filesWrittenThisTurn === 0) {
+        const said = gs().messages.filter((m) => m.role === 'assistant').at(-1)?.displayContent ?? '';
+        if (claimsToBuild(said)) {
+          gs().addMessage({
+            id: crypto.randomUUID(),
+            role: 'assistant',
+            agent: 'debugger',
+            content: '',
+            displayContent:
+              'That turn finished without writing any files, so nothing changed and the preview will be unchanged. ' +
+              'This usually means the model replied in a format the builder could not read. Try sending the request again.',
+            timestamp: Date.now(),
+          });
+        }
       }
 
       gs().setGenerationPhase('done');

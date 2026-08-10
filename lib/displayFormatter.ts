@@ -7,7 +7,25 @@
  * Format the AI response for display in the chat.
  * Embeds ACTION_CARD markers that MessageBubble renders as collapsible cards.
  */
-export function formatForDisplay(rawContent: string): string {
+export function formatForDisplay(raw: string): string {
+  // Some models wrap their output in tool-call markup that this app does not
+  // use. It is not an action, so nothing downstream consumed it, and it landed
+  // in the transcript as a stray "</tool_call>" in the middle of a sentence.
+  // Stripped first so every branch below works on clean text — the tags carry
+  // no meaning here, and removing them cannot affect boltAction extraction.
+  // A block that wraps real actions keeps its contents — the action cards below
+  // are built from them. A block that wraps only a tool-call payload is dropped
+  // whole, because otherwise the tags disappear and the raw JSON argument blob
+  // is left sitting in the transcript as if the agent had said it out loud.
+  const unwrap = (_m: string, inner: string) => (inner.includes('<boltAction') ? inner : '');
+
+  const rawContent = raw
+    .replace(/<tool_call>([\s\S]*?)<\/tool_call>/g, unwrap)
+    .replace(/<function_calls?>([\s\S]*?)<\/function_calls?>/g, unwrap)
+    // Any half-streamed or unpaired remnants of the same markup.
+    .replace(/<\/?(?:tool_call|function_calls?)>/g, '')
+    .replace(/<\/?invoke[^>]*>/g, '');
+
   const parts: string[] = [];
 
   // Check if there are any actions (completed or in-progress)

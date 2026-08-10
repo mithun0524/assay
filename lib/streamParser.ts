@@ -184,6 +184,31 @@ function findPartialMatch(haystack: string, needle: string): number {
 export function stripActions(text: string): string {
   return text
     .replace(/<boltAction[\s\S]*?<\/boltAction>/g, '')
+    // An unterminated action — the stream cut off, or the model never closed
+    // the tag. Without this the raw opening tag and the whole file body render
+    // into the transcript as prose.
+    .replace(/<boltAction[\s\S]*$/g, '')
+    // Some models wrap their output in tool-call markup. We do not use it, but
+    // it arrived in the text anyway and rendered as a stray "</tool_call>" in
+    // the middle of the agent's message.
+    .replace(/<\/?tool_call>/g, '')
+    .replace(/<\/?function_calls?>/g, '')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
+}
+
+/**
+ * Did this turn actually do anything?
+ *
+ * A model that answers with tool-call markup instead of boltAction markup
+ * produces no actions at all: no files are written, nothing throws, and the
+ * turn ends looking successful. The user is left with an agent that said "I'll
+ * build a complete application" and an empty project behind a blank preview.
+ *
+ * Callers use this to tell the difference between "the agent chose to only
+ * talk" and "the agent meant to build something and none of it landed".
+ */
+export function claimsToBuild(text: string): boolean {
+  return /\b(I'?ll|I am going to|Let me|I will)\b[\s\S]{0,80}\b(create|build|scaffold|write|set up|generate|add)\b/i
+    .test(text);
 }
