@@ -78,17 +78,6 @@ type ActionCardData = {
   startCommand: string | null;
 };
 
-/** Agent identity hues, read straight from the tokens so the avatar chip, the
-    landing roster and lib/agents cannot drift apart. */
-const AGENT_HUE: Record<AgentRole, string> = {
-  architect: 'var(--agent-architect)',
-  assistant: 'var(--agent-assistant)',
-  coder: 'var(--agent-coder)',
-  debugger: 'var(--agent-debugger)',
-  designer: 'var(--agent-designer)',
-  tester: 'var(--agent-tester)',
-};
-
 const ACTION_CARD_REGEX = /<!--ACTION_CARD:([\s\S]*?)-->/;
 const USER_MESSAGE_MAX_LINES = 3;
 const USER_MESSAGE_MAX_CHARS = 300;
@@ -218,9 +207,10 @@ function UserMessageBubble({ message, timeAgo }: { message: Message; timeAgo: st
           </button>
         )}
       </div>
-      {/* Time and copy on hover only — neither is worth a permanent line. */}
-      <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-2 mt-1">
-        <span className="font-mono text-[10px] text-zinc-500">{timeAgo}</span>
+      {/* Same footer treatment as an agent turn, so both sides of the
+          transcript behave the same way. */}
+      <div className="flex items-center gap-2 mt-1.5 text-zinc-600">
+        <span className="ml-auto font-mono text-[10px]">{timeAgo}</span>
         <CopyButton text={text} />
       </div>
     </div>
@@ -372,35 +362,20 @@ export const MessageBubble = memo(function MessageBubble({ message, isLastAssist
   }
 
   // -- ASSISTANT MESSAGE --
-  // An avatar chip carries who spoke; the body sits in its column underneath.
-  // The transcript is narration only — no file lists, no code — so the surface
-  // beside it can show the build and the editor can show the code.
+  // A turn is one block of prose and nothing else. No avatar, no name above the
+  // text, no indent — with six agents, a chip on every turn built a column of
+  // coloured squares down the transcript and the eye read the squares instead
+  // of the sentences.
+  //
+  // Attribution moved to the footer, where it sits with the timestamp and the
+  // copy action: quiet, once per turn, and still there when you want to know
+  // who said something. Which agent is working *right now* is the header's job.
   const agent = message.agent ? AGENTS[message.agent] : null;
   const isLive = isLastAssistant && isStreaming;
 
   return (
-    /* Identity is carried by one small avatar chip, not a coloured rail down the
-       whole turn. With six agents the rails stacked into a barcode, and the mono
-       uppercase caption made every line read as log output rather than
-       something a specialist said. */
     <div className="group animate-fade-up min-w-0" style={{ animationDuration: '0.25s' }}>
-      <div className="flex items-center gap-2 mb-1.5">
-        <span
-          aria-hidden
-          className="w-[18px] h-[18px] rounded-md shrink-0 grid place-items-center font-mono text-[9px] font-bold text-zinc-950"
-          style={{ background: agent ? AGENT_HUE[agent.role] : 'var(--text-tertiary)' }}
-        >
-          {(agent ? agent.name : 'Agent').charAt(0)}
-        </span>
-        <span className="text-[12px] font-semibold text-zinc-100">
-          {agent ? agent.name : 'Agent'}
-        </span>
-        <span className="ml-auto font-mono text-[10px] text-zinc-500">
-          {isLive ? 'now' : timeAgo}
-        </span>
-      </div>
-
-      <div className="pl-[26px] min-w-0">
+      <div className="min-w-0">
         {isEmpty && isLastAssistant && isStreaming && (
           <div className="flex items-center gap-2 px-3 py-2.5 text-sm text-zinc-500">
             <RiLoader4Line className="w-3.5 h-3.5 animate-spin text-zinc-400" />
@@ -449,20 +424,31 @@ export const MessageBubble = memo(function MessageBubble({ message, isLastAssist
 
       </div>
 
-      {/* Outside the rail — an invisible hover row inside it left the rule
-          hanging ~25px below the last card. */}
-      <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 mt-1 pl-[26px]">
-        <CopyButton text={message.displayContent} />
-        {onRetry && (
-          <button
-            onClick={onRetry}
-            className="flex items-center gap-1 px-2 py-0.5 font-mono text-[10px] text-zinc-500 hover:text-zinc-200 hover:bg-white/[0.06] rounded transition-all"
-          >
-            <RefreshCw className="w-3 h-3" />
-            Retry
-          </button>
-        )}
-      </div>
+      {/* One quiet row at the end of the turn: who said it, when, and what you
+          can do with it. Nothing while the turn is still streaming — actions on
+          a half-written answer are noise, and "copy" would take a fragment.
+
+          Right-aligned and muted rather than hover-only: a control that appears
+          on hover cannot be found by someone who does not already know it is
+          there, and cannot be reached at all by touch. */}
+      {!isLive && (
+        <div className="flex items-center gap-2 mt-1.5 text-zinc-600">
+          <span className="ml-auto font-mono text-[10px]">
+            {agent ? agent.name : 'Agent'} · {timeAgo}
+          </span>
+          <CopyButton text={message.displayContent} />
+          {onRetry && (
+            <button
+              onClick={onRetry}
+              aria-label="Retry this turn"
+              className="flex items-center gap-1 px-2 py-0.5 font-mono text-[10px] hover:text-zinc-200 hover:bg-white/[0.06] rounded transition-all"
+            >
+              <RefreshCw className="w-3 h-3" />
+              Retry
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 });
