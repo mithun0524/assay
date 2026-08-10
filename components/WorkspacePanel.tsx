@@ -355,10 +355,19 @@ export function WorkspacePanel() {
                     </div>
 
                     <div className="ml-auto">
+                        {/* A WebContainer preview is served by a service worker
+                            running in the tab that owns the container, so a bare
+                            new tab has nothing behind the URL and lands on
+                            StackBlitz's "connect this tab to its project"
+                            screen. The button still works — you just have to
+                            accept that handshake — but "Open in new window"
+                            promised something it does not do, and every person
+                            who clicked it read the result as a broken app. */}
                         <button
                             onClick={handleOpenInNewWindow}
                             className="p-1.5 rounded-lg text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.06] transition-all"
-                            title="Open in new window"
+                            title="Open in a new tab — the tab has to reconnect to the sandbox first"
+                            aria-label="Open preview in a new tab"
                         >
                             <ExternalLink className="w-3.5 h-3.5" />
                         </button>
