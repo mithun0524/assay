@@ -133,3 +133,32 @@ test('a tool failure alone is enough to fail QA', async () => {
   assert.equal(issues[0].source, 'tool', 'the root cause must lead the list');
   assert.match(summarizeQaIssues(issues), /tool call failed/i);
 });
+
+// ── Reading a 429 ──
+// Three different failures answer with 429 and only two of them are fixed by
+// waiting. The client used to print "wait 60 seconds" for all three.
+
+test('a 429 with no Retry-After shows the reason and does not lock the composer', async () => {
+  const { interpretRateLimit } = await import('../lib/rateLimit');
+  const daily = "You've used up today's free OpenRouter requests. The allowance resets at 00:00 UTC.";
+  const v = interpretRateLimit(null, daily);
+  assert.equal(v.lockMs, 0, 'waiting cannot fix a daily allowance — do not disable the composer');
+  assert.equal(v.message, daily, "the server's explanation must survive to the user");
+});
+
+test('a 429 with Retry-After locks for exactly that long', async () => {
+  const { interpretRateLimit } = await import('../lib/rateLimit');
+  assert.equal(interpretRateLimit('15', 'Every free model is busy right now.').lockMs, 15_000);
+  assert.equal(interpretRateLimit('60', 'Too many requests.').lockMs, 60_000);
+});
+
+test('a malformed Retry-After cannot brick the composer', async () => {
+  const { interpretRateLimit } = await import('../lib/rateLimit');
+  for (const bad of ['', 'soon', '-5', '0', 'NaN']) {
+    assert.equal(interpretRateLimit(bad, 'x').lockMs, 0, `"${bad}" should not lock`);
+  }
+  // An absurd value is clamped rather than trusted.
+  assert.equal(interpretRateLimit('99999', 'x').lockMs, 300_000);
+  // And there is always something to show.
+  assert.ok(interpretRateLimit(null, '').message.length > 0);
+});

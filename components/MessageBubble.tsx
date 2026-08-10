@@ -91,15 +91,6 @@ const REHYPE_PLUGINS = [rehypeHighlight] as any;
    here to parse and highlight the inline code blocks. Nothing renders code in
    the chat any more, so all three went with it. */
 
-function relativeTime(ts: number): string {
-  const diff = Date.now() - ts;
-  if (diff < 10000) return 'just now';
-  if (diff < 60000) return `${Math.floor(diff / 1000)}s ago`;
-  if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
-  if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
-  return new Date(ts).toLocaleDateString([], { month: 'short', day: 'numeric' });
-}
-
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
 
@@ -158,7 +149,7 @@ function CommandCard({ command, icon }: { command: string; icon: React.ReactNode
   );
 }
 
-function UserMessageBubble({ message, timeAgo }: { message: Message; timeAgo: string }) {
+function UserMessageBubble({ message }: { message: Message }) {
   const [expanded, setExpanded] = useState(false);
   const text = message.displayContent;
   const lines = text.split('\n');
@@ -213,9 +204,8 @@ function UserMessageBubble({ message, timeAgo }: { message: Message; timeAgo: st
           transcript behave the same way — including hiding the action until
           hover. Copying back the sentence you just typed is the rarest thing
           anyone does here, and it was the most prominent control on screen. */}
-      <div className="flex items-center gap-2 mt-1.5 text-zinc-600">
-        <span className="ml-auto font-mono text-[10px]">{timeAgo}</span>
-        <span className="flex items-center opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100 max-sm:opacity-100">
+      <div className="flex items-center mt-1.5 text-zinc-600">
+        <span className="ml-auto flex items-center opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100 max-sm:opacity-100">
           <CopyButton text={text} />
         </span>
       </div>
@@ -278,7 +268,6 @@ export const MessageBubble = memo(function MessageBubble({ message, isLastAssist
   const isError = message.displayContent.startsWith('\u274C') || message.content.startsWith('Error:');
   const isEmpty = !message.displayContent.trim();
 
-  const timeAgo = useMemo(() => relativeTime(message.timestamp), [message.timestamp]);
 
   const hasActionCard = ACTION_CARD_REGEX.test(message.displayContent);
   const isActiveStreaming = isLastAssistant && isStreaming;
@@ -320,7 +309,7 @@ export const MessageBubble = memo(function MessageBubble({ message, isLastAssist
 
   // -- USER MESSAGE --
   if (isUser) {
-    return <UserMessageBubble message={message} timeAgo={timeAgo} />;
+    return <UserMessageBubble message={message} />;
   }
 
   // -- ERROR MESSAGE --
@@ -343,7 +332,6 @@ export const MessageBubble = memo(function MessageBubble({ message, isLastAssist
             <RiErrorWarningLine className="w-3 h-3" />
           </span>
           <span className="text-[12px] font-semibold text-rose-300">Failed</span>
-          <span className="font-mono text-[10px] text-zinc-500">{timeAgo}</span>
           <span className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
             <CopyButton text={message.displayContent} />
             {onRetry && (
@@ -443,7 +431,7 @@ export const MessageBubble = memo(function MessageBubble({ message, isLastAssist
       {!isLive && (
         <div className="flex items-center gap-2 mt-1.5 text-zinc-600">
           <span className="font-mono text-[10px]">
-            {agent ? agent.name : 'Agent'} · {timeAgo}
+            {agent ? agent.name : 'Agent'}
           </span>
           <span className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100 max-sm:opacity-100">
             <CopyButton text={message.displayContent} />

@@ -12,6 +12,7 @@ import { routeToAgent, getAgent, getAgentReasoning, AgentContext, classifyWithLL
 import type { AgentRole } from '@/lib/agents';
 import { planExecution, decideAfterQa, shouldRunQa } from '@/lib/agents/orchestrator';
 import type { QaIssue } from '@/lib/qaGate';
+import { interpretRateLimit } from '@/lib/rateLimit';
 import { isValidModelId, resolveModelId } from '@/lib/openrouter';
 
 function estimateTokens(text: string) {
@@ -287,12 +288,15 @@ export function useChat() {
       });
 
       if (!res.ok) {
-        if (res.status === 429) {
-          const retryAfter = parseInt(res.headers.get('retry-after') || '60', 10);
-          gs().setRateLimitUntil(Date.now() + retryAfter * 1000);
-          throw new Error(`Rate limited. Please wait ${retryAfter} seconds before trying again.`);
-        }
         const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+        if (res.status === 429) {
+          // The route distinguishes "busy, wait" from "daily allowance gone,
+          // waiting will not help" and says so in the body. This used to throw
+          // that away and print a flat 60-second countdown for both.
+          const { message, lockMs } = interpretRateLimit(res.headers.get('retry-after'), err.error);
+          if (lockMs > 0) gs().setRateLimitUntil(Date.now() + lockMs);
+          throw new Error(message);
+        }
         throw new Error(err.error ?? `HTTP ${res.status}`);
       }
 
