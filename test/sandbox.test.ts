@@ -218,3 +218,61 @@ test('extensionless and index imports resolve like a bundler', async () => {
   };
   assert.deepEqual(checkProjectStructure(files), []);
 });
+
+test('a project missing the whole scaffold is reported, not ignored', async () => {
+  const { checkProjectStructure } = await import('../lib/projectCheck');
+  // Observed from a real "pomodoro timer" build: three files, finishReason
+  // 'stop', no package.json and no entry point. The first version of this
+  // check needed a package.json before it would notice a missing package.json.
+  const partial = {
+    'src/components/PomodoroTimer.tsx': { content: 'export function T(){return <div/>}' },
+    'src/App.tsx': { content: "import { T } from './components/PomodoroTimer';\nexport default function App(){return <T/>}" },
+    'tailwind.config.js': { content: 'module.exports = { content: [] }' },
+  };
+  const issues = checkProjectStructure(partial);
+  const all = issues.map((i) => i.message).join(' | ');
+  assert.match(all, /index\.html/, 'no entry point to serve');
+  assert.match(all, /package\.json/, 'nothing to install or run');
+  assert.match(all, /src\/main\.tsx/, 'nothing mounts React');
+  assert.match(all, /tailwindcss is not in package\.json/, 'configured but never installed');
+});
+
+test('a project with no app code at all is left alone', async () => {
+  const { checkProjectStructure } = await import('../lib/projectCheck');
+  // A README-only or empty project is not a broken web app, and must not be
+  // nagged about a missing index.html it has no use for.
+  assert.deepEqual(checkProjectStructure({ 'README.md': { content: '# hi' } }), []);
+  assert.deepEqual(checkProjectStructure({}), []);
+});
+
+test('a stylesheet nobody imports is reported', async () => {
+  const { checkProjectStructure } = await import('../lib/projectCheck');
+  // Observed: nine Tailwind classes in App.tsx, @tailwind directives in
+  // index.css, and no import anywhere. The app mounts and renders unstyled.
+  const unstyled = {
+    'package.json': { content: '{"devDependencies":{"vite":"^5"},"dependencies":{"tailwindcss":"^3"}}' },
+    'index.html': { content: '<div id="root"></div><script type="module" src="/src/main.tsx"></script>' },
+    'src/main.tsx': { content: "import App from './App';\ncreateRoot(document.getElementById('root'))" },
+    'src/App.tsx': { content: 'export default function App(){return <div className="p-4"/>}' },
+    'src/index.css': { content: '@tailwind base;' },
+  };
+  assert.match(
+    checkProjectStructure(unstyled).map((i) => i.message).join(' | '),
+    /index\.css is never imported/,
+  );
+
+  // …and importing it clears the finding.
+  const styled = { ...unstyled, 'src/main.tsx': { content: "import './index.css';\nimport App from './App';" } };
+  assert.deepEqual(checkProjectStructure(styled), []);
+});
+
+test('createRoot from the wrong package is reported', async () => {
+  const { checkProjectStructure } = await import('../lib/projectCheck');
+  const files = {
+    'package.json': { content: '{"devDependencies":{"vite":"^5"}}' },
+    'index.html': { content: '<div id="root"></div><script type="module" src="/src/main.tsx"></script>' },
+    'src/main.tsx': { content: "import ReactDOM from 'react-dom';\nimport './index.css';\nReactDOM.createRoot(document.getElementById('root'))" },
+    'src/index.css': { content: 'body{}' },
+  };
+  assert.match(checkProjectStructure(files).map((i) => i.message).join(' | '), /react-dom\/client/);
+});

@@ -199,9 +199,18 @@ to explain it — the dev server starts perfectly well with no app in it.
    point. Without it the server has nothing to serve. It must contain
    \`<div id="root"></div>\` and
    \`<script type="module" src="/src/main.tsx"></script>\`.
-2. \`src/main.tsx\` — mounts React into \`#root\`.
+2. \`src/main.tsx\` — mounts React into \`#root\`. It **must** \`import './index.css'\`,
+   or the stylesheet is never bundled and every Tailwind class silently does
+   nothing: the app renders in browser-default serif and looks broken. It must
+   also import createRoot from \`react-dom/client\`, not \`react-dom\`.
 3. \`src/App.tsx\` — the app itself.
-4. \`package.json\` — with \`"dev": "vite --host"\`.
+4. \`package.json\` — with \`"dev": "vite --host"\`. **Use exactly these versions**
+   unless the user asks for others; mismatched ones are a peer-dependency
+   conflict and npm then installs nothing at all:
+   \`react\`/\`react-dom\` ^18.3.1, \`vite\` ^5.4.11,
+   \`@vitejs/plugin-react\` ^4.3.4, \`typescript\` ^5.6.3,
+   \`@types/react\` ^18.3.12, \`@types/react-dom\` ^18.3.1.
+   (\`@vitejs/plugin-react\` 2.x and 3.x do NOT work with Vite 4+.)
 5. \`vite.config.ts\` — with the React plugin.
 
 Also: **every path you import must be a file you actually wrote.** Importing

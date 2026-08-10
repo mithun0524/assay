@@ -197,6 +197,7 @@ export async function installDependencies(retries = 2) {
 
   setSandboxStatus('installing');
   appendTerminal('\n📦 Installing dependencies...\n');
+  let sawPeerConflict = false;
 
   try {
     for (let attempt = 0; attempt <= retries; attempt++) {
@@ -206,13 +207,35 @@ export async function installDependencies(retries = 2) {
         await new Promise((r) => setTimeout(r, 2000));
       }
 
-      const proc = await wc.spawn('npm', ['install', '--no-audit', '--no-fund']);
+      // A peer-dependency conflict is deterministic: the same command fails the
+      // same way every time, so plain retries just burn a minute and report the
+      // same error. Observed with a generated package.json pairing vite 4 with
+      // @vitejs/plugin-react 2 — npm refuses, and the app never installs at all.
+      // Once npm has said ERESOLVE, the only retry worth making is a different
+      // command.
+      const args = ['install', '--no-audit', '--no-fund'];
+      if (sawPeerConflict) {
+        args.push('--legacy-peer-deps');
+        appendTerminal('\n↩︎ Peer dependency conflict — retrying with --legacy-peer-deps\n');
+      }
+      const proc = await wc.spawn('npm', args);
 
+      let output = '';
       proc.output.pipeTo(
-        new WritableStream({ write: (data) => appendTerminal(data) })
+        new WritableStream({
+          write: (data) => {
+            // Only the tail matters, and npm install is verbose enough to be
+            // worth not holding all of it in memory.
+            output = (output + data).slice(-4000);
+            appendTerminal(data);
+          },
+        })
       ).catch(() => {});
 
       const exitCode = await proc.exit;
+      if (exitCode !== 0 && /ERESOLVE|peer dep|could not resolve dependency/i.test(output)) {
+        sawPeerConflict = true;
+      }
 
       if (exitCode === 0) {
         appendTerminal('\n✅ Dependencies installed\n');
