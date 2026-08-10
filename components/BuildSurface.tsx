@@ -1,21 +1,23 @@
 'use client';
 
-import { memo, useEffect, useRef, useState } from 'react';
+import { memo } from 'react';
 import { cn } from '@/lib/utils';
 import type { GenerationPhase } from '@/lib/store';
 
 /**
  * What a person watches while the agents work.
  *
- * This used to be a five-stage stepper — PLAN / WRITE / INSTALL / TEST / RUN.
- * It was replaced because it mostly lied. The stages map to a generation phase
- * that sits on 'writing' for minutes at a time, so four of the five dots stayed
- * grey while a great deal was happening, and on a restored project every dot
- * was grey at once, which reads as a dead progress bar rather than a calm one.
+ * First this was a five-stage stepper, which mostly lied — the phase sits on
+ * 'writing' for minutes, so four of five dots stayed grey while a great deal
+ * was happening. Then it was a headline and a running feed above the preview
+ * frame, which was honest but said the same thing the chat status line and the
+ * header pill were already saying, three times on one screen, above a large
+ * empty box.
  *
- * A running feed of what just happened is honest for the same cost: it moves
- * when the build moves, and when it stops moving you can see exactly where it
- * stopped.
+ * So the box is the illustration now. The mark draws the metaphor it was built
+ * around: heat travels up the A, and the bead settles under it — what an assay
+ * leaves once the fire has taken everything that was not real. The status sits
+ * beneath it, in the one place the eye is already pointed while waiting.
  */
 
 type Props = {
@@ -26,8 +28,6 @@ type Props = {
   fileCount: number;
 };
 
-type Entry = { id: number; text: string; kind: 'file' | 'phase' };
-
 const PHASE_LABEL: Partial<Record<GenerationPhase, string>> = {
   installing: 'Installing dependencies',
   starting: 'Starting the dev server',
@@ -36,6 +36,62 @@ const PHASE_LABEL: Partial<Record<GenerationPhase, string>> = {
   done: 'Ready',
 };
 
+/** The mark, animated. Static and complete when motion is reduced. */
+function BuildMark({ tone }: { tone: 'working' | 'error' | 'idle' }) {
+  return (
+    <div className="relative grid place-items-center w-28 h-28">
+      <div
+        aria-hidden
+        className={cn(
+          'absolute inset-0 rounded-full blur-2xl',
+          tone === 'error' ? 'bg-rose-500/20' : 'bg-white/[0.07]',
+          tone === 'working' && 'assay-glow'
+        )}
+      />
+      <svg
+        viewBox="0 0 32 32"
+        fill="none"
+        className={cn(
+          'relative w-16 h-16',
+          tone === 'error' ? 'text-rose-400' : 'text-zinc-100'
+        )}
+        role="img"
+        aria-label="Assay"
+      >
+        {/* The whole letter, always present — the tracer only lights part of it. */}
+        <path
+          d="M7 25 16 7l9 18"
+          stroke="currentColor"
+          strokeWidth={2.6}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className={tone === 'working' ? 'opacity-25' : 'opacity-90'}
+        />
+        {tone === 'working' && (
+          <path
+            d="M7 25 16 7l9 18"
+            stroke="currentColor"
+            strokeWidth={2.6}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="assay-trace"
+          />
+        )}
+        {tone === 'working' && (
+          <circle cx="16" cy="20.5" r="2.6" fill="currentColor" className="assay-halo" />
+        )}
+        <circle
+          cx="16"
+          cy="20.5"
+          r="2.6"
+          fill="currentColor"
+          className={tone === 'working' ? 'assay-bead' : 'opacity-90'}
+        />
+      </svg>
+    </div>
+  );
+}
+
 export const BuildSurface = memo(function BuildSurface({
   phase,
   hasError,
@@ -43,120 +99,63 @@ export const BuildSurface = memo(function BuildSurface({
   activelyWritingFile,
   fileCount,
 }: Props) {
-  const [log, setLog] = useState<Entry[]>([]);
-  const seq = useRef(0);
-  const lastFile = useRef<string | null>(null);
-  const lastPhase = useRef<GenerationPhase | null>(null);
-
-  // Append on change rather than on render, and cap the list — this runs for
-  // the whole length of a build and a real one writes twenty-odd files.
-  useEffect(() => {
-    if (activelyWritingFile && activelyWritingFile !== lastFile.current) {
-      lastFile.current = activelyWritingFile;
-      setLog((l) => [...l, { id: seq.current++, text: activelyWritingFile, kind: 'file' as const }].slice(-40));
-    }
-  }, [activelyWritingFile]);
-
-  useEffect(() => {
-    const label = PHASE_LABEL[phase];
-    if (label && phase !== lastPhase.current) {
-      lastPhase.current = phase;
-      setLog((l) => [...l, { id: seq.current++, text: label, kind: 'phase' as const }].slice(-40));
-    }
-  }, [phase]);
-
-  const scroller = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const el = scroller.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, [log]);
-
   const working = phase !== 'idle' && phase !== 'done';
+  const tone = hasError ? 'error' : working ? 'working' : 'idle';
+
   const headline = hasError
     ? 'The build stopped'
     : activelyWritingFile
       ? `Writing ${activelyWritingFile.split('/').pop()}`
-      : PHASE_LABEL[phase] ?? (fileCount > 0 ? 'Writing files' : 'Working out the files');
+      : (PHASE_LABEL[phase] ??
+        (fileCount > 0 ? 'Writing files' : working ? 'Working out the files' : 'Your app appears here'));
 
   return (
-    <div className="h-full flex flex-col gap-4 p-4 overflow-hidden">
-      {/* ─── Live activity ─── */}
-      <div className="shrink-0">
-        <div className="flex items-baseline gap-2">
-          <span
-            className={cn(
-              'text-[15px] font-medium tracking-[-0.01em]',
-              hasError ? 'text-rose-300' : working ? 'shimmer-text' : 'text-zinc-300'
-            )}
-          >
-            {headline}
-          </span>
-          {fileCount > 0 && (
-            <span className="ml-auto font-mono text-[11px] text-zinc-500 tabular-nums">
-              {fileCount} {fileCount === 1 ? 'file' : 'files'}
-            </span>
-          )}
-        </div>
-
-        {log.length > 0 && (
-          <div
-            ref={scroller}
-            className="mt-2 max-h-[104px] overflow-y-auto pr-1 flex flex-col gap-[3px]"
-            aria-live="polite"
-          >
-            {log.map((e) => (
-              <div
-                key={e.id}
-                className={cn(
-                  'font-mono text-[11px] leading-[1.5] animate-fade-up',
-                  e.kind === 'phase' ? 'text-zinc-300' : 'text-zinc-500'
-                )}
-                style={{ animationDuration: '0.25s' }}
-              >
-                {e.kind === 'file' ? e.text : `— ${e.text}`}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* ─── The frame the app appears in ─── */}
-      <div className="flex-1 min-h-[180px] rounded-xl border border-white/[0.06] bg-[var(--bg-raised)] overflow-hidden flex flex-col">
+    <div className="h-full flex flex-col p-4 overflow-hidden">
+      <div className="flex-1 min-h-0 rounded-xl border border-white/[0.06] bg-[var(--bg-raised)] overflow-hidden flex flex-col">
         <div className="h-7 shrink-0 flex items-center px-2.5 border-b border-white/[0.06]">
           <span className="font-mono text-[10px] text-zinc-500 truncate">
             {previewUrl ?? 'no server running yet'}
           </span>
         </div>
-        <div className="flex-1 grid place-items-center p-6">
-          {previewUrl ? (
-            <iframe
-              src={previewUrl}
-              title="App preview"
-              className="w-full h-full rounded-lg border-0 bg-white"
-              sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
-            />
-          ) : (
-            <div className="w-full max-w-sm">
-              <div className="flex flex-col gap-3" aria-hidden>
-                <div className="skeleton h-2.5 w-2/5" />
-                <div className="flex gap-3">
-                  <div className="skeleton h-2.5 flex-1" />
-                  <div className="skeleton h-2.5 flex-1" />
-                  <div className="skeleton h-2.5 flex-1" />
-                </div>
-                <div className="flex gap-3">
-                  <div className="skeleton h-14 flex-1" />
-                  <div className="skeleton h-14 flex-1" />
-                  <div className="skeleton h-14 flex-1" />
-                </div>
-                <div className="skeleton h-2.5 w-1/4" />
-              </div>
-              <p className="mt-4 text-center text-[11.5px] text-zinc-500">
-                Your app appears here
+
+        {previewUrl ? (
+          <iframe
+            src={previewUrl}
+            title="App preview"
+            className="flex-1 w-full border-0 bg-white"
+            sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+          />
+        ) : (
+          <div className="flex-1 grid place-items-center p-6">
+            <div className="flex flex-col items-center text-center">
+              <BuildMark tone={tone} />
+
+              <p
+                className={cn(
+                  'mt-3 text-[15px] font-medium tracking-[-0.01em]',
+                  hasError ? 'text-rose-300' : working ? 'shimmer-text' : 'text-zinc-400'
+                )}
+                aria-live="polite"
+              >
+                {headline}
               </p>
+
+              {/* The full path, under the short name in the headline — enough to
+                  tell two index.ts apart without widening the line. */}
+              {activelyWritingFile && !hasError && (
+                <p className="mt-1.5 font-mono text-[11px] text-zinc-600 max-w-[280px] truncate">
+                  {activelyWritingFile}
+                </p>
+              )}
+
+              {fileCount > 0 && (
+                <p className="mt-2 font-mono text-[11px] text-zinc-500 tabular-nums">
+                  {fileCount} {fileCount === 1 ? 'file' : 'files'} written
+                </p>
+              )}
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );
