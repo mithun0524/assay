@@ -3,7 +3,7 @@ import { streamText } from 'ai';
 import { NextRequest } from 'next/server';
 import { SYSTEM_PROMPT } from '@/lib/systemPrompt';
 import { OPENROUTER_BASE_URL, fallbackChain } from '@/lib/openrouter';
-import { PROVIDERS, providerOf, bareModelId } from '@/lib/providers';
+import { PROVIDERS, providerOf, maxOutputTokensFor, isTransientModelError, bareModelId } from '@/lib/providers';
 import { AGENT_TOOLS, toolCallToAction } from '@/lib/agentTools';
 import { createClient } from '@/lib/supabase/server';
 import { requireAuth, checkCsrf, rateLimit } from '@/lib/api-auth';
@@ -135,7 +135,7 @@ export async function POST(req: NextRequest) {
             : 0.2,
         // A whole project runs past most provider defaults; a truncated stream
         // means half-written files in the sandbox.
-        maxOutputTokens: 16000,
+        maxOutputTokens: maxOutputTokensFor(candidate),
       });
 
       // Touch the stream before committing to it so an immediate upstream
@@ -186,7 +186,7 @@ export async function POST(req: NextRequest) {
       const message = err instanceof Error ? err.message : String(err);
       failures.push(message);
       console.warn(`[chat] ${candidate} unavailable, trying next:`, message.slice(0, 200));
-      if (!/429|rate|exhaust|unavailable|capacity|timeout|502|503/i.test(message)) {
+      if (!isTransientModelError(message)) {
         break; // a real error (bad key, bad request) won't be fixed by another model
       }
     }

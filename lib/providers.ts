@@ -72,3 +72,39 @@ export function providerConfigured(id: ProviderId): boolean {
   }
   return Boolean(process.env[PROVIDERS[id].envKey]);
 }
+
+/**
+ * How many output tokens to ask a model for.
+ *
+ * Groq bills prompt + max_tokens against one per-minute budget and rejects the
+ * request outright — HTTP 413, before generating anything — if the sum is over.
+ * The free tier allows 12,000 TPM for llama-3.3-70b, and this app was asking
+ * for 16,000 output alone, so every Groq attempt failed on arrival and the
+ * provider that existed to survive OpenRouter's daily cap never once answered.
+ *
+ * 4,000 leaves ~8,000 for the system prompt and file context. A project bigger
+ * than that still overflows, and that is fine — the chain moves on.
+ */
+export function maxOutputTokensFor(modelId: string): number {
+  return providerOf(modelId) === 'groq' ? 4_000 : 16_000;
+}
+
+/**
+ * Is this failure worth trying another model for?
+ *
+ * Everything a provider says under load is, and so is anything about size —
+ * a request too large for one model's window may fit the next one's. Only a
+ * genuine client error (bad key, malformed request) should end the walk, since
+ * no other model will fix it.
+ *
+ * This used to be an inline regex that did not know about 413. Groq's "Request
+ * too large" broke the loop, so a Groq failure in third position silently
+ * discarded the four models queued behind it.
+ */
+export function isTransientModelError(message: string): boolean {
+  // 'timed out' as well as 'timeout' — providers phrase it both ways, and the
+  // test that added this caught the miss.
+  return /429|413|rate|exhaust|unavailable|capacity|timeout|timed out|502|503|too large|context length|overloaded/i.test(
+    message,
+  );
+}

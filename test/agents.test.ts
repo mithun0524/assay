@@ -14,6 +14,8 @@ import assert from 'node:assert/strict';
 import { classifyLocally, routeToAgent, ROLE_MODEL, VALID_ROLES, isAgentRole } from '../lib/agents/router';
 import { AGENTS, getAgent, getAllAgentRoles } from '../lib/agents';
 import type { AgentContext, AgentRole } from '../lib/agents/types';
+import { maxOutputTokensFor, isTransientModelError } from '../lib/providers';
+import { SYSTEM_PROMPT } from '../lib/systemPrompt';
 import { FREE_MODELS, FALLBACK_ONLY_MODEL_IDS, MODEL_IDS, AUTO_MODEL_ID, isValidModelId, resolveModelId, DEFAULT_MODEL_ID, fallbackChain } from '../lib/openrouter';
 
 const EMPTY: AgentContext = {
@@ -209,4 +211,49 @@ test('groq ids are prefixed for us and bare for the provider', async () => {
     bareModelId('nvidia/nemotron-3-ultra-550b-a55b:free'),
     'nvidia/nemotron-3-ultra-550b-a55b:free',
   );
+});
+
+test('Groq is asked for an output size its per-minute budget allows', () => {
+  // Groq counts prompt + max_tokens against one TPM allowance and answers 413
+  // before generating anything if the sum is over. The free tier for
+  // llama-3.3-70b is 12,000/min; this app used to ask for 16,000 output alone,
+  // so every Groq attempt failed on arrival.
+  const GROQ_TPM = 12_000;
+  assert.ok(
+    maxOutputTokensFor(MODEL_IDS.groqLlama) < GROQ_TPM,
+    'the output cap alone must fit inside the whole per-minute budget',
+  );
+  const systemPromptTokens = Math.ceil(SYSTEM_PROMPT.length / 4);
+  assert.ok(
+    maxOutputTokensFor(MODEL_IDS.groqLlama) + systemPromptTokens < GROQ_TPM,
+    `system prompt (~${systemPromptTokens}) + output cap must still fit`,
+  );
+  // OpenRouter has no such rule and must not be punished for Groq's.
+  assert.equal(maxOutputTokensFor(MODEL_IDS.nemotron), 16_000);
+});
+
+test('a failure that another model might survive does not end the chain', () => {
+  // Groq's 413 sits third in the chain. Treated as fatal it discarded the four
+  // models queued behind it, and the user saw whichever error matched first.
+  const keepGoing = [
+    'Request too large for model `llama-3.3-70b-versatile` ... tokens per minute (TPM): Limit 12000',
+    'Rate limit exceeded: free-models-per-day',
+    'ResourceExhausted: worker request limit reached',
+    'upstream connect error or disconnect/reset before headers. 503',
+    'Request timed out',
+    'This model is overloaded, please try again',
+    "This model's maximum context length is 8192 tokens",
+  ];
+  for (const m of keepGoing) {
+    assert.ok(isTransientModelError(m), `should have tried the next model for: ${m.slice(0, 48)}`);
+  }
+
+  const stop = [
+    'Incorrect API key provided',
+    'invalid_request_error: messages must be an array',
+    'No auth credentials found',
+  ];
+  for (const m of stop) {
+    assert.ok(!isTransientModelError(m), `should NOT have kept walking for: ${m}`);
+  }
 });
