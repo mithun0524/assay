@@ -91,7 +91,7 @@ const REHYPE_PLUGINS = [rehypeHighlight] as any;
    here to parse and highlight the inline code blocks. Nothing renders code in
    the chat any more, so all three went with it. */
 
-function CopyButton({ text }: { text: string }) {
+function CopyButton({ text, compact }: { text: string; compact?: boolean }) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = useCallback(async () => {
@@ -105,20 +105,27 @@ function CopyButton({ text }: { text: string }) {
     }
   }, [text]);
 
+  // Compact drops the label and gains a ground of its own: it sits on top of the
+  // message rather than under it, so it has to stay legible over text.
   return (
     <button
       onClick={handleCopy}
+      aria-label={copied ? 'Copied' : 'Copy message'}
+      title={copied ? 'Copied' : 'Copy'}
       className={cn(
-        "flex items-center gap-1 px-2 py-0.5 text-[10px] rounded transition-all",
+        'flex items-center gap-1 rounded transition-all text-[10px]',
+        compact
+          ? 'p-1 border border-white/[0.08] bg-zinc-900/80 backdrop-blur-sm'
+          : 'px-2 py-0.5',
         copied
-          ? "bg-emerald-500/15 text-emerald-400"
-          : "text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.06]"
+          ? 'bg-emerald-500/15 text-emerald-400'
+          : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.06]'
       )}
     >
       {copied ? (
-        <><RiCheckLine className="w-3 h-3 text-emerald-400" /><span>Copied</span></>
+        <><RiCheckLine className="w-3 h-3 text-emerald-400" />{!compact && <span>Copied</span>}</>
       ) : (
-        <><RiClipboardLine className="w-3 h-3" /><span>Copy</span></>
+        <><RiClipboardLine className="w-3 h-3" />{!compact && <span>Copy</span>}</>
       )}
     </button>
   );
@@ -172,7 +179,7 @@ function UserMessageBubble({ message }: { message: Message }) {
        exactly like the agent turns beneath it. No bubble either: a bubble makes
        this look like a messenger rather than a tool. */
     <div className="group animate-fade-up min-w-0" style={{ animationDuration: '0.25s' }}>
-      <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-2.5 min-w-0">
+      <div className="relative rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-2.5 min-w-0">
         <div
           className={cn(
             'text-[13.5px] text-zinc-200 leading-relaxed whitespace-pre-wrap break-words',
@@ -187,6 +194,12 @@ function UserMessageBubble({ message }: { message: Message }) {
             </>
           )}
         </div>
+        {/* Overlaid, not stacked underneath: a hover-only row still occupies its
+            height at rest, which put ~26px of dead space between every prompt
+            and the reply to it. */}
+        <span className="absolute top-1.5 right-1.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100 max-sm:opacity-100">
+          <CopyButton text={text} compact />
+        </span>
         {isTooLong && (
           <button
             onClick={() => setExpanded(!expanded)}
@@ -204,11 +217,7 @@ function UserMessageBubble({ message }: { message: Message }) {
           transcript behave the same way — including hiding the action until
           hover. Copying back the sentence you just typed is the rarest thing
           anyone does here, and it was the most prominent control on screen. */}
-      <div className="flex items-center mt-1.5 text-zinc-600">
-        <span className="ml-auto flex items-center opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100 max-sm:opacity-100">
-          <CopyButton text={text} />
-        </span>
-      </div>
+
     </div>
   );
 }
