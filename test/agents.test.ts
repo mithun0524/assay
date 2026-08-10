@@ -257,3 +257,25 @@ test('a failure that another model might survive does not end the chain', () => 
     assert.ok(!isTransientModelError(m), `should NOT have kept walking for: ${m}`);
   }
 });
+
+test('copying a turn does not hand over the internal action marker', async () => {
+  const { toPlainText } = await import('../lib/displayFormatter');
+  const shown = [
+    'To create a simple todo list application, we will use React.',
+    '',
+    'Here is the code:',
+    '',
+    '<!--ACTION_CARD:{"files":["package.json","src/App.tsx"],"commands":["npm install"],"startCommand":"npm run dev"}-->',
+    '',
+  ].join('\n');
+
+  const copied = toPlainText(shown);
+  assert.doesNotMatch(copied, /ACTION_CARD/, 'internal marker reached the clipboard');
+  assert.doesNotMatch(copied, /<!--/, 'a raw HTML comment reached the clipboard');
+  assert.doesNotMatch(copied, /startCommand/, 'raw JSON reached the clipboard');
+  assert.match(copied, /simple todo list application/, 'the prose must survive');
+  assert.equal(copied, copied.trim(), 'no leading or trailing blank lines');
+
+  // Prose with no marker is returned untouched apart from trimming.
+  assert.equal(toPlainText('  just words  '), 'just words');
+});

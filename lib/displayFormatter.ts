@@ -155,3 +155,22 @@ export function countFileActions(rawContent: string): number {
   const matches = rawContent.match(/<boltAction\s+type="file"/g);
   return matches ? matches.length : 0;
 }
+
+/**
+ * A turn as the user should receive it on the clipboard.
+ *
+ * displayContent carries an ACTION_CARD marker so MessageBubble can render the
+ * files-and-commands card. It is machinery, not prose, and Copy was handing it
+ * over verbatim — a paragraph of explanation followed by a line of raw JSON
+ * inside an HTML comment, pasted into wherever the user was going.
+ *
+ * Stripping it at the copy boundary rather than at render keeps the marker
+ * available to the component that needs it.
+ */
+export function toPlainText(displayContent: string): string {
+  return displayContent
+    .replace(/<!--ACTION_CARD:[\s\S]*?-->/g, '')
+    // Removing a block leaves the blank lines that surrounded it behind.
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}

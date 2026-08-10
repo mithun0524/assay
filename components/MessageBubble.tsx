@@ -7,6 +7,7 @@ import 'highlight.js/styles/atom-one-dark.css';
 import { RiClipboardLine, RiCheckLine, RiErrorWarningLine, RiLoader4Line, RiArrowDownSLine, RiArrowUpSLine, RiEyeLine, RiDeleteBin6Line, RiGlobalLine } from '@remixicon/react';
 import { RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { toPlainText } from '@/lib/displayFormatter';
 import type { Message } from '@/lib/store';
 import { AGENTS } from '@/lib/agents';
 import type { AgentRole } from '@/lib/agents';
@@ -96,7 +97,7 @@ function CopyButton({ text, compact }: { text: string; compact?: boolean }) {
 
   const handleCopy = useCallback(async () => {
     try {
-      await navigator.clipboard.writeText(text);
+      await navigator.clipboard.writeText(toPlainText(text));
       setCopied(true);
       toast.success('Copied to clipboard');
       setTimeout(() => setCopied(false), 2000);
