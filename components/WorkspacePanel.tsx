@@ -16,8 +16,9 @@ import { restartDevServer } from '@/lib/fileSystem';
 
 /** Static map so Tailwind/Turbopack can see every icon at build time. */
 const SURFACE_ICON: Record<SurfaceId, React.ComponentType<{ className?: string }>> = {
-    build: RiLoader4Line,
-    app: RiComputerLine,
+    // Not a spinner. A tab is a place, not a status — and the status pill lives
+    // three inches to the right in this same bar.
+    preview: RiComputerLine,
     code: RiCodeLine,
     logs: RiTerminalLine,
 };
@@ -481,15 +482,27 @@ export function WorkspacePanel() {
 
             {/* Content */}
             <div className="flex-1 min-h-0 overflow-hidden">
-                {/* Code tab */}
-                {/* Build — only rendered for its own surface, so the pipeline
-                    and skeleton are not running behind a hidden pane. */}
-                {activeSurface === 'build' && (
+                {/* Preview — one surface, two states. The running app once there
+                    is one, the build illustration until then.
+
+                    The app stays mounted even while another tab is showing:
+                    unmounting the iframe reloads the running app and throws
+                    away whatever state the user had clicked into. The build
+                    illustration is the opposite — it only mounts when it is on
+                    screen, so nothing animates behind a hidden pane.
+
+                    A rebuild of an existing project keeps showing the old app
+                    rather than dropping back to the illustration, which is what
+                    every other builder does: the page hot-reloads under you. */}
+                <div className={cn('h-full', activeSurface === 'preview' && previewUrl ? 'animate-fade-in' : 'hidden')} style={activeSurface === 'preview' && previewUrl ? { animationDuration: '0.15s' } : undefined}>
+                    {renderPreviewContent()}
+                </div>
+
+                {activeSurface === 'preview' && !previewUrl && (
                     <div className="h-full animate-fade-in" style={{ animationDuration: '0.15s' }}>
                         <BuildSurface
                             phase={generationPhase}
                             hasError={hasError}
-                            previewUrl={previewUrl}
                             activelyWritingFile={activelyWritingFile}
                             fileCount={fileCount}
                         />
@@ -498,11 +511,6 @@ export function WorkspacePanel() {
 
                 <div className={cn('h-full', activeSurface === 'code' ? 'animate-fade-in' : 'hidden')} style={activeSurface === 'code' ? { animationDuration: '0.15s' } : undefined}>
                     <EditorPanel />
-                </div>
-
-                {/* Preview tab */}
-                <div className={cn('h-full', activeSurface === 'app' ? 'animate-fade-in' : 'hidden')} style={activeSurface === 'app' ? { animationDuration: '0.15s' } : undefined}>
-                    {renderPreviewContent()}
                 </div>
 
                 {/* Terminal tab */}

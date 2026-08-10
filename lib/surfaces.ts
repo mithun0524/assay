@@ -20,7 +20,7 @@
  * step later — which is why nothing outside this file asks what tier means.
  */
 
-export type SurfaceId = 'build' | 'app' | 'code' | 'logs';
+export type SurfaceId = 'preview' | 'code' | 'logs';
 
 /**
  * Audience, not skill. `simple` is the default because someone who typed
@@ -54,34 +54,33 @@ export type Surface = {
 
 export const SURFACES: Surface[] = [
   {
-    // The build itself, as something to watch: the agent pipeline and a frame
-    // where the app will appear. Exists so that a `simple` user has somewhere
-    // to look while files are being written — the transcript deliberately says
-    // very little, so this carries the sense of progress.
-    id: 'build',
-    label: 'Build',
+    // One surface for "the thing you asked for", in both of its states: the
+    // build while it is being written, the running app once there is one.
+    //
+    // These were two tabs, Build and App. That was defensible while Build was a
+    // progress stepper and App was the only place the app appeared, and it
+    // stopped being defensible when the build frame started rendering the app
+    // itself — two tabs, same contents, and no way to tell which to click.
+    // Nobody else ships a Build tab either: v0, Bolt and Lovable all offer
+    // Preview and Code, and show build progress inside Preview.
+    id: 'preview',
+    label: 'Preview',
     tiers: ['simple', 'developer'],
-    // Unconditional, and it has to stay that way. Build is the home surface:
-    // it is the only one every tier is offered and the only one that does not
-    // depend on files, a preview or a running turn existing.
+    // Unconditional, and it has to stay that way. Preview is the home surface:
+    // the only one every tier is offered and the only one that does not depend
+    // on files, a running server or a turn in flight.
     //
     // It used to require `isStreaming || phase !== 'idle' || fileCount > 0`,
     // which is false for a project whose first turn failed before writing
     // anything — messages but no files, no preview, idle. Every other surface
     // was also unavailable, so the tab bar came back empty and the panel
-    // rendered nothing at all. `neverEmpty` in the tests pins this.
+    // rendered nothing. `neverEmpty` in the tests pins this.
     available: () => true,
-    // Every working phase except 'done' — the build is the thing to watch right
-    // up until there is a running app to look at instead.
-    focusWhen: (s) => s.isStreaming && s.phase !== 'idle' && s.phase !== 'done',
-  },
-  {
-    id: 'app',
-    label: 'App',
-    tiers: ['simple', 'developer'],
-    available: (s) => s.hasPreview,
-    // The whole point of the product. The moment it runs, show it.
-    focusWhen: (s) => s.hasPreview && (s.phase === 'done' || s.phase === 'idle') && !s.hasError,
+    // Pull focus back here both while the build runs and when the app comes up,
+    // which matters for a developer who wandered off to Code or Logs.
+    focusWhen: (s) =>
+      (s.isStreaming && s.phase !== 'idle' && s.phase !== 'done') ||
+      (s.hasPreview && (s.phase === 'done' || s.phase === 'idle') && !s.hasError),
   },
   {
     id: 'code',
