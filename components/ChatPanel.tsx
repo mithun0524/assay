@@ -133,7 +133,11 @@ export function ChatPanel({ onCollapse }: ChatPanelProps) {
         }
       }
     }
-  }, [messages]);
+    // Phase and filename, not just messages: the live status is the last thing
+    // in the transcript now, and it changes without a message ever arriving.
+    // Keying this on `messages` alone is exactly why it used to slip below the
+    // fold while installing — the one moment it was the only thing moving.
+  }, [messages, generationPhase, activelyWritingFile, isStreaming]);
 
   // Track scroll position for FAB
   const messagesLengthRef = useRef(messages.length);
@@ -438,31 +442,33 @@ export function ChatPanel({ onCollapse }: ChatPanelProps) {
                     : `Stopped after ${qaStatus.maxAttempts} attempts — tell me what you see and I'll dig in.`}
                 </p>
               )}
-            </div>
-          </div>
-        )}
-      </div>
+        {/* Live status, at the end of the transcript — it is part of the turn
+            above it, not a separate readout.
 
-      {/* Live status. Pinned between the transcript and the composer rather than
-          living inside the scroller: it is persistent status, not a transcript
-          entry. Inside, it scrolled away with the history — and because the
-          auto-scroll effect keys off `messages`, a phase change with no new
-          tokens (installing, for one) never triggered a scroll, so it could
-          sit below the fold exactly when it was the only thing moving.
+            It was pinned between the scroller and the composer for a real
+            reason: inside, it scrolled away, and the auto-scroll keyed off
+            `messages`, so a phase change with no new tokens (installing, for
+            one) never scrolled it into view. Pinning fixed that and bought a
+            worse problem — on a short turn it sat several hundred pixels under
+            the last thing the agent said, reading as an unrelated widget at the
+            bottom of the panel rather than the same turn still running.
 
-          Shown for every phase of a live turn. It was briefly suppressed during
-          'writing' before a file had been named, to avoid doubling up with the
-          bubble's "Thinking..." — but that was decided while the transcript
-          still listed file cards. Now that the transcript only narrates, this
-          line is the entire signal, and suppressing it left the chat silent
-          through the longest and least certain stretch of a build: after the
-          agent has spoken but before the first file lands. */}
-      {isStreaming && generationPhase !== 'idle' && (
-        <div className="shrink-0 mx-3 mb-1 flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-white/[0.02] border border-white/[0.06] animate-fade-in">
-          {/* An AgentBadge sat here. At 14px with no name beside it, it read
+            The scroll effect watches the phase now, so it can live where it
+            belongs.
+
+            Shown for every phase of a live turn. It was briefly suppressed during
+            'writing' before a file had been named, to avoid doubling up with the
+            bubble's "Thinking..." — but that was decided while the transcript
+            still listed file cards. Now that the transcript only narrates, this
+            line is the entire signal, and suppressing it left the chat silent
+            through the longest and least certain stretch of a build: after the
+            agent has spoken but before the first file lands. */}
+        {isStreaming && generationPhase !== 'idle' && (
+          <div className="mt-3 flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-white/[0.02] border border-white/[0.06] animate-fade-in">
+            {/* An AgentBadge sat here. At 14px with no name beside it, it read
               as a broken image rather than an agent, and the transcript names
               the agent directly above anyway. */}
-          {generationPhase === 'writing' && (
+            {generationPhase === 'writing' && (
             <>
               <RiFileCodeLine className="w-3.5 h-3.5 text-zinc-400 animate-pulse" />
               {/* Three states, because there are three truths. `writing` is set
@@ -490,39 +496,43 @@ export function ChatPanel({ onCollapse }: ChatPanelProps) {
                 </span>
               )}
             </>
-          )}
-          {generationPhase === 'searching' && (
+            )}
+            {generationPhase === 'searching' && (
             <>
               <RiGlobalLine className="w-3.5 h-3.5 text-zinc-400 animate-pulse" />
               <span className="text-xs text-zinc-400">Searching the web...</span>
             </>
-          )}
-          {generationPhase === 'installing' && (
+            )}
+            {generationPhase === 'installing' && (
             <>
               <RiArchiveLine className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
               <span className="text-xs text-zinc-400">Installing dependencies...</span>
             </>
-          )}
-          {generationPhase === 'starting' && (
+            )}
+            {generationPhase === 'starting' && (
             <>
               <RiRocketLine className="w-3.5 h-3.5 text-zinc-400 animate-pulse" />
               <span className="text-xs text-zinc-400">Starting dev server...</span>
             </>
-          )}
-          {generationPhase === 'verifying' && (
+            )}
+            {generationPhase === 'verifying' && (
             <>
               <RiShieldCheckLine className="w-3.5 h-3.5 text-zinc-400 animate-pulse" />
               <span className="text-xs text-zinc-400">QA agent is testing your app...</span>
             </>
-          )}
-          {generationPhase === 'done' && (
+            )}
+            {generationPhase === 'done' && (
             <>
               <RiCheckboxCircleLine className="w-3.5 h-3.5 text-emerald-400" />
               <span className="text-xs text-emerald-400">Ready</span>
             </>
-          )}
-        </div>
-      )}
+            )}
+          </div>
+        )}
+      </div>
+          </div>
+        )}
+      </div>
 
       {/* Scroll-to-bottom FAB */}
       {showScrollFab && (
