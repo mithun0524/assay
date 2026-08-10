@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const result = await generateText({
-      model: openrouter.chat(MODEL_IDS.ling),
+      model: openrouter.chat(MODEL_IDS.lingTiny),
       system: AUTOCOMPLETE_PROMPT,
       messages: [
         {

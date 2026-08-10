@@ -13,10 +13,23 @@ export const AUTO_MODEL_ID = 'auto';
 
 // The only models this app is allowed to call (all free on OpenRouter).
 // Requires "Allow model training" to be ON in OpenRouter Settings > Privacy.
+// Every id was checked against the live OpenRouter model list and advertises
+// `tools` in supported_parameters — the agent calls tools now, so a model
+// without them is useless here. `inclusionai/ling-3.0-flash:free` was removed:
+// it 404s with "unavailable for free", and because it sat in the chain it
+// burned a retry slot and poisoned the error the user finally saw.
+//
+// The first three are the picks; the rest exist only to give the fallback chain
+// somewhere to go, and are spread across providers on purpose — a rate limit is
+// usually applied per provider, so a chain of one vendor is a chain in name
+// only.
 export const MODEL_IDS = {
   nemotron: 'nvidia/nemotron-3-ultra-550b-a55b:free',
   laguna: 'poolside/laguna-s-2.1:free',
-  ling: 'inclusionai/ling-3.0-flash:free',
+  nemotronSuper: 'nvidia/nemotron-3-super-120b-a12b:free',
+  northCode: 'cohere/north-mini-code:free',
+  gemma: 'google/gemma-4-31b-it:free',
+  lingTiny: 'inclusionai/ling-3.0-tiny:free',
 } as const;
 
 // Context lengths and capabilities verified against the OpenRouter model API.
@@ -38,18 +51,26 @@ export const FREE_MODELS: ModelOption[] = [
     id: MODEL_IDS.laguna,
     label: 'Laguna S 2.1',
     contextLength: 262_144,
-    note: 'Code specialist — edits, refactors, bug fixes',
+    note: 'Fast general coding',
   },
   {
-    id: MODEL_IDS.ling,
-    label: 'Ling 3.0 Flash',
+    id: MODEL_IDS.nemotronSuper,
+    label: 'Nemotron 3 Super 120B',
     contextLength: 262_144,
-    note: 'Fast — questions, tests, quick iterations',
+    note: 'Mid-size — general building',
   },
 ];
 
+// Offered to the fallback chain but not to the picker: the list above is the
+// choice, this is the safety net.
+export const FALLBACK_ONLY_MODEL_IDS: string[] = [
+  MODEL_IDS.northCode,
+  MODEL_IDS.gemma,
+  MODEL_IDS.lingTiny,
+];
+
 /** Model used when nothing else resolves. */
-export const DEFAULT_MODEL_ID: string = MODEL_IDS.ling;
+export const DEFAULT_MODEL_ID: string = MODEL_IDS.nemotron;
 
 const ALLOWED_MODEL_IDS = new Set<string>(Object.values(MODEL_IDS));
 

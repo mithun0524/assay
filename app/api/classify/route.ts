@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/server';
 import { requireAuth, checkCsrf, rateLimit } from '@/lib/api-auth';
 
 // Cheapest/fastest first — classification is a tiny task.
-const CLASSIFIER_MODELS = [MODEL_IDS.ling, MODEL_IDS.laguna];
+const CLASSIFIER_MODELS = [MODEL_IDS.lingTiny, MODEL_IDS.laguna, MODEL_IDS.gemma];
 
 const CLASSIFY_SYSTEM_PROMPT = `You are an intent classifier. Given a user message and context, classify the intent and pick the best model.
 

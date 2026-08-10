@@ -88,6 +88,11 @@ export async function POST(req: NextRequest) {
   // instead of handing the user a dead turn.
   const chain = fallbackChain(model);
   let lastErr: unknown = null;
+  // Every failure, not just the final one. The chain used to be judged by
+  // whichever model happened to be tried last, so a withdrawn model at the end
+  // masked the fact that everything before it was rate-limited, and the user
+  // got a generic failure instead of the real reason.
+  const failures: string[] = [];
 
   for (const candidate of chain) {
     try {
@@ -152,6 +157,7 @@ export async function POST(req: NextRequest) {
     } catch (err: unknown) {
       lastErr = err;
       const message = err instanceof Error ? err.message : String(err);
+      failures.push(message);
       console.warn(`[chat] ${candidate} unavailable, trying next:`, message.slice(0, 200));
       if (!/429|rate|exhaust|unavailable|capacity|timeout|502|503/i.test(message)) {
         break; // a real error (bad key, bad request) won't be fixed by another model
@@ -159,15 +165,43 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const message = lastErr instanceof Error ? lastErr.message : '';
-  if (/429|rate|exhaust/i.test(message)) {
+  const allErrors = failures.join(' | ') || (lastErr instanceof Error ? lastErr.message : '');
+
+  // A daily quota is not a transient failure, and telling someone to "try
+  // again" when the cap resets at midnight wastes their afternoon. Say what
+  // actually happened and what actually clears it.
+  if (/free-models-per-day|daily limit|per-day/i.test(allErrors)) {
+    return new Response(
+      JSON.stringify({
+        error:
+          "You've used up today's free OpenRouter requests. The allowance resets at " +
+          '00:00 UTC. Adding credits to your OpenRouter account raises the daily limit, ' +
+          'or you can set a paid model in Settings.',
+      }),
+      { status: 429, headers: { 'Content-Type': 'application/json' } },
+    );
+  }
+
+  if (/429|rate|exhaust|too many/i.test(allErrors)) {
     return new Response(
       JSON.stringify({ error: 'Every free model is busy right now. Wait a few seconds and send again.' }),
       { status: 429, headers: { 'Content-Type': 'application/json', 'Retry-After': '15' } }
     );
   }
+
+  if (/api key|unauthor|invalid_api_key|401/i.test(allErrors)) {
+    return new Response(
+      JSON.stringify({ error: 'OpenRouter rejected the API key. Check it in Settings.' }),
+      { status: 401, headers: { 'Content-Type': 'application/json' } }
+    );
+  }
+
+  // Nothing matched — pass the real reason through instead of swallowing it.
+  // "Chat request failed. Please try again." told the user nothing and sent
+  // them in a loop retrying something that could not succeed.
+  const detail = (failures[failures.length - 1] ?? '').slice(0, 160);
   return new Response(
-    JSON.stringify({ error: 'Chat request failed. Please try again.' }),
+    JSON.stringify({ error: detail ? `Chat request failed: ${detail}` : 'Chat request failed.' }),
     { status: 500, headers: { 'Content-Type': 'application/json' } }
   );
 }

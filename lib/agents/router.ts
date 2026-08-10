@@ -33,11 +33,11 @@ export function isAgentRole(value: unknown): value is AgentRole {
 /** Model each role prefers when the caller hasn't pinned one. */
 export const ROLE_MODEL: Record<AgentRole, string> = {
   architect: MODEL_IDS.nemotron,
-  assistant: MODEL_IDS.ling,
+  assistant: MODEL_IDS.lingTiny,
   coder: MODEL_IDS.nemotron,
   debugger: MODEL_IDS.laguna,
   designer: MODEL_IDS.nemotron,
-  tester: MODEL_IDS.ling,
+  tester: MODEL_IDS.lingTiny,
 };
 
 /* ── Patterns ─────────────────────────────────────────────

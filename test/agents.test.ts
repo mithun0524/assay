@@ -116,15 +116,29 @@ test('agent registry is complete and consistent', () => {
   assert.equal(Object.keys(AGENTS).length, VALID_ROLES.length);
 });
 
-test('only the three allow-listed models are callable', () => {
+test('only allow-listed models are callable, and the picker offers the three picks', () => {
   const ids = Object.values(MODEL_IDS);
-  assert.deepEqual(ids, [
+
+  // The three a user can choose, in order. Everything after them exists only so
+  // the fallback chain has somewhere to go when the free tier is exhausted.
+  const PICKS = [
     'nvidia/nemotron-3-ultra-550b-a55b:free',
     'poolside/laguna-s-2.1:free',
-    'inclusionai/ling-3.0-flash:free',
-  ]);
-  // Picker = Auto + the three, each with a display name
-  assert.deepEqual(FREE_MODELS.map((m) => m.id), [AUTO_MODEL_ID, ...ids]);
+    'nvidia/nemotron-3-super-120b-a12b:free',
+  ];
+  assert.deepEqual(ids.slice(0, PICKS.length), PICKS);
+
+  // Every id is free. A paid model reaching this list would silently start
+  // charging whoever's key is configured.
+  for (const id of ids) {
+    assert.ok(id.endsWith(':free'), `${id} is not a free model`);
+  }
+  // The withdrawn model must not come back: it 404s, and while it sat in the
+  // chain it burned a retry slot and masked the real error.
+  assert.ok(!ids.includes('inclusionai/ling-3.0-flash:free'), 'withdrawn model is back in the list');
+
+  // Picker = Auto + the three picks only; fallbacks are not user-selectable.
+  assert.deepEqual(FREE_MODELS.map((m) => m.id), [AUTO_MODEL_ID, ...PICKS]);
   for (const m of FREE_MODELS) {
     assert.ok(m.label.trim().length > 0 && m.contextLength > 0, `${m.id} missing label/contextLength`);
   }

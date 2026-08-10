@@ -18,6 +18,16 @@ import { mkdirSync, existsSync } from 'node:fs';
 const BASE = process.env.BASE_URL || 'http://localhost:3001';
 const TIMEOUT_MS = 8 * 60 * 1000;
 
+// Fail fast rather than opening a window against a dead server.
+try {
+  const res = await fetch(`${BASE}/login`, { redirect: 'manual' });
+  if (res.status >= 500) throw new Error(`HTTP ${res.status}`);
+} catch (err) {
+  console.error(`\n  Cannot reach ${BASE} — start the dev server first:\n    npm run dev\n`);
+  console.error(`  (${err instanceof Error ? err.message : err})`);
+  process.exit(1);
+}
+
 mkdirSync('.auth', { recursive: true });
 
 const browser = await chromium.launch({
@@ -29,7 +39,11 @@ const page = await context.newPage();
 
 await page.goto(`${BASE}/login`, { waitUntil: 'domcontentloaded' });
 
-console.log('\n  A browser window is open. Sign in there — any provider.');
+console.log('\n  ┌────────────────────────────────────────────────┐');
+console.log('  │  A browser window just opened.                 │');
+console.log('  │  Sign in there — GitHub, Google or email.       │');
+console.log('  │  This terminal will say when it has the session.│');
+console.log('  └────────────────────────────────────────────────┘');
 console.log('  Waiting up to 8 minutes. Progress prints below.\n');
 
 const started = Date.now();
