@@ -171,8 +171,9 @@ select option {
     scroll-behavior: auto !important;
   }
 
-  html,
-  #landing-scroller {
+  /* The document is the scroller now. #landing-scroller was the wrapper the
+     landing page used to scroll inside; it is gone, and so is the selector. */
+  html {
     scroll-behavior: auto;
   }
 
