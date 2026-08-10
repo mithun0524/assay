@@ -11,6 +11,7 @@ import { buildFileContext } from '@/lib/contextBuilder';
 import { routeToAgent, getAgent, getAgentReasoning, AgentContext, classifyWithLLM } from '@/lib/agents';
 import type { AgentRole } from '@/lib/agents';
 import { planExecution, decideAfterQa, shouldRunQa } from '@/lib/agents/orchestrator';
+import type { QaIssue } from '@/lib/qaGate';
 import { isValidModelId, resolveModelId } from '@/lib/openrouter';
 
 function estimateTokens(text: string) {
@@ -109,20 +110,47 @@ export function useChat() {
     // be told apart from one that deliberately only answered a question.
     let filesWrittenThisTurn = 0;
 
+    // Writes that did not land. The model has no way to observe this on its
+    // own — the tools run here, in the browser, and the stream is one-way — so
+    // a rejected path or a sandbox error would otherwise be invisible to it and
+    // it would keep building against files that do not exist. These are fed
+    // back through the QA gate, which already owns the retry budget.
+    const toolFailures: QaIssue[] = [];
+    const noteFailure = (filePath: string, reason: string) => {
+      toolFailures.push({
+        source: 'tool',
+        message: `write_file("${filePath}") failed: ${reason}`,
+      });
+    };
+
     const parser = createStreamParser(async (action) => {
       if (action.type === 'file') {
         filesWrittenThisTurn++;
         gs().setActivelyWritingFile(action.filePath);
         gs().setGenerationPhase('writing');
 
-        // If diff preview is enabled, collect changes instead of writing immediately
-        if (gs().showDiffPreview) {
-          collectedFileActions.push({ filePath: action.filePath, content: action.content });
-        } else {
-          await writeFileToSandbox(action.filePath, action.content);
+        try {
+          // If diff preview is enabled, collect changes instead of writing immediately
+          if (gs().showDiffPreview) {
+            collectedFileActions.push({ filePath: action.filePath, content: action.content });
+          } else {
+            const written = await writeFileToSandbox(action.filePath, action.content);
+            if (written === null) {
+              noteFailure(
+                action.filePath,
+                'that is not a usable project-relative path, so nothing was written'
+              );
+              return;
+            }
+          }
+        } catch (err) {
+          noteFailure(action.filePath, err instanceof Error ? err.message : String(err));
+          return;
+        } finally {
+          // Must clear on the failure path too, or the status line is stuck
+          // reporting a write that already gave up.
+          gs().setActivelyWritingFile(null);
         }
-
-        gs().setActivelyWritingFile(null);
 
         // On first file, signal that we have a project
         if (!firstFileWritten) {
@@ -459,10 +487,16 @@ export function useChat() {
       // ── QA gate ──
       // Verify the app actually builds and runs before handing it over. Any
       // failure is delegated back to the debugger agent automatically.
-      if (shouldRunQa({ wroteFiles: firstFileWritten, shells: pendingShells, start: pendingStart, awaitingReview: false })) {
+      // A turn whose every write failed sets none of the flags shouldRunQa looks
+      // at, so without this the one thing worth reporting is the one thing that
+      // silently skips the gate.
+      if (
+        toolFailures.length > 0 ||
+        shouldRunQa({ wroteFiles: firstFileWritten, shells: pendingShells, start: pendingStart, awaitingReview: false })
+      ) {
         gs().setGenerationPhase('verifying');
         const { runQaCheck, buildQaFixPrompt, summarizeQaIssues } = await import('@/lib/qaGate');
-        const issues = await runQaCheck(abortRef.current?.signal);
+        const issues = await runQaCheck(abortRef.current?.signal, toolFailures);
         const decision = decideAfterQa(issues, retryCountRef.current, MAX_AUTO_RETRIES);
 
         if (decision.action === 'fix') {

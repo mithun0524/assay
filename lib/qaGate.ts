@@ -11,7 +11,7 @@ import { useStore } from './store';
 import { detectTerminalErrors, stripAnsi } from './terminalErrorDetector';
 
 export type QaIssue = {
-  source: 'build' | 'runtime' | 'command';
+  source: 'build' | 'runtime' | 'command' | 'tool';
   message: string;
 };
 
@@ -35,14 +35,21 @@ async function waitForSandboxToSettle(signal?: AbortSignal): Promise<void> {
 /**
  * Inspect the sandbox and report what's wrong. Empty array = ship it.
  */
-export async function runQaCheck(signal?: AbortSignal): Promise<QaIssue[]> {
+export async function runQaCheck(
+  signal?: AbortSignal,
+  toolFailures: QaIssue[] = []
+): Promise<QaIssue[]> {
   await waitForSandboxToSettle(signal);
   // Runtime errors arrive a beat after the preview loads.
   await sleep(RUNTIME_GRACE_MS);
   if (signal?.aborted) return [];
 
   const { sandboxStatus, terminalOutput, terminalErrors, previewErrors, files } = useStore.getState();
-  const issues: QaIssue[] = [];
+
+  // Tool failures come first: a write that never landed explains every build
+  // error that follows it, and putting it at the top of the fix prompt is the
+  // difference between the model fixing the cause and chasing the symptom.
+  const issues: QaIssue[] = [...toolFailures];
 
   for (const message of previewErrors) {
     issues.push({ source: 'runtime', message });
@@ -92,6 +99,7 @@ const SOURCE_LABEL: Record<QaIssue['source'], string> = {
   build: 'Build error',
   runtime: 'Runtime error in the preview',
   command: 'Command failed',
+  tool: 'Tool call failed — the file was NOT written',
 };
 
 /** Turn QA findings into a fix request for the debugger agent. */
@@ -100,10 +108,21 @@ export function buildQaFixPrompt(issues: QaIssue[], attempt: number, maxAttempts
     .map((i, n) => `${n + 1}. [${SOURCE_LABEL[i.source]}]\n${i.message.slice(0, 1500)}`)
     .join('\n\n');
 
+  const hadToolFailure = issues.some((i) => i.source === 'tool');
+
   return [
     `QA check failed (attempt ${attempt}/${maxAttempts}). The app you just produced does not run.`,
     '',
     'Fix every issue below. Re-output only the files that need to change, and keep all working functionality intact.',
+    // Without this the model reads "the file was not written" as a build error
+    // and edits something else, leaving the missing file still missing.
+    ...(hadToolFailure
+      ? [
+          '',
+          'A failed tool call means that file does not exist in the project. Write it again ' +
+            'with a valid project-relative path (no leading slash, no ".."), in full.',
+        ]
+      : []),
     '',
     // This text comes from npm packages, build tools and the running app — none
     // of it is trusted. A dependency can print anything it likes, including

@@ -9,11 +9,23 @@ let devServerProcess: WebContainerProcess | null = null;
 // Mutex to prevent concurrent npm install processes from deadlocking
 let installLock: Promise<void> | null = null;
 
-export async function writeFileToSandbox(filePath: string, content: string) {
+/**
+ * Write a file into the sandbox.
+ *
+ * Returns the normalised path that was written, or null if the path was
+ * refused. Callers that don't care can keep ignoring the result; the agent
+ * loop uses it to notice a write that never landed. A refused path used to
+ * return silently, so a model writing to "../etc/x" or "" got no error and no
+ * file, and went on building against a tree that did not contain it.
+ */
+export async function writeFileToSandbox(
+  filePath: string,
+  content: string
+): Promise<string | null> {
   const path = normalizeSandboxPath(filePath);
   if (!path) {
     console.warn('[sandbox] refusing to write unusable path:', filePath);
-    return;
+    return null;
   }
 
   const wc = await getWebContainer();
@@ -28,6 +40,7 @@ export async function writeFileToSandbox(filePath: string, content: string) {
     content,
     language: getLanguageFromPath(path),
   });
+  return path;
 }
 
 /** Remove a file from both the sandbox and the store. */

@@ -94,3 +94,42 @@ test('QA summary reads like a status line', () => {
   ]);
   assert.ok(s.startsWith('QA found 2 runtime error'), s);
 });
+
+// ── Tool-result feedback ──
+// The tools run in the browser and the stream is one-way, so a write that never
+// landed is invisible to the model unless we hand it back.
+
+// writeFileToSandbox itself can't be imported here — it pulls in
+// @webcontainer/api, which has no node entry point. What it refuses is exactly
+// what normalizeSandboxPath rejects, and returning null for those is the one
+// line tsc already types, so pinning the refusal set is the useful half.
+test('the paths a write is refused for are the unusable ones', () => {
+  for (const bad of ['', '   ', '..', '/', './', '../..']) {
+    assert.equal(normalizeSandboxPath(bad), null, `"${bad}" should be refused`);
+  }
+  assert.equal(normalizeSandboxPath('../src/App.tsx'), 'src/App.tsx', 'clamped, not refused');
+});
+
+test('tool failures reach the fix prompt and say the file is missing', () => {
+  const issues: QaIssue[] = [
+    { source: 'tool', message: 'write_file("../etc/x") failed: not a usable path' },
+    { source: 'build', message: 'Cannot find module ./x' },
+  ];
+  const prompt = buildQaFixPrompt(issues, 1, 3);
+  assert.match(prompt, /was NOT written/, 'the label must say the write did not land');
+  assert.match(prompt, /Write it again/, 'the model must be told to re-issue the write');
+  assert.match(prompt, /\.\.\/etc\/x/, 'the offending path must be quoted back');
+
+  // Without a tool failure that instruction is noise and must not appear.
+  const plain = buildQaFixPrompt([{ source: 'build', message: 'boom' }], 1, 3);
+  assert.doesNotMatch(plain, /Write it again/);
+});
+
+test('a tool failure alone is enough to fail QA', async () => {
+  const { runQaCheck } = await import('../lib/qaGate');
+  const failure: QaIssue = { source: 'tool', message: 'write_file("a.tsx") failed: disk on fire' };
+  const issues = await runQaCheck(undefined, [failure]);
+  assert.ok(issues.length >= 1, 'a clean sandbox must still report the failed write');
+  assert.equal(issues[0].source, 'tool', 'the root cause must lead the list');
+  assert.match(summarizeQaIssues(issues), /tool call failed/i);
+});
