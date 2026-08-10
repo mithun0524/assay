@@ -442,6 +442,10 @@ export function ChatPanel({ onCollapse }: ChatPanelProps) {
                     : `Stopped after ${qaStatus.maxAttempts} attempts — tell me what you see and I'll dig in.`}
                 </p>
               )}
+            </div>
+          </div>
+        )}
+
         {/* Live status, at the end of the transcript — it is part of the turn
             above it, not a separate readout.
 
@@ -527,9 +531,6 @@ export function ChatPanel({ onCollapse }: ChatPanelProps) {
               <span className="text-xs text-emerald-400">Ready</span>
             </>
             )}
-          </div>
-        )}
-      </div>
           </div>
         )}
       </div>

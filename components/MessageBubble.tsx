@@ -377,21 +377,19 @@ export const MessageBubble = memo(function MessageBubble({ message, isLastAssist
   const agent = message.agent ? AGENTS[message.agent] : null;
   const isLive = isLastAssistant && isStreaming;
 
-  // A finished turn with nothing in it is not a turn. It used to render its
-  // footer anyway, so the transcript grew orphan "Coder · just now · Copy"
-  // rows attached to no content.
-  if (isEmpty && !isLive) return null;
+  // A turn with nothing in it is not a turn — finished or not.
+  //
+  // It used to render its footer anyway, so the transcript grew orphan
+  // "Coder · Copy" rows attached to no content. A live empty one used to render
+  // a spinner and "Thinking...", which was a second thing saying what the live
+  // status line at the end of the transcript already says, one row below it and
+  // in less detail: "Thinking..." next to "Writing files · 6 files". The status
+  // line names the phase and the file, so it wins and this renders nothing.
+  if (isEmpty) return null;
 
   return (
     <div className="group animate-fade-up min-w-0" style={{ animationDuration: '0.25s' }}>
       <div className="min-w-0">
-        {isEmpty && isLastAssistant && isStreaming && (
-          <div className="flex items-center gap-2 px-3 py-2.5 text-sm text-zinc-500">
-            <RiLoader4Line className="w-3.5 h-3.5 animate-spin text-zinc-400" />
-            Thinking...
-          </div>
-        )}
-
         {!isEmpty && (
           <div className="prose prose-invert prose-sm max-w-none prose-pre:p-0 prose-pre:bg-transparent prose-code:text-zinc-200 prose-code:bg-white/[0.06] prose-code:px-1 prose-code:py-0.5 prose-code:rounded-md prose-code:before:content-none prose-code:after:content-none text-sm text-zinc-300 leading-relaxed [&>*:last-child]:mb-0 [&>*:last-child>*:last-child]:mb-0">
             {segments.map((seg, i) => {
