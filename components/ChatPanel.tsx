@@ -368,12 +368,25 @@ export function ChatPanel({ onCollapse }: ChatPanelProps) {
         {messages.map((message, index) => {
           const prevMessage = index > 0 ? messages[index - 1] : null;
           const isSameRole = prevMessage && prevMessage.role === message.role;
+
+          // Machine rows repeat — the agent reads the sandbox three times in a
+          // row and the transcript grows three identical strips. Collapse a run
+          // into its first row and count it there.
+          if (message.kind && prevMessage?.kind === message.kind) return null;
+          let repeat = 1;
+          if (message.kind) {
+            for (let i = index + 1; i < messages.length && messages[i].kind === message.kind; i++) {
+              repeat++;
+            }
+          }
+
           return (
             <div key={message.id} className={index === 0 ? '' : isSameRole ? 'mt-1.5' : 'mt-4'}>
               <MessageBubble
                 message={message}
                 isLastAssistant={index === lastAssistantIndex}
                 isStreaming={isStreaming}
+                repeat={repeat}
                 onRetry={
                   index === lastAssistantIndex && !isStreaming && message.role === 'assistant'
                     ? handleRetry

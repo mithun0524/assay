@@ -34,7 +34,7 @@ const SYSTEM_ROW: Record<'qa' | 'inspect' | 'search', { label: string; tone: str
  * Turns the client injects on the agent's behalf. They are machine chatter, not
  * something the user typed, so they get a quiet collapsed row of their own.
  */
-function SystemRow({ message }: { message: Message }) {
+function SystemRow({ message, repeat = 1 }: { message: Message; repeat?: number }) {
   const [expanded, setExpanded] = useState(false);
   const spec = SYSTEM_ROW[message.kind as 'qa' | 'inspect' | 'search'];
   const attempt = message.content.match(/attempt (\d+\/\d+)/)?.[1];
@@ -47,7 +47,7 @@ function SystemRow({ message }: { message: Message }) {
       >
         {spec.icon}
         <span className="font-mono text-[10px] tracking-wide truncate">
-          {spec.label}{attempt ? ` · ${attempt}` : ''}
+          {spec.label}{attempt ? ` · ${attempt}` : ''}{repeat > 1 ? ` ×${repeat}` : ''}
         </span>
         <span className="ml-auto font-mono text-[10px] text-zinc-500 shrink-0">
           {expanded ? 'Hide' : 'Details'}
@@ -67,6 +67,8 @@ interface MessageBubbleProps {
   isLastAssistant: boolean;
   isStreaming: boolean;
   onRetry?: () => void;
+  /** consecutive identical system rows collapsed into this one */
+  repeat?: number;
 }
 
 type ActionCardData = {
@@ -267,7 +269,7 @@ const MarkdownBlock = memo(function MarkdownBlock({ content }: { content: string
   );
 });
 
-export const MessageBubble = memo(function MessageBubble({ message, isLastAssistant, isStreaming, onRetry }: MessageBubbleProps) {
+export const MessageBubble = memo(function MessageBubble({ message, isLastAssistant, isStreaming, onRetry, repeat }: MessageBubbleProps) {
   const isUser = message.role === 'user';
   const isError = message.displayContent.startsWith('\u274C') || message.content.startsWith('Error:');
   const isEmpty = !message.displayContent.trim();
@@ -309,7 +311,7 @@ export const MessageBubble = memo(function MessageBubble({ message, isLastAssist
   // Automatic fix requests are machine chatter, not something the user typed.
   // Show them as a quiet system line instead of a wall of stack traces.
   if (isUser && message.kind) {
-    return <SystemRow message={message} />;
+    return <SystemRow message={message} repeat={repeat} />;
   }
 
   // -- USER MESSAGE --
@@ -373,6 +375,11 @@ export const MessageBubble = memo(function MessageBubble({ message, isLastAssist
   const agent = message.agent ? AGENTS[message.agent] : null;
   const isLive = isLastAssistant && isStreaming;
 
+  // A finished turn with nothing in it is not a turn. It used to render its
+  // footer anyway, so the transcript grew orphan "Coder · just now · Copy"
+  // rows attached to no content.
+  if (isEmpty && !isLive) return null;
+
   return (
     <div className="group animate-fade-up min-w-0" style={{ animationDuration: '0.25s' }}>
       <div className="min-w-0">
@@ -424,29 +431,29 @@ export const MessageBubble = memo(function MessageBubble({ message, isLastAssist
 
       </div>
 
-      {/* One quiet row at the end of the turn: who said it, when, and what you
-          can do with it. Nothing while the turn is still streaming — actions on
-          a half-written answer are noise, and "copy" would take a fragment.
-
-          Right-aligned and muted rather than hover-only: a control that appears
-          on hover cannot be found by someone who does not already know it is
-          there, and cannot be reached at all by touch. */}
+      {/* One quiet row at the end of the turn, on the same left edge as the
+          prose — right-aligning it made the meta read as a header for whatever
+          came next. Actions fade up on hover like Cursor's, but they stay in
+          the DOM and respond to focus, so keyboard and touch can still reach
+          them. */}
       {!isLive && (
         <div className="flex items-center gap-2 mt-1.5 text-zinc-600">
-          <span className="ml-auto font-mono text-[10px]">
+          <span className="font-mono text-[10px]">
             {agent ? agent.name : 'Agent'} · {timeAgo}
           </span>
-          <CopyButton text={message.displayContent} />
-          {onRetry && (
-            <button
-              onClick={onRetry}
-              aria-label="Retry this turn"
-              className="flex items-center gap-1 px-2 py-0.5 font-mono text-[10px] hover:text-zinc-200 hover:bg-white/[0.06] rounded transition-all"
-            >
-              <RefreshCw className="w-3 h-3" />
-              Retry
-            </button>
-          )}
+          <span className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100 max-sm:opacity-100">
+            <CopyButton text={message.displayContent} />
+            {onRetry && (
+              <button
+                onClick={onRetry}
+                aria-label="Retry this turn"
+                className="flex items-center gap-1 px-2 py-0.5 font-mono text-[10px] hover:text-zinc-200 hover:bg-white/[0.06] rounded transition-all"
+              >
+                <RefreshCw className="w-3 h-3" />
+                Retry
+              </button>
+            )}
+          </span>
         </div>
       )}
     </div>

@@ -3,6 +3,7 @@ import { streamText } from 'ai';
 import { NextRequest } from 'next/server';
 import { SYSTEM_PROMPT } from '@/lib/systemPrompt';
 import { OPENROUTER_BASE_URL, fallbackChain } from '@/lib/openrouter';
+import { AGENT_TOOLS, toolCallToAction } from '@/lib/agentTools';
 import { createClient } from '@/lib/supabase/server';
 import { requireAuth, checkCsrf, rateLimit } from '@/lib/api-auth';
 
@@ -95,6 +96,7 @@ export async function POST(req: NextRequest) {
         model: openrouter.chat(candidate),
         system: systemPrompt,
         messages: sanitizedMessages,
+        tools: AGENT_TOOLS,
         temperature:
           typeof customTemperature === 'number' && customTemperature >= 0 && customTemperature <= 2
             ? customTemperature
@@ -106,24 +108,37 @@ export async function POST(req: NextRequest) {
 
       // Touch the stream before committing to it so an immediate upstream
       // rejection (429 / resource exhausted) falls through to the next model.
-      const reader = result.textStream.getReader();
-      const first = await reader.read();
-
+      const reader = result.fullStream.getReader();
+      const encoder = new TextEncoder();
+      const render = (part: any): string | null => {
+        if (part.type === 'error' || part.type === 'tool-error') {
+          const e = part.error ?? part.errorText ?? 'stream error';
+          throw e instanceof Error ? e : new Error(String(e));
+        }
+        if (part.type === 'text-delta') {
+          const t = part.text ?? part.textDelta ?? part.delta;
+          return typeof t === 'string' ? t : null;
+        }
+        if (part.type === 'tool-call') {
+          const a = toolCallToAction(part.toolName ?? part.name, part.input ?? part.args);
+          return a ? `\n${a}\n` : null;
+        }
+        return null;
+      };
+      let firstOut: string | null = null; let drained = false;
+      for (;;) { const { done, value } = await reader.read();
+        if (done) { drained = true; break; }
+        if (!value) continue; const o = render(value); if (o) { firstOut = o; break; } }
+      if (drained && !firstOut) throw new Error(`${candidate} produced an empty response — model unavailable`);
       const stream = new ReadableStream<Uint8Array>({
         start(controller) {
-          const encoder = new TextEncoder();
-          if (!first.done && first.value) controller.enqueue(encoder.encode(first.value));
+          if (firstOut) controller.enqueue(encoder.encode(firstOut));
           (async () => {
-            try {
-              for (;;) {
-                const { done, value } = await reader.read();
-                if (done) break;
-                if (value) controller.enqueue(encoder.encode(value));
-              }
+            try { for (;;) { const { done, value } = await reader.read();
+                if (done) break; if (!value) continue;
+                const o = render(value); if (o) controller.enqueue(encoder.encode(o)); }
               controller.close();
-            } catch (streamErr) {
-              controller.error(streamErr);
-            }
+            } catch (e) { controller.error(e); }
           })();
         },
       });
